@@ -11,6 +11,7 @@ import { ActiveFilters } from '@/components/ui/FilterBadge';
 import { AddProductModal } from '@/components/modals/AddProductModal';
 import { AdjustStockModal } from '@/components/modals/AdjustStockModal';
 import { ImportCSVModal } from '@/components/modals/ImportCSVModal';
+import { ImportInflowModal } from '@/components/modals/ImportInflowModal';
 import { SerialLookup } from '@/components/SerialLookup';
 import { formatCurrency, formatNumber } from '@/lib/formatting';
 import { Hash, Layers, Loader2 } from 'lucide-react';
@@ -168,7 +169,9 @@ function InventoryPageContent() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isInflowModalOpen, setIsInflowModalOpen] = useState(false);
   const [isSerialLookupOpen, setIsSerialLookupOpen] = useState(false);
+  const [showImportDropdown, setShowImportDropdown] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [adjustingProduct, setAdjustingProduct] = useState<Product | null>(null);
 
@@ -458,13 +461,56 @@ function InventoryPageContent() {
             <i className="fas fa-exchange-alt text-sm"></i>
             Transfers
           </Link>
-          <button
-            onClick={() => setIsImportModalOpen(true)}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition-colors flex items-center gap-2"
-          >
-            <i className="fas fa-upload text-sm"></i>
-            Import
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowImportDropdown(!showImportDropdown)}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <i className="fas fa-upload text-sm"></i>
+              Import
+              <i className="fas fa-chevron-down text-xs"></i>
+            </button>
+            {showImportDropdown && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowImportDropdown(false)}
+                />
+                <div className="absolute right-0 mt-2 w-56 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                  <button
+                    onClick={() => {
+                      setIsImportModalOpen(true);
+                      setShowImportDropdown(false);
+                    }}
+                    className="w-full px-4 py-3 text-left text-slate-300 hover:bg-slate-700 transition-colors flex items-center gap-3"
+                  >
+                    <div className="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-file-csv text-emerald-400"></i>
+                    </div>
+                    <div>
+                      <div className="font-medium text-white">Import CSV</div>
+                      <div className="text-xs text-slate-400">Generic CSV format</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsInflowModalOpen(true);
+                      setShowImportDropdown(false);
+                    }}
+                    className="w-full px-4 py-3 text-left text-slate-300 hover:bg-slate-700 transition-colors flex items-center gap-3 border-t border-slate-700"
+                  >
+                    <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-exchange-alt text-blue-400"></i>
+                    </div>
+                    <div>
+                      <div className="font-medium text-white">Import from inFlow</div>
+                      <div className="text-xs text-slate-400">inFlow Inventory export</div>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
           <button
             onClick={() => setIsAddModalOpen(true)}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors flex items-center gap-2"
@@ -975,6 +1021,11 @@ function InventoryPageContent() {
       <ImportCSVModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
+      />
+
+      <ImportInflowModal
+        isOpen={isInflowModalOpen}
+        onClose={() => setIsInflowModalOpen(false)}
       />
 
       {/* Serial Lookup Modal */}

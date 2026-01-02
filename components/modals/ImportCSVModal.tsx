@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { useApp, Product } from '@/context/AppContext';
+import { useApp, Product, InventoryLevel, ProductSupplier } from '@/context/AppContext';
 import { useToast } from '@/components/ui/Toast';
 
 interface ImportCSVModalProps {
@@ -23,11 +23,21 @@ interface ColumnMapping {
   priceMSRP: string;
   priceShopify?: string;
   priceAmazon?: string;
+  priceWholesale?: string;
   weight?: string;
   barcode?: string;
+  // New inventory fields
+  quantity?: string;
+  binLocation?: string;
+  reorderPoint?: string;
+  // Supplier fields
+  supplierSku?: string;
+  supplierName?: string;
+  leadTime?: string;
+  minOrderQty?: string;
 }
 
-const REQUIRED_FIELDS = ['name', 'sku', 'category', 'cost', 'priceMSRP'];
+const REQUIRED_FIELDS = ['name', 'sku'];
 const FIELD_LABELS: Record<string, string> = {
   name: 'Product Name',
   sku: 'SKU',
@@ -36,8 +46,24 @@ const FIELD_LABELS: Record<string, string> = {
   priceMSRP: 'MSRP',
   priceShopify: 'Shopify Price',
   priceAmazon: 'Amazon Price',
-  weight: 'Weight',
-  barcode: 'Barcode',
+  priceWholesale: 'Wholesale Price',
+  weight: 'Weight (lbs)',
+  barcode: 'Barcode/UPC',
+  quantity: 'Quantity on Hand',
+  binLocation: 'Bin Location',
+  reorderPoint: 'Reorder Point',
+  supplierSku: 'Supplier SKU',
+  supplierName: 'Supplier Name',
+  leadTime: 'Lead Time (days)',
+  minOrderQty: 'Min Order Qty',
+};
+
+// Field groupings for better UI organization
+const FIELD_GROUPS = {
+  basic: ['name', 'sku', 'category', 'barcode'],
+  pricing: ['cost', 'priceMSRP', 'priceShopify', 'priceAmazon', 'priceWholesale'],
+  inventory: ['quantity', 'binLocation', 'reorderPoint', 'weight'],
+  supplier: ['supplierName', 'supplierSku', 'leadTime', 'minOrderQty'],
 };
 
 export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
@@ -52,6 +78,69 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
   const [columnMapping, setColumnMapping] = useState<Partial<ColumnMapping>>({});
   const [isImporting, setIsImporting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedLocationId, setSelectedLocationId] = useState<string>(state.settings.defaultLocation || '');
+  const [createInventoryRecords, setCreateInventoryRecords] = useState(true);
+  const [createSuppliers, setCreateSuppliers] = useState(true);
+
+  // Generate and download CSV templates
+  const downloadTemplate = (type: 'basic' | 'full' | 'inflow') => {
+    let headers: string[] = [];
+    let sampleData: string[][] = [];
+
+    if (type === 'basic') {
+      headers = ['Product Name', 'SKU', 'Category', 'Cost', 'MSRP', 'Quantity'];
+      sampleData = [
+        ['Example Product 1', 'SKU-001', 'Category A', '10.00', '24.99', '100'],
+        ['Example Product 2', 'SKU-002', 'Category B', '15.00', '34.99', '50'],
+      ];
+    } else if (type === 'full') {
+      headers = [
+        'Product Name', 'SKU', 'Category', 'Barcode',
+        'Cost', 'MSRP', 'Shopify Price', 'Amazon Price', 'Wholesale Price',
+        'Quantity', 'Bin Location', 'Reorder Point', 'Weight (lbs)',
+        'Supplier Name', 'Supplier SKU', 'Lead Time (days)', 'Min Order Qty'
+      ];
+      sampleData = [
+        ['Example Product 1', 'SKU-001', 'Supplements', '123456789012',
+         '10.00', '24.99', '22.99', '24.99', '14.99',
+         '100', 'A1-01', '25', '1.5',
+         'Supplier Inc', 'SUP-001', '14', '50'],
+        ['Example Product 2', 'SKU-002', 'Nutrients', '234567890123',
+         '15.00', '34.99', '32.99', '34.99', '20.99',
+         '50', 'B2-03', '20', '2.0',
+         'Vendor Co', 'VND-002', '7', '25'],
+      ];
+    } else if (type === 'inflow') {
+      // inFlow export format columns
+      headers = [
+        'Name', 'Barcode', 'Category', 'Description',
+        'Sale Price', 'Purchase Cost', 'Quantity on Hand',
+        'Location', 'Reorder Point', 'Vendor', 'Vendor SKU'
+      ];
+      sampleData = [
+        ['Product Name Here', '123456789012', 'Category', 'Description text',
+         '24.99', '10.00', '100',
+         'Main Warehouse', '25', 'Supplier Name', 'VENDOR-SKU-001'],
+      ];
+    }
+
+    // Build CSV content
+    const csvContent = [
+      headers.join(','),
+      ...sampleData.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `cronk-wms-import-template-${type}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const resetState = () => {
     setStep('upload');
@@ -60,6 +149,9 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
     setCsvData([]);
     setColumnMapping({});
     setIsImporting(false);
+    setSelectedLocationId(state.settings.defaultLocation || state.locations[0]?.id || '');
+    setCreateInventoryRecords(true);
+    setCreateSuppliers(true);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -92,15 +184,25 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
 
     // Try to auto-map common column names
     const mappings: Record<keyof ColumnMapping, string[]> = {
-      name: ['name', 'product name', 'product', 'title'],
-      sku: ['sku', 'product sku', 'item number', 'item #'],
-      category: ['category', 'type', 'product type'],
-      cost: ['cost', 'cogs', 'unit cost', 'price cost'],
-      priceMSRP: ['msrp', 'price', 'retail price', 'price msrp'],
-      priceShopify: ['shopify price', 'shopify', 'web price'],
+      name: ['name', 'product name', 'product', 'title', 'item name', 'description'],
+      sku: ['sku', 'product sku', 'item number', 'item #', 'item code', 'product code'],
+      category: ['category', 'type', 'product type', 'group', 'product category'],
+      cost: ['cost', 'cogs', 'unit cost', 'price cost', 'purchase price', 'buy price'],
+      priceMSRP: ['msrp', 'price', 'retail price', 'price msrp', 'sell price', 'sale price'],
+      priceShopify: ['shopify price', 'shopify', 'web price', 'online price'],
       priceAmazon: ['amazon price', 'amazon', 'marketplace price'],
-      weight: ['weight', 'weight (lbs)', 'lbs'],
-      barcode: ['barcode', 'upc', 'ean', 'gtin'],
+      priceWholesale: ['wholesale', 'wholesale price', 'dealer price', 'trade price'],
+      weight: ['weight', 'weight (lbs)', 'lbs', 'weight lbs', 'item weight'],
+      barcode: ['barcode', 'upc', 'ean', 'gtin', 'isbn'],
+      // Inventory fields
+      quantity: ['quantity', 'qty', 'stock', 'on hand', 'quantity on hand', 'stock qty', 'available', 'inventory'],
+      binLocation: ['bin', 'bin location', 'location', 'shelf', 'rack', 'position', 'warehouse location'],
+      reorderPoint: ['reorder point', 'reorder', 'min qty', 'minimum', 'low stock', 'reorder level'],
+      // Supplier fields
+      supplierName: ['supplier', 'vendor', 'supplier name', 'vendor name', 'manufacturer'],
+      supplierSku: ['supplier sku', 'vendor sku', 'manufacturer sku', 'vendor code', 'supplier code', 'mfg part #'],
+      leadTime: ['lead time', 'leadtime', 'lead time days', 'delivery time'],
+      minOrderQty: ['min order', 'moq', 'minimum order', 'min order qty'],
     };
 
     Object.entries(mappings).forEach(([field, possibleNames]) => {
@@ -217,8 +319,12 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
 
     try {
       const existingSkus = new Set(state.products.map(p => p.sku.toLowerCase()));
+      const existingSuppliers = new Map(state.suppliers.map(s => [s.name.toLowerCase(), s]));
       let imported = 0;
       let skipped = 0;
+      let inventoryCreated = 0;
+      let suppliersCreated = 0;
+      const newSupplierIds = new Map<string, string>(); // supplierName -> id
 
       for (const row of csvData) {
         const sku = columnMapping.sku ? row[columnMapping.sku] : '';
@@ -232,15 +338,25 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
         const msrp = parseFloat(columnMapping.priceMSRP ? row[columnMapping.priceMSRP] : '0') || 0;
         const shopifyPrice = parseFloat(columnMapping.priceShopify ? row[columnMapping.priceShopify] : '0') || msrp;
         const amazonPrice = parseFloat(columnMapping.priceAmazon ? row[columnMapping.priceAmazon] : '0') || msrp;
+        const wholesalePrice = parseFloat(columnMapping.priceWholesale ? row[columnMapping.priceWholesale] : '0') || msrp * 0.6;
         const costValue = parseFloat(columnMapping.cost ? row[columnMapping.cost] : '0') || 0;
         const weightValue = parseFloat(columnMapping.weight ? row[columnMapping.weight] : '0') || 0;
+        const reorderPoint = parseInt(columnMapping.reorderPoint ? row[columnMapping.reorderPoint] : '50') || 50;
+        const quantity = parseInt(columnMapping.quantity ? row[columnMapping.quantity] : '0') || 0;
+        const binLocation = columnMapping.binLocation ? row[columnMapping.binLocation]?.trim() : undefined;
+        const supplierName = columnMapping.supplierName ? row[columnMapping.supplierName]?.trim() : '';
+        const supplierSku = columnMapping.supplierSku ? row[columnMapping.supplierSku]?.trim() : '';
+        const leadTime = parseInt(columnMapping.leadTime ? row[columnMapping.leadTime] : '0') || undefined;
+        const minOrderQty = parseInt(columnMapping.minOrderQty ? row[columnMapping.minOrderQty] : '0') || undefined;
+
+        const productId = crypto.randomUUID();
 
         const newProduct: Product = {
-          id: crypto.randomUUID(),
+          id: productId,
           name: name.trim(),
           sku: sku.trim().toUpperCase(),
           barcode: columnMapping.barcode ? row[columnMapping.barcode]?.trim() : undefined,
-          category: columnMapping.category ? row[columnMapping.category]?.trim() || 'classic_line' : 'classic_line',
+          category: columnMapping.category ? row[columnMapping.category]?.trim() || 'imported' : 'imported',
           cost: {
             rolling: costValue,
             fixed: costValue,
@@ -249,14 +365,14 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
             msrp: msrp,
             shopify: shopifyPrice,
             amazon: amazonPrice,
-            wholesale: msrp * 0.6,
+            wholesale: wholesalePrice,
           },
           weight: {
             value: weightValue,
             unit: 'lbs',
           },
           dimensions: { length: 0, width: 0, height: 0 },
-          reorderPoint: 50,
+          reorderPoint: reorderPoint,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -264,10 +380,72 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
         dispatch({ type: 'ADD_PRODUCT', payload: newProduct });
         existingSkus.add(sku.toLowerCase());
         imported++;
+
+        // Create inventory record if enabled and quantity provided or location selected
+        if (createInventoryRecords && selectedLocationId && (quantity > 0 || binLocation)) {
+          const newInventory: InventoryLevel = {
+            productId: productId,
+            locationId: selectedLocationId,
+            quantity: quantity,
+            binLocation: binLocation,
+            updatedAt: new Date(),
+          };
+          dispatch({ type: 'SET_INVENTORY', payload: [...state.inventory, newInventory] });
+          inventoryCreated++;
+        }
+
+        // Handle supplier creation and linking
+        if (createSuppliers && supplierName) {
+          let supplierId: string;
+          const existingSupplier = existingSuppliers.get(supplierName.toLowerCase());
+
+          if (existingSupplier) {
+            supplierId = existingSupplier.id;
+          } else if (newSupplierIds.has(supplierName.toLowerCase())) {
+            supplierId = newSupplierIds.get(supplierName.toLowerCase())!;
+          } else {
+            // Create new supplier
+            supplierId = crypto.randomUUID();
+            const code = supplierName.substring(0, 3).toUpperCase();
+            dispatch({
+              type: 'ADD_SUPPLIER',
+              payload: {
+                id: supplierId,
+                name: supplierName,
+                code: code,
+                currency: 'USD',
+                isActive: true,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              },
+            });
+            newSupplierIds.set(supplierName.toLowerCase(), supplierId);
+            suppliersCreated++;
+          }
+
+          // Link product to supplier
+          const productSupplier: ProductSupplier = {
+            productId: productId,
+            supplierId: supplierId,
+            supplierSku: supplierSku || undefined,
+            unitCost: costValue,
+            currency: 'USD',
+            minimumOrderQty: minOrderQty,
+            leadTimeDays: leadTime,
+            isPrimary: true,
+          };
+          dispatch({ type: 'ADD_PRODUCT_SUPPLIER', payload: productSupplier });
+        }
       }
 
-      if (imported > 0) {
-        success(`Successfully imported ${imported} products`);
+      // Build success message
+      const messages: string[] = [];
+      if (imported > 0) messages.push(`${imported} products`);
+      if (inventoryCreated > 0) messages.push(`${inventoryCreated} inventory records`);
+      if (suppliersCreated > 0) messages.push(`${suppliersCreated} new suppliers`);
+
+      if (messages.length > 0) {
+        success(`Successfully imported ${messages.join(', ')}`);
       }
       if (skipped > 0) {
         warning(`Skipped ${skipped} rows (missing data or duplicate SKUs)`);
@@ -320,61 +498,155 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
         <h4 className="text-sm font-medium text-white mb-2">CSV Format Requirements</h4>
         <ul className="text-sm text-slate-400 space-y-1">
           <li><i className="fas fa-check text-emerald-400 mr-2"></i>First row must contain column headers</li>
-          <li><i className="fas fa-check text-emerald-400 mr-2"></i>Required columns: Name, SKU, Category, Cost, MSRP</li>
-          <li><i className="fas fa-check text-emerald-400 mr-2"></i>Optional: Shopify Price, Amazon Price, Weight, Barcode</li>
+          <li><i className="fas fa-check text-emerald-400 mr-2"></i>Required columns: <span className="text-white">Name, SKU</span></li>
+          <li><i className="fas fa-check text-emerald-400 mr-2"></i>Pricing: Cost, MSRP, Shopify Price, Amazon Price, Wholesale</li>
+          <li><i className="fas fa-check text-emerald-400 mr-2"></i>Inventory: Quantity, Bin Location, Reorder Point, Weight</li>
+          <li><i className="fas fa-check text-emerald-400 mr-2"></i>Supplier: Supplier Name, Supplier SKU, Lead Time, Min Order Qty</li>
         </ul>
+      </div>
+
+      {/* Quick Templates */}
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
+        <h4 className="text-sm font-medium text-white mb-2">Download Templates</h4>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => downloadTemplate('basic')}
+            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg transition-colors"
+          >
+            <i className="fas fa-download mr-1.5"></i>
+            Basic Template
+          </button>
+          <button
+            onClick={() => downloadTemplate('full')}
+            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg transition-colors"
+          >
+            <i className="fas fa-download mr-1.5"></i>
+            Full Template
+          </button>
+          <button
+            onClick={() => downloadTemplate('inflow')}
+            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg transition-colors"
+          >
+            <i className="fas fa-download mr-1.5"></i>
+            inFlow Format
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderFieldGroup = (groupName: string, fields: string[], icon: string, color: string) => (
+    <div className="bg-slate-800/30 border border-slate-700/50 rounded-lg p-4">
+      <h5 className={`text-sm font-medium ${color} mb-3 flex items-center gap-2`}>
+        <i className={`fas ${icon}`}></i>
+        {groupName}
+      </h5>
+      <div className="grid grid-cols-2 gap-3">
+        {fields.map(field => (
+          <div key={field}>
+            <label className="block text-xs text-slate-400 mb-1">
+              {FIELD_LABELS[field]}
+              {REQUIRED_FIELDS.includes(field) && (
+                <span className="text-red-400 ml-1">*</span>
+              )}
+            </label>
+            <select
+              value={columnMapping[field as keyof ColumnMapping] || ''}
+              onChange={e =>
+                setColumnMapping(prev => ({ ...prev, [field]: e.target.value }))
+              }
+              className={`w-full bg-slate-800 border ${
+                REQUIRED_FIELDS.includes(field) && !columnMapping[field as keyof ColumnMapping]
+                  ? 'border-amber-500/50'
+                  : 'border-slate-700'
+              } rounded-lg px-2 py-1.5 text-white text-sm focus:outline-none focus:border-emerald-500/50`}
+            >
+              <option value="">-- Select --</option>
+              {csvHeaders.map(header => (
+                <option key={header} value={header}>
+                  {header}
+                </option>
+              ))}
+            </select>
+          </div>
+        ))}
       </div>
     </div>
   );
 
   const renderMappingStep = () => (
-    <div className="space-y-4">
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <i className="fas fa-file-csv text-emerald-400"></i>
-          <span className="text-white font-medium">{fileName}</span>
-          <span className="text-slate-400 text-sm">({csvData.length} rows)</span>
+    <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <i className="fas fa-file-csv text-emerald-400"></i>
+            <span className="text-white font-medium">{fileName}</span>
+            <span className="text-slate-400 text-sm">({csvData.length} rows)</span>
+          </div>
+          <button
+            onClick={resetState}
+            className="text-sm text-slate-400 hover:text-white"
+          >
+            <i className="fas fa-times mr-1"></i>
+            Change file
+          </button>
         </div>
-        <button
-          onClick={resetState}
-          className="text-sm text-slate-400 hover:text-white"
-        >
-          <i className="fas fa-times mr-1"></i>
-          Choose different file
-        </button>
       </div>
 
-      <div>
-        <h4 className="text-sm font-medium text-white mb-3">Map CSV Columns</h4>
-        <div className="grid grid-cols-2 gap-3">
-          {Object.entries(FIELD_LABELS).map(([field, label]) => (
-            <div key={field}>
-              <label className="block text-sm text-slate-400 mb-1.5">
-                {label}
-                {REQUIRED_FIELDS.includes(field) && (
-                  <span className="text-red-400 ml-1">*</span>
-                )}
-              </label>
-              <select
-                value={columnMapping[field as keyof ColumnMapping] || ''}
-                onChange={e =>
-                  setColumnMapping(prev => ({ ...prev, [field]: e.target.value }))
-                }
-                className={`w-full bg-slate-800 border ${
-                  REQUIRED_FIELDS.includes(field) && !columnMapping[field as keyof ColumnMapping]
-                    ? 'border-amber-500/50'
-                    : 'border-slate-700'
-                } rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500/50`}
-              >
-                <option value="">-- Select column --</option>
-                {csvHeaders.map(header => (
-                  <option key={header} value={header}>
-                    {header}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
+      {/* Field Mapping Groups */}
+      <div className="space-y-3">
+        {renderFieldGroup('Basic Info', FIELD_GROUPS.basic, 'fa-box', 'text-blue-400')}
+        {renderFieldGroup('Pricing', FIELD_GROUPS.pricing, 'fa-dollar-sign', 'text-emerald-400')}
+        {renderFieldGroup('Inventory', FIELD_GROUPS.inventory, 'fa-warehouse', 'text-amber-400')}
+        {renderFieldGroup('Supplier', FIELD_GROUPS.supplier, 'fa-truck-loading', 'text-purple-400')}
+      </div>
+
+      {/* Import Options */}
+      <div className="bg-slate-800/30 border border-slate-700/50 rounded-lg p-4">
+        <h5 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+          <i className="fas fa-cog"></i>
+          Import Options
+        </h5>
+
+        <div className="space-y-3">
+          {/* Location Selection */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Import Inventory To Location</label>
+            <select
+              value={selectedLocationId}
+              onChange={e => setSelectedLocationId(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+            >
+              <option value="">-- No inventory records --</option>
+              {state.locations.map(loc => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name} ({loc.type})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Toggles */}
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={createInventoryRecords}
+                onChange={e => setCreateInventoryRecords(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-emerald-500 focus:ring-emerald-500"
+              />
+              <span className="text-sm text-slate-300">Create inventory records</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={createSuppliers}
+                onChange={e => setCreateSuppliers(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-emerald-500 focus:ring-emerald-500"
+              />
+              <span className="text-sm text-slate-300">Auto-create suppliers</span>
+            </label>
+          </div>
         </div>
       </div>
 

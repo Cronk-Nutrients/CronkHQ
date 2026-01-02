@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 // Types
 // Component for product manufacturing BOM
@@ -690,6 +691,7 @@ export interface AppState {
 type Action =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_INITIALIZED'; payload: boolean }
+  | { type: 'RESET_STATE' }
   | { type: 'SET_PRODUCTS'; payload: Product[] }
   | { type: 'ADD_PRODUCT'; payload: Product }
   | { type: 'UPDATE_PRODUCT'; payload: Product }
@@ -789,6 +791,8 @@ function appReducer(state: AppState, action: Action): AppState {
       return { ...state, isLoading: action.payload };
     case 'SET_INITIALIZED':
       return { ...state, isInitialized: action.payload };
+    case 'RESET_STATE':
+      return { ...initialState, isLoading: false, isInitialized: true };
 
     // Products
     case 'SET_PRODUCTS':
@@ -1252,12 +1256,25 @@ const AppContext = createContext<{
 // Provider
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const { isDemo, loading: authLoading, user } = useAuth();
 
-  // Initialize with mock data on mount
+  // Initialize data - mock data for demo, empty for real users
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) return;
+
     const initializeData = async () => {
       try {
-        // Import mock data dynamically to avoid circular dependencies
+        // If not demo mode, reset to empty state for real users
+        if (!isDemo) {
+          // For real users: empty state, they import their own data
+          // This also clears any demo data if switching from demo to real user
+          // In the future, this would load from Firestore per user
+          dispatch({ type: 'RESET_STATE' });
+          return;
+        }
+
+        // Demo mode: Import mock data dynamically to avoid circular dependencies
         const {
           products,
           locations,
@@ -1953,7 +1970,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
 
     initializeData();
-  }, []);
+  }, [isDemo, authLoading]);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>

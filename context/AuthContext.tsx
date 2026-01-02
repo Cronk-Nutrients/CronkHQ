@@ -13,6 +13,10 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 
+// Demo account credentials
+const DEMO_EMAIL = 'demo@cronknutrients.com'
+const DEMO_PASSWORD = 'demo1234'
+
 export interface UserProfile {
   uid: string
   email: string | null
@@ -22,6 +26,7 @@ export interface UserProfile {
   company?: string
   createdAt?: Date
   lastLoginAt?: Date
+  isDemo?: boolean
 }
 
 interface AuthContextType {
@@ -29,6 +34,7 @@ interface AuthContextType {
   userProfile: UserProfile | null
   loading: boolean
   error: string | null
+  isDemo: boolean
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>
   logout: () => Promise<void>
   register: (email: string, password: string, displayName: string) => Promise<void>
@@ -39,11 +45,55 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// Demo user profile (mock)
+const DEMO_USER_PROFILE: UserProfile = {
+  uid: 'demo-user-id',
+  email: DEMO_EMAIL,
+  displayName: 'Demo User',
+  photoURL: null,
+  role: 'admin',
+  company: 'Cronk Nutrients (Demo)',
+  isDemo: true,
+}
+
+// Create a mock User object for demo mode
+const createDemoUser = (): User => ({
+  uid: 'demo-user-id',
+  email: DEMO_EMAIL,
+  emailVerified: true,
+  displayName: 'Demo User',
+  photoURL: null,
+  isAnonymous: false,
+  metadata: {} as User['metadata'],
+  providerData: [],
+  refreshToken: '',
+  tenantId: null,
+  phoneNumber: null,
+  providerId: 'demo',
+  delete: async () => {},
+  getIdToken: async () => 'demo-token',
+  getIdTokenResult: async () => ({} as any),
+  reload: async () => {},
+  toJSON: () => ({}),
+}) as User
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isDemo, setIsDemo] = useState(false)
+
+  // Check for persisted demo session on mount
+  useEffect(() => {
+    const demoSession = typeof window !== 'undefined' ? localStorage.getItem('demo_session') : null
+    if (demoSession === 'true') {
+      setUser(createDemoUser())
+      setUserProfile(DEMO_USER_PROFILE)
+      setIsDemo(true)
+      setLoading(false)
+    }
+  }, [])
 
   // Fetch user profile from Firestore
   const fetchUserProfile = async (uid: string): Promise<UserProfile | null> => {
@@ -89,18 +139,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Listen for auth state changes
+  // Listen for auth state changes (only for non-demo users)
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user)
+    // Skip Firebase listener if in demo mode
+    if (isDemo) return
 
-      if (user) {
-        const profile = await fetchUserProfile(user.uid)
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Don't override demo session
+      const demoSession = typeof window !== 'undefined' ? localStorage.getItem('demo_session') : null
+      if (demoSession === 'true') return
+
+      setUser(firebaseUser)
+
+      if (firebaseUser) {
+        const profile = await fetchUserProfile(firebaseUser.uid)
         if (profile) {
           setUserProfile(profile)
         } else {
           // Create profile if doesn't exist
-          const newProfile = await createOrUpdateUserProfile(user)
+          const newProfile = await createOrUpdateUserProfile(firebaseUser)
           setUserProfile(newProfile)
         }
       } else {
@@ -111,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     return () => unsubscribe()
-  }, [])
+  }, [isDemo])
 
   // Login
   const login = async (email: string, password: string, rememberMe: boolean = true) => {
@@ -119,12 +176,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null)
       setLoading(true)
 
-      // Set persistence based on rememberMe
-      // Note: Firebase web SDK persists by default, this is mainly for UX
+      // Check for demo login
+      if (email.toLowerCase() === DEMO_EMAIL && password === DEMO_PASSWORD) {
+        // Demo mode - no Firebase auth needed
+        setUser(createDemoUser())
+        setUserProfile(DEMO_USER_PROFILE)
+        setIsDemo(true)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('demo_session', 'true')
+        }
+        setLoading(false)
+        return
+      }
+
+      // Regular Firebase login
       const result = await signInWithEmailAndPassword(auth, email, password)
 
       // Update last login in Firestore
       await createOrUpdateUserProfile(result.user)
+      setIsDemo(false)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('demo_session')
+      }
 
     } catch (err: unknown) {
       const errorMessage = getAuthErrorMessage((err as { code?: string }).code || '')
@@ -139,6 +212,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       setError(null)
+
+      // Clear demo session if active
+      if (isDemo) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('demo_session')
+        }
+        setUser(null)
+        setUserProfile(null)
+        setIsDemo(false)
+        return
+      }
+
+      // Regular Firebase logout
       await signOut(auth)
       setUser(null)
       setUserProfile(null)
@@ -187,6 +273,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUserProfile = async (data: Partial<UserProfile>) => {
     if (!user) throw new Error('No user logged in')
 
+    // Demo users can't update profile in Firestore
+    if (isDemo) {
+      setUserProfile(prev => prev ? { ...prev, ...data } : null)
+      return
+    }
+
     try {
       setError(null)
       const userRef = doc(db, 'users', user.uid)
@@ -213,6 +305,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userProfile,
     loading,
     error,
+    isDemo,
     login,
     logout,
     register,
