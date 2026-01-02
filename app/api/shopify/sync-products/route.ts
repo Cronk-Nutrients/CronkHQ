@@ -9,7 +9,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing organization ID' }, { status: 400 })
     }
 
-    const adminDb = getAdminDb()
+    let adminDb
+    try {
+      adminDb = getAdminDb()
+    } catch (adminError: any) {
+      console.error('Firebase Admin init error:', adminError)
+      return NextResponse.json({
+        success: false,
+        error: 'Server configuration error. Please contact support.'
+      }, { status: 500 })
+    }
 
     // Get Shopify credentials from organization
     const orgDoc = await adminDb.collection('organizations').doc(organizationId).get()

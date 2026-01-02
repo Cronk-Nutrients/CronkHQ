@@ -1,0 +1,17 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(dashboard)/layout,_N_T_/(dashboard)/reports/layout,_N_T_/(dashboard)/reports/shipping/layout,_N_T_/(dashboard)/reports/shipping/page,_N_T_/reports/shipping"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KGRhc2hib2FyZCk/reports/shipping/__PAGE__",
+    "/!KGRhc2hib2FyZCk/reports/shipping",
+    "/!KGRhc2hib2FyZCk/reports",
+    "/!KGRhc2hib2FyZCk",
+    "/_index",
+    "/_head"
+  ]
+}

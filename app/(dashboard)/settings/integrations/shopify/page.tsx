@@ -21,6 +21,9 @@ const DEFAULT_SYNC_SETTINGS: ShopifySyncSettings = {
   syncIntervalMinutes: 15,
 }
 
+type OrderImportMode = 'unfulfilled' | 'all' | 'date_range'
+type OrderStatus = 'any' | 'open' | 'closed' | 'cancelled'
+
 export default function ShopifySettingsPage() {
   const { user } = useAuth()
   const { organization } = useOrganization()
@@ -30,6 +33,14 @@ export default function ShopifySettingsPage() {
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [syncing, setSyncing] = useState<'products' | 'orders' | null>(null)
+
+  // Order import modal state
+  const [showOrderImportModal, setShowOrderImportModal] = useState(false)
+  const [orderImportMode, setOrderImportMode] = useState<OrderImportMode>('unfulfilled')
+  const [orderImportStatus, setOrderImportStatus] = useState<OrderStatus>('any')
+  const [orderStartDate, setOrderStartDate] = useState('')
+  const [orderEndDate, setOrderEndDate] = useState('')
+  const [importProgress, setImportProgress] = useState<{ imported: number; updated: number; total: number } | null>(null)
 
   const [connection, setConnection] = useState<ShopifyConnection | null>(null)
 
@@ -221,8 +232,68 @@ export default function ShopifySettingsPage() {
     }
   }
 
-  // Sync orders
+  // Open order import modal
+  const openOrderImportModal = () => {
+    setOrderImportMode('unfulfilled')
+    setOrderImportStatus('any')
+    setOrderStartDate('')
+    setOrderEndDate('')
+    setImportProgress(null)
+    setShowOrderImportModal(true)
+  }
+
+  // Sync orders with options
   const handleSyncOrders = async () => {
+    if (!organization?.id) return
+
+    setSyncing('orders')
+    setImportProgress(null)
+    try {
+      const requestBody: any = {
+        organizationId: organization.id,
+        importMode: orderImportMode,
+        includeStatus: orderImportStatus,
+      }
+
+      if (orderImportMode === 'date_range') {
+        if (orderStartDate) requestBody.startDate = orderStartDate
+        if (orderEndDate) requestBody.endDate = orderEndDate
+      }
+
+      const response = await fetch('/api/shopify/sync-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setImportProgress({
+          imported: data.imported,
+          updated: data.updated,
+          total: data.total
+        })
+        success(`Imported ${data.imported} new orders, updated ${data.updated} existing (${data.total} total from Shopify)`)
+        // Refresh connection to get updated lastSyncOrders
+        const orgRef = doc(db, 'organizations', organization.id)
+        const orgDoc = await getDoc(orgRef)
+        if (orgDoc.exists() && orgDoc.data().shopify) {
+          setConnection(orgDoc.data().shopify as ShopifyConnection)
+        }
+      } else {
+        error(data.error || 'Sync failed')
+      }
+    } catch (err) {
+      console.error('Sync orders error:', err)
+      error('Failed to sync orders')
+    } finally {
+      setSyncing(null)
+    }
+  }
+
+  // Quick sync unfulfilled orders (from connection tab)
+  const handleQuickSyncOrders = async () => {
     if (!organization?.id) return
 
     setSyncing('orders')
@@ -230,14 +301,16 @@ export default function ShopifySettingsPage() {
       const response = await fetch('/api/shopify/sync-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId: organization.id }),
+        body: JSON.stringify({
+          organizationId: organization.id,
+          importMode: 'unfulfilled'
+        }),
       })
 
       const data = await response.json()
 
       if (data.success) {
-        success(`Synced ${data.imported} orders from Shopify`)
-        // Refresh connection to get updated lastSyncOrders
+        success(`Synced ${data.imported} new unfulfilled orders from Shopify`)
         const orgRef = doc(db, 'organizations', organization.id)
         const orgDoc = await getDoc(orgRef)
         if (orgDoc.exists() && orgDoc.data().shopify) {
@@ -499,19 +572,25 @@ export default function ShopifySettingsPage() {
                     Read Only
                   </span>
                 </div>
-                <Button className="w-full" onClick={handleSyncOrders} disabled={syncing === 'orders'}>
-                  {syncing === 'orders' ? (
-                    <>
-                      <i className="fas fa-spinner fa-spin mr-2"></i>
-                      Syncing...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-sync mr-2"></i>
-                      Sync Orders Now
-                    </>
-                  )}
-                </Button>
+                <div className="space-y-2">
+                  <Button className="w-full" onClick={handleQuickSyncOrders} disabled={syncing === 'orders'}>
+                    {syncing === 'orders' ? (
+                      <>
+                        <i className="fas fa-spinner fa-spin mr-2"></i>
+                        Syncing...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-sync mr-2"></i>
+                        Sync Unfulfilled Orders
+                      </>
+                    )}
+                  </Button>
+                  <Button variant="secondary" className="w-full" onClick={openOrderImportModal} disabled={syncing === 'orders'}>
+                    <i className="fas fa-file-import mr-2"></i>
+                    Import Historical Orders
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -766,6 +845,153 @@ export default function ShopifySettingsPage() {
               </span>
             </li>
           </ol>
+        </div>
+      )}
+
+      {/* Order Import Modal */}
+      {showOrderImportModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg">
+            <div className="flex items-center justify-between p-6 border-b border-slate-700">
+              <h2 className="text-xl font-bold text-white">Import Orders from Shopify</h2>
+              <button
+                onClick={() => setShowOrderImportModal(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <i className="fas fa-times text-xl"></i>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Import Mode Selection */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-3">
+                  What orders do you want to import?
+                </label>
+                <div className="space-y-2">
+                  {[
+                    { value: 'unfulfilled', label: 'Unfulfilled Orders Only', desc: 'Orders that need to be fulfilled', icon: 'fa-clock' },
+                    { value: 'all', label: 'All Historical Orders', desc: 'Import your entire order history', icon: 'fa-history' },
+                    { value: 'date_range', label: 'Date Range', desc: 'Select a specific time period', icon: 'fa-calendar-alt' },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setOrderImportMode(option.value as OrderImportMode)}
+                      className={`w-full p-4 rounded-lg border text-left transition-all flex items-center gap-4 ${
+                        orderImportMode === option.value
+                          ? 'border-emerald-500 bg-emerald-500/10'
+                          : 'border-slate-700 hover:border-slate-600'
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        orderImportMode === option.value ? 'bg-emerald-500/20' : 'bg-slate-700'
+                      }`}>
+                        <i className={`fas ${option.icon} ${
+                          orderImportMode === option.value ? 'text-emerald-400' : 'text-slate-400'
+                        }`}></i>
+                      </div>
+                      <div>
+                        <div className="text-white font-medium">{option.label}</div>
+                        <div className="text-sm text-slate-400">{option.desc}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Date Range Inputs */}
+              {orderImportMode === 'date_range' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-2">Start Date</label>
+                    <input
+                      type="date"
+                      value={orderStartDate}
+                      onChange={(e) => setOrderStartDate(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-2">End Date</label>
+                    <input
+                      type="date"
+                      value={orderEndDate}
+                      onChange={(e) => setOrderEndDate(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Order Status Filter */}
+              {(orderImportMode === 'all' || orderImportMode === 'date_range') && (
+                <div>
+                  <label className="block text-sm text-slate-400 mb-2">Order Status Filter</label>
+                  <select
+                    value={orderImportStatus}
+                    onChange={(e) => setOrderImportStatus(e.target.value as OrderStatus)}
+                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="any">All Statuses</option>
+                    <option value="open">Open Orders</option>
+                    <option value="closed">Closed/Completed Orders</option>
+                    <option value="cancelled">Cancelled Orders</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Warning for all orders */}
+              {orderImportMode === 'all' && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <i className="fas fa-exclamation-triangle text-amber-400 mt-0.5"></i>
+                    <div className="text-sm">
+                      <p className="text-amber-300 font-medium">Large Import Warning</p>
+                      <p className="text-slate-400 mt-1">
+                        Importing all historical orders may take several minutes depending on your order volume.
+                        The import will run in the background.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Import Progress */}
+              {importProgress && (
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    <i className="fas fa-check-circle text-emerald-400"></i>
+                    <div>
+                      <p className="text-emerald-300 font-medium">Import Complete!</p>
+                      <p className="text-sm text-slate-400">
+                        {importProgress.imported} new orders imported, {importProgress.updated} updated
+                        ({importProgress.total} total from Shopify)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 p-6 border-t border-slate-700">
+              <Button variant="secondary" onClick={() => setShowOrderImportModal(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSyncOrders} disabled={syncing === 'orders'}>
+                {syncing === 'orders' ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-file-import mr-2"></i>
+                    Start Import
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
