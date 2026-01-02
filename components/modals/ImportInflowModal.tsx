@@ -3,7 +3,10 @@
 import { useState, useCallback, useRef } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { useApp, Product, InventoryLevel, ProductSupplier } from '@/context/AppContext';
+import { useOrganization } from '@/context/OrganizationContext';
+import { useLocations, useSuppliers, useProducts } from '@/hooks/useFirestore';
+import { FirestoreService, isDemoOrganization } from '@/lib/firestore';
+import { Product, Supplier, InventoryItem } from '@/types';
 import { useToast } from '@/components/ui/Toast';
 
 interface ImportInflowModalProps {
@@ -69,6 +72,7 @@ const INFLOW_MAPPINGS: Record<string, string> = {
   // Other
   'weight': 'weight',
   'weight (lbs)': 'weight',
+  'weight (oz)': 'weight',
   'item weight': 'weight',
   'notes': 'notes',
 };
@@ -92,26 +96,36 @@ interface ParsedProduct {
 }
 
 export function ImportInflowModal({ isOpen, onClose }: ImportInflowModalProps) {
-  const { state, dispatch } = useApp();
+  const { organization } = useOrganization();
+  const { locations } = useLocations();
+  const { suppliers: existingSuppliers } = useSuppliers();
+  const { products: existingProducts } = useProducts();
   const { success, error, warning } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<'upload' | 'preview' | 'importing'>('upload');
   const [fileName, setFileName] = useState('');
   const [parsedProducts, setParsedProducts] = useState<ParsedProduct[]>([]);
-  const [selectedLocationId, setSelectedLocationId] = useState<string>(
-    state.settings.defaultLocation || state.locations[0]?.id || ''
-  );
+  const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [createInventoryRecords, setCreateInventoryRecords] = useState(true);
   const [createVendors, setCreateVendors] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
 
+  const isDemo = organization?.id ? isDemoOrganization(organization.id) : false;
+
+  // Set default location when locations load
+  const defaultLocation = locations.find(l => l.type === 'warehouse') || locations[0];
+  if (!selectedLocationId && defaultLocation) {
+    setSelectedLocationId(defaultLocation.id);
+  }
+
   const resetState = () => {
     setStep('upload');
     setFileName('');
     setParsedProducts([]);
-    setSelectedLocationId(state.settings.defaultLocation || state.locations[0]?.id || '');
+    const defaultLoc = locations.find(l => l.type === 'warehouse') || locations[0];
+    setSelectedLocationId(defaultLoc?.id || '');
     setCreateInventoryRecords(true);
     setCreateVendors(true);
     setImportProgress(0);
@@ -183,7 +197,7 @@ export function ImportInflowModal({ isOpen, onClose }: ImportInflowModalProps) {
       name,
       sku,
       barcode: getValue('barcode') || undefined,
-      category: getValue('category') || 'imported',
+      category: getValue('category') || 'supply',
       description: getValue('description') || undefined,
       salePrice: parseFloat(getValue('salePrice')) || undefined,
       cost: parseFloat(getValue('cost')) || undefined,
@@ -254,138 +268,163 @@ export function ImportInflowModal({ isOpen, onClose }: ImportInflowModalProps) {
   };
 
   const handleImport = async () => {
+    if (!organization) return;
+
+    if (isDemo) {
+      error('Import is not available in demo mode');
+      return;
+    }
+
     setStep('importing');
     setImportProgress(0);
 
-    const existingSkus = new Set(state.products.map(p => p.sku.toLowerCase()));
-    const existingVendors = new Map(state.suppliers.map(s => [s.name.toLowerCase(), s]));
-    const newVendorIds = new Map<string, string>();
+    try {
+      const orgId = organization.id;
+      const productService = new FirestoreService<Product>(orgId, 'products');
+      const inventoryService = new FirestoreService<InventoryItem>(orgId, 'inventory');
+      const supplierService = new FirestoreService<Supplier>(orgId, 'suppliers');
 
-    let imported = 0;
-    let skipped = 0;
-    let inventoryCreated = 0;
-    let vendorsCreated = 0;
+      const existingSkus = new Set(existingProducts.map(p => p.sku.toLowerCase()));
+      const supplierMap = new Map(existingSuppliers.map(s => [s.name.toLowerCase(), s]));
+      const newVendorIds = new Map<string, string>();
 
-    const totalProducts = parsedProducts.length;
+      let imported = 0;
+      let skipped = 0;
+      let inventoryCreated = 0;
+      let vendorsCreated = 0;
 
-    for (let i = 0; i < parsedProducts.length; i++) {
-      const product = parsedProducts[i];
-      setImportProgress(Math.round(((i + 1) / totalProducts) * 100));
+      // Prepare batch data
+      const productsToCreate: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>[] = [];
+      const suppliersToCreate: Omit<Supplier, 'id'>[] = [];
+      const productInventoryMap: { productIndex: number; quantity: number; binLocation?: string }[] = [];
 
-      // Skip if SKU already exists
-      if (existingSkus.has(product.sku.toLowerCase())) {
-        skipped++;
-        continue;
-      }
+      const totalProducts = parsedProducts.length;
 
-      const productId = crypto.randomUUID();
+      for (let i = 0; i < parsedProducts.length; i++) {
+        const product = parsedProducts[i];
+        setImportProgress(Math.round(((i + 1) / totalProducts) * 50)); // First half for processing
 
-      // Create product
-      const newProduct: Product = {
-        id: productId,
-        name: product.name,
-        sku: product.sku.toUpperCase(),
-        barcode: product.barcode,
-        category: product.category || 'imported',
-        description: product.description,
-        cost: {
-          rolling: product.cost || 0,
-          fixed: product.cost || 0,
-        },
-        prices: {
-          msrp: product.salePrice || 0,
-          shopify: product.salePrice || 0,
-          amazon: product.salePrice || 0,
-          wholesale: (product.salePrice || 0) * 0.6,
-        },
-        weight: {
-          value: product.weight || 0,
-          unit: 'lbs',
-        },
-        dimensions: { length: 0, width: 0, height: 0 },
-        reorderPoint: product.reorderPoint || 50,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      dispatch({ type: 'ADD_PRODUCT', payload: newProduct });
-      existingSkus.add(product.sku.toLowerCase());
-      imported++;
-
-      // Create inventory record
-      if (createInventoryRecords && selectedLocationId && product.quantity !== undefined) {
-        const newInventory: InventoryLevel = {
-          productId: productId,
-          locationId: selectedLocationId,
-          quantity: product.quantity,
-          binLocation: product.binLocation,
-          updatedAt: new Date(),
-        };
-        dispatch({ type: 'SET_INVENTORY', payload: [...state.inventory, newInventory] });
-        inventoryCreated++;
-      }
-
-      // Handle vendor/supplier
-      if (createVendors && product.vendor) {
-        let vendorId: string;
-        const existingVendor = existingVendors.get(product.vendor.toLowerCase());
-
-        if (existingVendor) {
-          vendorId = existingVendor.id;
-        } else if (newVendorIds.has(product.vendor.toLowerCase())) {
-          vendorId = newVendorIds.get(product.vendor.toLowerCase())!;
-        } else {
-          vendorId = crypto.randomUUID();
-          const code = product.vendor.substring(0, 3).toUpperCase();
-          dispatch({
-            type: 'ADD_SUPPLIER',
-            payload: {
-              id: vendorId,
-              name: product.vendor,
-              code: code,
-              currency: 'USD',
-              isActive: true,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-          });
-          newVendorIds.set(product.vendor.toLowerCase(), vendorId);
-          vendorsCreated++;
+        // Skip if SKU already exists
+        if (existingSkus.has(product.sku.toLowerCase())) {
+          skipped++;
+          continue;
         }
 
-        // Link product to vendor
-        const productSupplier: ProductSupplier = {
-          productId: productId,
-          supplierId: vendorId,
-          supplierSku: product.vendorSku,
-          unitCost: product.cost || 0,
-          currency: 'USD',
-          isPrimary: true,
+        // Map category to valid type
+        const categoryRaw = (product.category || 'supply').toLowerCase();
+        let category: 'nutrient' | 'supply' | 'packaging' | 'label' = 'supply';
+        if (categoryRaw.includes('nutrient') || categoryRaw.includes('supplement')) {
+          category = 'nutrient';
+        } else if (categoryRaw.includes('packaging') || categoryRaw.includes('box') || categoryRaw.includes('bottle')) {
+          category = 'packaging';
+        } else if (categoryRaw.includes('label')) {
+          category = 'label';
+        }
+
+        const msrp = product.salePrice || 0;
+
+        const newProduct: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> = {
+          name: product.name,
+          sku: product.sku.toUpperCase(),
+          barcode: product.barcode,
+          category,
+          weight: product.weight,
+          prices: {
+            msrp,
+            shopify: msrp,
+            amazon: msrp,
+            wholesale: msrp * 0.6,
+            distributor: msrp * 0.45,
+          },
+          costs: {
+            base: product.cost || 0,
+            amazonPrep: 0,
+            shopify: 0,
+          },
+          reorderPoint: product.reorderPoint || 50,
+          isActive: true,
         };
-        dispatch({ type: 'ADD_PRODUCT_SUPPLIER', payload: productSupplier });
+
+        productsToCreate.push(newProduct);
+        existingSkus.add(product.sku.toLowerCase());
+        imported++;
+
+        // Track inventory record
+        if (createInventoryRecords && selectedLocationId && product.quantity !== undefined) {
+          productInventoryMap.push({
+            productIndex: productsToCreate.length - 1,
+            quantity: product.quantity,
+            binLocation: product.binLocation,
+          });
+          inventoryCreated++;
+        }
+
+        // Handle vendor/supplier
+        if (createVendors && product.vendor) {
+          const existingVendor = supplierMap.get(product.vendor.toLowerCase());
+
+          if (!existingVendor && !newVendorIds.has(product.vendor.toLowerCase())) {
+            suppliersToCreate.push({
+              name: product.vendor,
+              currency: 'USD',
+            });
+            newVendorIds.set(product.vendor.toLowerCase(), `pending-${suppliersToCreate.length - 1}`);
+            vendorsCreated++;
+          }
+        }
       }
 
-      // Small delay to show progress
-      if (i % 10 === 0) {
-        await new Promise(resolve => setTimeout(resolve, 10));
+      setImportProgress(60);
+
+      // Batch create suppliers first
+      if (suppliersToCreate.length > 0) {
+        await supplierService.batchCreate(suppliersToCreate);
       }
-    }
 
-    // Build success message
-    const messages: string[] = [];
-    if (imported > 0) messages.push(`${imported} products`);
-    if (inventoryCreated > 0) messages.push(`${inventoryCreated} inventory records`);
-    if (vendorsCreated > 0) messages.push(`${vendorsCreated} new vendors`);
+      setImportProgress(70);
 
-    if (messages.length > 0) {
-      success(`Successfully imported ${messages.join(', ')}`);
-    }
-    if (skipped > 0) {
-      warning(`Skipped ${skipped} products (duplicate SKUs)`);
-    }
+      // Batch create products
+      const productIds = await productService.batchCreate(productsToCreate);
 
-    resetState();
-    onClose();
+      setImportProgress(85);
+
+      // Create inventory records with actual product IDs
+      if (productInventoryMap.length > 0) {
+        const inventoryToCreate: Omit<InventoryItem, 'id'>[] = [];
+        for (const item of productInventoryMap) {
+          const productId = productIds[item.productIndex];
+          inventoryToCreate.push({
+            productId,
+            locationId: selectedLocationId,
+            quantity: item.quantity,
+            binLocation: item.binLocation || '',
+          });
+        }
+        await inventoryService.batchCreate(inventoryToCreate);
+      }
+
+      setImportProgress(100);
+
+      // Build success message
+      const messages: string[] = [];
+      if (imported > 0) messages.push(`${imported} products`);
+      if (inventoryCreated > 0) messages.push(`${inventoryCreated} inventory records`);
+      if (vendorsCreated > 0) messages.push(`${vendorsCreated} new vendors`);
+
+      if (messages.length > 0) {
+        success(`Successfully imported ${messages.join(', ')}`);
+      }
+      if (skipped > 0) {
+        warning(`Skipped ${skipped} products (duplicate SKUs)`);
+      }
+
+      resetState();
+      onClose();
+    } catch (err) {
+      console.error('Import error:', err);
+      error('Failed to import products');
+      setStep('preview');
+    }
   };
 
   const handleClose = () => {
@@ -456,11 +495,20 @@ export function ImportInflowModal({ isOpen, onClose }: ImportInflowModalProps) {
           ))}
         </div>
       </div>
+
+      {isDemo && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-amber-400 text-sm">
+            <i className="fas fa-info-circle"></i>
+            <span>Import is disabled in demo mode. Sign in to import products.</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 
   const renderPreviewStep = () => {
-    const existingSkus = new Set(state.products.map(p => p.sku.toLowerCase()));
+    const existingSkus = new Set(existingProducts.map(p => p.sku.toLowerCase()));
     const duplicates = parsedProducts.filter(p => existingSkus.has(p.sku.toLowerCase()));
     const newProducts = parsedProducts.filter(p => !existingSkus.has(p.sku.toLowerCase()));
     const withInventory = parsedProducts.filter(p => p.quantity && p.quantity > 0);
@@ -553,7 +601,7 @@ export function ImportInflowModal({ isOpen, onClose }: ImportInflowModalProps) {
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
               >
                 <option value="">-- Don't import inventory --</option>
-                {state.locations.map(loc => (
+                {locations.map(loc => (
                   <option key={loc.id} value={loc.id}>
                     {loc.name} ({loc.type})
                   </option>
@@ -604,6 +652,10 @@ export function ImportInflowModal({ isOpen, onClose }: ImportInflowModalProps) {
     </div>
   );
 
+  const newProductCount = parsedProducts.filter(
+    p => !existingProducts.some(ep => ep.sku.toLowerCase() === p.sku.toLowerCase())
+  ).length;
+
   return (
     <Modal
       open={isOpen}
@@ -618,9 +670,9 @@ export function ImportInflowModal({ isOpen, onClose }: ImportInflowModalProps) {
               <i className="fas fa-arrow-left mr-2"></i>
               Back
             </Button>
-            <Button onClick={handleImport}>
+            <Button onClick={handleImport} disabled={isDemo || newProductCount === 0}>
               <i className="fas fa-file-import mr-2"></i>
-              Import {parsedProducts.filter(p => !state.products.some(ep => ep.sku.toLowerCase() === p.sku.toLowerCase())).length} Products
+              Import {newProductCount} Products
             </Button>
           </>
         ) : step === 'upload' ? (

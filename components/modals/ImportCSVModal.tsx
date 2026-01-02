@@ -3,7 +3,10 @@
 import { useState, useCallback, useRef } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { useApp, Product, InventoryLevel, ProductSupplier } from '@/context/AppContext';
+import { useOrganization } from '@/context/OrganizationContext';
+import { useLocations, useSuppliers, useProducts } from '@/hooks/useFirestore';
+import { FirestoreService, isDemoOrganization } from '@/lib/firestore';
+import { Product, Supplier, InventoryItem } from '@/types';
 import { useToast } from '@/components/ui/Toast';
 
 interface ImportCSVModalProps {
@@ -26,11 +29,9 @@ interface ColumnMapping {
   priceWholesale?: string;
   weight?: string;
   barcode?: string;
-  // New inventory fields
   quantity?: string;
   binLocation?: string;
   reorderPoint?: string;
-  // Supplier fields
   supplierSku?: string;
   supplierName?: string;
   leadTime?: string;
@@ -47,7 +48,7 @@ const FIELD_LABELS: Record<string, string> = {
   priceShopify: 'Shopify Price',
   priceAmazon: 'Amazon Price',
   priceWholesale: 'Wholesale Price',
-  weight: 'Weight (lbs)',
+  weight: 'Weight (oz)',
   barcode: 'Barcode/UPC',
   quantity: 'Quantity on Hand',
   binLocation: 'Bin Location',
@@ -58,7 +59,6 @@ const FIELD_LABELS: Record<string, string> = {
   minOrderQty: 'Min Order Qty',
 };
 
-// Field groupings for better UI organization
 const FIELD_GROUPS = {
   basic: ['name', 'sku', 'category', 'barcode'],
   pricing: ['cost', 'priceMSRP', 'priceShopify', 'priceAmazon', 'priceWholesale'],
@@ -67,7 +67,10 @@ const FIELD_GROUPS = {
 };
 
 export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
-  const { state, dispatch } = useApp();
+  const { organization } = useOrganization();
+  const { locations } = useLocations();
+  const { suppliers: existingSuppliers } = useSuppliers();
+  const { products: existingProducts } = useProducts();
   const { success, error, warning } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,11 +81,18 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
   const [columnMapping, setColumnMapping] = useState<Partial<ColumnMapping>>({});
   const [isImporting, setIsImporting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [selectedLocationId, setSelectedLocationId] = useState<string>(state.settings.defaultLocation || '');
+  const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [createInventoryRecords, setCreateInventoryRecords] = useState(true);
   const [createSuppliers, setCreateSuppliers] = useState(true);
 
-  // Generate and download CSV templates
+  const isDemo = organization?.id ? isDemoOrganization(organization.id) : false;
+
+  // Set default location when locations load
+  const defaultLocation = locations.find(l => l.type === 'warehouse') || locations[0];
+  if (!selectedLocationId && defaultLocation) {
+    setSelectedLocationId(defaultLocation.id);
+  }
+
   const downloadTemplate = (type: 'basic' | 'full' | 'inflow') => {
     let headers: string[] = [];
     let sampleData: string[][] = [];
@@ -90,47 +100,44 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
     if (type === 'basic') {
       headers = ['Product Name', 'SKU', 'Category', 'Cost', 'MSRP', 'Quantity'];
       sampleData = [
-        ['Example Product 1', 'SKU-001', 'Category A', '10.00', '24.99', '100'],
-        ['Example Product 2', 'SKU-002', 'Category B', '15.00', '34.99', '50'],
+        ['Example Product 1', 'SKU-001', 'nutrient', '10.00', '24.99', '100'],
+        ['Example Product 2', 'SKU-002', 'supply', '15.00', '34.99', '50'],
       ];
     } else if (type === 'full') {
       headers = [
         'Product Name', 'SKU', 'Category', 'Barcode',
         'Cost', 'MSRP', 'Shopify Price', 'Amazon Price', 'Wholesale Price',
-        'Quantity', 'Bin Location', 'Reorder Point', 'Weight (lbs)',
+        'Quantity', 'Bin Location', 'Reorder Point', 'Weight (oz)',
         'Supplier Name', 'Supplier SKU', 'Lead Time (days)', 'Min Order Qty'
       ];
       sampleData = [
-        ['Example Product 1', 'SKU-001', 'Supplements', '123456789012',
+        ['Example Product 1', 'SKU-001', 'nutrient', '123456789012',
          '10.00', '24.99', '22.99', '24.99', '14.99',
-         '100', 'A1-01', '25', '1.5',
+         '100', 'A1-01', '25', '32',
          'Supplier Inc', 'SUP-001', '14', '50'],
-        ['Example Product 2', 'SKU-002', 'Nutrients', '234567890123',
+        ['Example Product 2', 'SKU-002', 'supply', '234567890123',
          '15.00', '34.99', '32.99', '34.99', '20.99',
-         '50', 'B2-03', '20', '2.0',
+         '50', 'B2-03', '20', '16',
          'Vendor Co', 'VND-002', '7', '25'],
       ];
     } else if (type === 'inflow') {
-      // inFlow export format columns
       headers = [
         'Name', 'Barcode', 'Category', 'Description',
         'Sale Price', 'Purchase Cost', 'Quantity on Hand',
         'Location', 'Reorder Point', 'Vendor', 'Vendor SKU'
       ];
       sampleData = [
-        ['Product Name Here', '123456789012', 'Category', 'Description text',
+        ['Product Name Here', '123456789012', 'nutrient', 'Description text',
          '24.99', '10.00', '100',
          'Main Warehouse', '25', 'Supplier Name', 'VENDOR-SKU-001'],
       ];
     }
 
-    // Build CSV content
     const csvContent = [
       headers.join(','),
       ...sampleData.map(row => row.map(cell => `"${cell}"`).join(','))
     ].join('\n');
 
-    // Create and download file
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -149,7 +156,8 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
     setCsvData([]);
     setColumnMapping({});
     setIsImporting(false);
-    setSelectedLocationId(state.settings.defaultLocation || state.locations[0]?.id || '');
+    const defaultLoc = locations.find(l => l.type === 'warehouse') || locations[0];
+    setSelectedLocationId(defaultLoc?.id || '');
     setCreateInventoryRecords(true);
     setCreateSuppliers(true);
     if (fileInputRef.current) {
@@ -161,13 +169,26 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
     const lines = text.split(/\r?\n/).filter(line => line.trim());
     if (lines.length === 0) return { headers: [], data: [] };
 
-    // Parse headers
     const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
 
-    // Parse data rows
     const data: ParsedRow[] = [];
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+      const values: string[] = [];
+      let current = '';
+      let inQuotes = false;
+
+      for (const char of lines[i]) {
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          values.push(current.trim().replace(/^"|"$/g, ''));
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      values.push(current.trim().replace(/^"|"$/g, ''));
+
       const row: ParsedRow = {};
       headers.forEach((header, index) => {
         row[header] = values[index] || '';
@@ -182,23 +203,20 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
     const mapping: Partial<ColumnMapping> = {};
     const lowerHeaders = headers.map(h => h.toLowerCase());
 
-    // Try to auto-map common column names
     const mappings: Record<keyof ColumnMapping, string[]> = {
       name: ['name', 'product name', 'product', 'title', 'item name', 'description'],
       sku: ['sku', 'product sku', 'item number', 'item #', 'item code', 'product code'],
       category: ['category', 'type', 'product type', 'group', 'product category'],
-      cost: ['cost', 'cogs', 'unit cost', 'price cost', 'purchase price', 'buy price'],
+      cost: ['cost', 'cogs', 'unit cost', 'price cost', 'purchase price', 'buy price', 'purchase cost'],
       priceMSRP: ['msrp', 'price', 'retail price', 'price msrp', 'sell price', 'sale price'],
       priceShopify: ['shopify price', 'shopify', 'web price', 'online price'],
       priceAmazon: ['amazon price', 'amazon', 'marketplace price'],
       priceWholesale: ['wholesale', 'wholesale price', 'dealer price', 'trade price'],
-      weight: ['weight', 'weight (lbs)', 'lbs', 'weight lbs', 'item weight'],
+      weight: ['weight', 'weight (oz)', 'oz', 'weight oz', 'item weight', 'weight (lbs)', 'lbs'],
       barcode: ['barcode', 'upc', 'ean', 'gtin', 'isbn'],
-      // Inventory fields
       quantity: ['quantity', 'qty', 'stock', 'on hand', 'quantity on hand', 'stock qty', 'available', 'inventory'],
       binLocation: ['bin', 'bin location', 'location', 'shelf', 'rack', 'position', 'warehouse location'],
       reorderPoint: ['reorder point', 'reorder', 'min qty', 'minimum', 'low stock', 'reorder level'],
-      // Supplier fields
       supplierName: ['supplier', 'vendor', 'supplier name', 'vendor name', 'manufacturer'],
       supplierSku: ['supplier sku', 'vendor sku', 'manufacturer sku', 'vendor code', 'supplier code', 'mfg part #'],
       leadTime: ['lead time', 'leadtime', 'lead time days', 'delivery time'],
@@ -287,7 +305,7 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
 
   const getValidationIssues = () => {
     const issues: string[] = [];
-    const existingSkus = new Set(state.products.map(p => p.sku.toLowerCase()));
+    const existingSkus = new Set(existingProducts.map(p => p.sku.toLowerCase()));
     const newSkus = new Set<string>();
 
     csvData.forEach((row, index) => {
@@ -309,22 +327,39 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
       }
     });
 
-    return issues.slice(0, 10); // Show first 10 issues
+    return issues.slice(0, 10);
   };
 
   const handleImport = async () => {
-    if (!isValidMapping()) return;
+    if (!isValidMapping() || !organization) return;
+
+    if (isDemo) {
+      error('Import is not available in demo mode');
+      return;
+    }
 
     setIsImporting(true);
 
     try {
-      const existingSkus = new Set(state.products.map(p => p.sku.toLowerCase()));
-      const existingSuppliers = new Map(state.suppliers.map(s => [s.name.toLowerCase(), s]));
+      const orgId = organization.id;
+      const productService = new FirestoreService<Product>(orgId, 'products');
+      const inventoryService = new FirestoreService<InventoryItem>(orgId, 'inventory');
+      const supplierService = new FirestoreService<Supplier>(orgId, 'suppliers');
+
+      const existingSkus = new Set(existingProducts.map(p => p.sku.toLowerCase()));
+      const supplierMap = new Map(existingSuppliers.map(s => [s.name.toLowerCase(), s]));
+
       let imported = 0;
       let skipped = 0;
       let inventoryCreated = 0;
       let suppliersCreated = 0;
-      const newSupplierIds = new Map<string, string>(); // supplierName -> id
+      const newSupplierIds = new Map<string, string>();
+
+      // Prepare batch data
+      const productsToCreate: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>[] = [];
+      const inventoryToCreate: Omit<InventoryItem, 'id'>[] = [];
+      const suppliersToCreate: Omit<Supplier, 'id'>[] = [];
+      const productInventoryMap: { productIndex: number; quantity: number; binLocation?: string }[] = [];
 
       for (const row of csvData) {
         const sku = columnMapping.sku ? row[columnMapping.sku] : '';
@@ -339,103 +374,96 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
         const shopifyPrice = parseFloat(columnMapping.priceShopify ? row[columnMapping.priceShopify] : '0') || msrp;
         const amazonPrice = parseFloat(columnMapping.priceAmazon ? row[columnMapping.priceAmazon] : '0') || msrp;
         const wholesalePrice = parseFloat(columnMapping.priceWholesale ? row[columnMapping.priceWholesale] : '0') || msrp * 0.6;
+        const distributorPrice = wholesalePrice * 0.75;
         const costValue = parseFloat(columnMapping.cost ? row[columnMapping.cost] : '0') || 0;
         const weightValue = parseFloat(columnMapping.weight ? row[columnMapping.weight] : '0') || 0;
         const reorderPoint = parseInt(columnMapping.reorderPoint ? row[columnMapping.reorderPoint] : '50') || 50;
         const quantity = parseInt(columnMapping.quantity ? row[columnMapping.quantity] : '0') || 0;
         const binLocation = columnMapping.binLocation ? row[columnMapping.binLocation]?.trim() : undefined;
         const supplierName = columnMapping.supplierName ? row[columnMapping.supplierName]?.trim() : '';
-        const supplierSku = columnMapping.supplierSku ? row[columnMapping.supplierSku]?.trim() : '';
-        const leadTime = parseInt(columnMapping.leadTime ? row[columnMapping.leadTime] : '0') || undefined;
-        const minOrderQty = parseInt(columnMapping.minOrderQty ? row[columnMapping.minOrderQty] : '0') || undefined;
+        const categoryRaw = columnMapping.category ? row[columnMapping.category]?.trim().toLowerCase() : 'supply';
 
-        const productId = crypto.randomUUID();
+        // Map category to valid type
+        let category: 'nutrient' | 'supply' | 'packaging' | 'label' = 'supply';
+        if (categoryRaw.includes('nutrient') || categoryRaw.includes('supplement')) {
+          category = 'nutrient';
+        } else if (categoryRaw.includes('packaging') || categoryRaw.includes('box') || categoryRaw.includes('bottle')) {
+          category = 'packaging';
+        } else if (categoryRaw.includes('label')) {
+          category = 'label';
+        }
 
-        const newProduct: Product = {
-          id: productId,
+        const newProduct: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> = {
           name: name.trim(),
           sku: sku.trim().toUpperCase(),
           barcode: columnMapping.barcode ? row[columnMapping.barcode]?.trim() : undefined,
-          category: columnMapping.category ? row[columnMapping.category]?.trim() || 'imported' : 'imported',
-          cost: {
-            rolling: costValue,
-            fixed: costValue,
-          },
+          category,
+          weight: weightValue,
           prices: {
-            msrp: msrp,
+            msrp,
             shopify: shopifyPrice,
             amazon: amazonPrice,
             wholesale: wholesalePrice,
+            distributor: distributorPrice,
           },
-          weight: {
-            value: weightValue,
-            unit: 'lbs',
+          costs: {
+            base: costValue,
+            amazonPrep: 0,
+            shopify: 0,
           },
-          dimensions: { length: 0, width: 0, height: 0 },
-          reorderPoint: reorderPoint,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          reorderPoint,
+          isActive: true,
         };
 
-        dispatch({ type: 'ADD_PRODUCT', payload: newProduct });
+        productsToCreate.push(newProduct);
         existingSkus.add(sku.toLowerCase());
         imported++;
 
-        // Create inventory record if enabled and quantity provided or location selected
+        // Track inventory for this product
         if (createInventoryRecords && selectedLocationId && (quantity > 0 || binLocation)) {
-          const newInventory: InventoryLevel = {
-            productId: productId,
-            locationId: selectedLocationId,
-            quantity: quantity,
-            binLocation: binLocation,
-            updatedAt: new Date(),
-          };
-          dispatch({ type: 'SET_INVENTORY', payload: [...state.inventory, newInventory] });
+          productInventoryMap.push({
+            productIndex: productsToCreate.length - 1,
+            quantity,
+            binLocation,
+          });
           inventoryCreated++;
         }
 
-        // Handle supplier creation and linking
+        // Handle supplier
         if (createSuppliers && supplierName) {
-          let supplierId: string;
-          const existingSupplier = existingSuppliers.get(supplierName.toLowerCase());
+          const existingSupplier = supplierMap.get(supplierName.toLowerCase());
 
-          if (existingSupplier) {
-            supplierId = existingSupplier.id;
-          } else if (newSupplierIds.has(supplierName.toLowerCase())) {
-            supplierId = newSupplierIds.get(supplierName.toLowerCase())!;
-          } else {
-            // Create new supplier
-            supplierId = crypto.randomUUID();
-            const code = supplierName.substring(0, 3).toUpperCase();
-            dispatch({
-              type: 'ADD_SUPPLIER',
-              payload: {
-                id: supplierId,
-                name: supplierName,
-                code: code,
-                currency: 'USD',
-                isActive: true,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              },
+          if (!existingSupplier && !newSupplierIds.has(supplierName.toLowerCase())) {
+            suppliersToCreate.push({
+              name: supplierName,
+              currency: 'USD',
             });
-            newSupplierIds.set(supplierName.toLowerCase(), supplierId);
+            newSupplierIds.set(supplierName.toLowerCase(), `pending-${suppliersToCreate.length - 1}`);
             suppliersCreated++;
           }
-
-          // Link product to supplier
-          const productSupplier: ProductSupplier = {
-            productId: productId,
-            supplierId: supplierId,
-            supplierSku: supplierSku || undefined,
-            unitCost: costValue,
-            currency: 'USD',
-            minimumOrderQty: minOrderQty,
-            leadTimeDays: leadTime,
-            isPrimary: true,
-          };
-          dispatch({ type: 'ADD_PRODUCT_SUPPLIER', payload: productSupplier });
         }
+      }
+
+      // Batch create suppliers first
+      if (suppliersToCreate.length > 0) {
+        await supplierService.batchCreate(suppliersToCreate);
+      }
+
+      // Batch create products
+      const productIds = await productService.batchCreate(productsToCreate);
+
+      // Create inventory records with actual product IDs
+      if (productInventoryMap.length > 0) {
+        for (const item of productInventoryMap) {
+          const productId = productIds[item.productIndex];
+          inventoryToCreate.push({
+            productId,
+            locationId: selectedLocationId,
+            quantity: item.quantity,
+            binLocation: item.binLocation || '',
+          });
+        }
+        await inventoryService.batchCreate(inventoryToCreate);
       }
 
       // Build success message
@@ -454,6 +482,7 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
       resetState();
       onClose();
     } catch (err) {
+      console.error('Import error:', err);
       error('Failed to import products');
     } finally {
       setIsImporting(false);
@@ -505,7 +534,6 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
         </ul>
       </div>
 
-      {/* Quick Templates */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
         <h4 className="text-sm font-medium text-white mb-2">Download Templates</h4>
         <div className="flex flex-wrap gap-2">
@@ -532,6 +560,15 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
           </button>
         </div>
       </div>
+
+      {isDemo && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-amber-400 text-sm">
+            <i className="fas fa-info-circle"></i>
+            <span>Import is disabled in demo mode. Sign in to import products.</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -593,7 +630,6 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
         </div>
       </div>
 
-      {/* Field Mapping Groups */}
       <div className="space-y-3">
         {renderFieldGroup('Basic Info', FIELD_GROUPS.basic, 'fa-box', 'text-blue-400')}
         {renderFieldGroup('Pricing', FIELD_GROUPS.pricing, 'fa-dollar-sign', 'text-emerald-400')}
@@ -601,7 +637,6 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
         {renderFieldGroup('Supplier', FIELD_GROUPS.supplier, 'fa-truck-loading', 'text-purple-400')}
       </div>
 
-      {/* Import Options */}
       <div className="bg-slate-800/30 border border-slate-700/50 rounded-lg p-4">
         <h5 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
           <i className="fas fa-cog"></i>
@@ -609,7 +644,6 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
         </h5>
 
         <div className="space-y-3">
-          {/* Location Selection */}
           <div>
             <label className="block text-xs text-slate-400 mb-1">Import Inventory To Location</label>
             <select
@@ -618,7 +652,7 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500/50"
             >
               <option value="">-- No inventory records --</option>
-              {state.locations.map(loc => (
+              {locations.map(loc => (
                 <option key={loc.id} value={loc.id}>
                   {loc.name} ({loc.type})
                 </option>
@@ -626,7 +660,6 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
             </select>
           </div>
 
-          {/* Toggles */}
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -678,7 +711,6 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
           </span>
         </div>
 
-        {/* Preview Table */}
         <div className="border border-slate-700 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -715,7 +747,6 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
           )}
         </div>
 
-        {/* Validation Issues */}
         {issues.length > 0 && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
             <h4 className="text-amber-400 font-medium mb-2 flex items-center gap-2">
@@ -753,7 +784,7 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
             <Button variant="secondary" onClick={handleClose}>
               Cancel
             </Button>
-            <Button onClick={handleImport} disabled={isImporting}>
+            <Button onClick={handleImport} disabled={isImporting || isDemo}>
               {isImporting ? (
                 <>
                   <i className="fas fa-spinner fa-spin mr-2"></i>
