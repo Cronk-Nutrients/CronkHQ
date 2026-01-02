@@ -85,7 +85,7 @@ function TransfersPageContent() {
     success(`Transfer ${transfer.transferNumber} cancelled`);
   };
 
-  const hasFilters = searchQuery || statusFilter || fromLocationFilter || toLocationFilter;
+  const hasFilters = !!(searchQuery || statusFilter || fromLocationFilter || toLocationFilter);
   const locationOptions = state.locations.map(loc => ({ value: loc.id, label: loc.name }));
 
   return (

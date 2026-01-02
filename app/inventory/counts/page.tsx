@@ -89,7 +89,7 @@ function StockCountsPageContent() {
     setCurrentPage(1);
   };
 
-  const hasFilters = searchQuery || statusFilter || typeFilter;
+  const hasFilters = !!(searchQuery || statusFilter || typeFilter);
 
   return (
     <div className="space-y-6">

@@ -5,22 +5,13 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useApp, StockCount, StockCountItem } from '@/context/AppContext';
 import { useToast } from '@/components/ui/Toast';
-import { formatCurrency } from '@/lib/formatting';
-
-// Status configuration
-const statusConfig: Record<StockCount['status'], { color: string; icon: string; label: string }> = {
-  draft: { color: 'slate', icon: 'fa-file', label: 'Draft' },
-  in_progress: { color: 'blue', icon: 'fa-spinner', label: 'In Progress' },
-  completed: { color: 'emerald', icon: 'fa-check-circle', label: 'Completed' },
-  cancelled: { color: 'red', icon: 'fa-times-circle', label: 'Cancelled' },
-};
-
-// Type labels
-const typeConfig: Record<StockCount['type'], { label: string; color: string }> = {
-  full: { label: 'Full Count', color: 'purple' },
-  cycle: { label: 'Cycle Count', color: 'blue' },
-  spot: { label: 'Spot Check', color: 'amber' },
-};
+import { formatCurrency, formatDateTime, formatDate } from '@/lib/formatting';
+import {
+  StatusBadge,
+  stockCountStatusConfig,
+  TypeBadge,
+  countTypeConfig,
+} from '@/components/inventory/StatusBadge';
 
 export default function StockCountDetailPage() {
   const params = useParams();
@@ -70,35 +61,6 @@ export default function StockCountDetailPage() {
   const progress = summary.totalItems > 0 ? (summary.countedItems / summary.totalItems) * 100 : 0;
   const pendingItems = items.filter(i => i.status === 'pending');
   const currentItem = pendingItems[currentIndex] || items[currentIndex];
-
-  // Format date
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
-
-  const formatDateTime = (date: Date) => {
-    return new Date(date).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  // Get status badge
-  const getStatusBadge = (status: StockCount['status']) => {
-    const config = statusConfig[status];
-    return (
-      <span className={`inline-flex items-center gap-1 px-3 py-1.5 bg-${config.color}-500/10 text-${config.color}-400 text-sm font-medium rounded-full border border-${config.color}-500/20`}>
-        <i className={`fas ${config.icon}`}></i>
-        {config.label}
-      </span>
-    );
-  };
 
   // Calculate summary
   const calculateSummary = (updatedItems: StockCountItem[]) => {
@@ -288,10 +250,8 @@ export default function StockCountDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-white">{stockCount.countNumber}</h1>
-              {getStatusBadge(stockCount.status)}
-              <span className={`inline-flex items-center px-2 py-0.5 bg-${typeConfig[stockCount.type].color}-500/10 text-${typeConfig[stockCount.type].color}-400 text-xs font-medium rounded border border-${typeConfig[stockCount.type].color}-500/20`}>
-                {typeConfig[stockCount.type].label}
-              </span>
+              <StatusBadge status={stockCount.status} config={stockCountStatusConfig} />
+              <TypeBadge type={stockCount.type} config={countTypeConfig} />
             </div>
             <p className="text-sm text-slate-400 mt-1">
               {stockCount.name} &bull; {stockCount.locationName}

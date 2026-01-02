@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
 import { EditOrderModal, CreateReturnModal } from '@/components/modals';
 import { useToast } from '@/components/ui/Toast';
+import { formatCurrency } from '@/lib/formatting';
+import { OrderStatusBadge, ChannelBadge, orderStatusConfig } from '@/components/orders/OrderBadges';
 
 export default function OrderDetailPage() {
   const params = useParams();
@@ -18,15 +20,6 @@ export default function OrderDetailPage() {
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
 
   const order = state.orders.find(o => o.id === orderId);
-
-  // Format currency
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(value);
-  };
 
   // Show loading state while data is being fetched
   if (state.isLoading) {
@@ -77,36 +70,6 @@ export default function OrderDetailPage() {
       </div>
     );
   }
-
-  const getStatusBadge = (status: string) => {
-    const styles: Record<string, { bg: string; text: string; label: string }> = {
-      to_pick: { bg: 'bg-amber-500/10 border-amber-500/20', text: 'text-amber-400', label: 'To Pick' },
-      picking: { bg: 'bg-amber-500/10 border-amber-500/20', text: 'text-amber-400', label: 'Picking' },
-      to_pack: { bg: 'bg-blue-500/10 border-blue-500/20', text: 'text-blue-400', label: 'To Pack' },
-      packing: { bg: 'bg-blue-500/10 border-blue-500/20', text: 'text-blue-400', label: 'Packing' },
-      ready: { bg: 'bg-purple-500/10 border-purple-500/20', text: 'text-purple-400', label: 'Ready to Ship' },
-      shipped: { bg: 'bg-emerald-500/10 border-emerald-500/20', text: 'text-emerald-400', label: 'Shipped' },
-      delivered: { bg: 'bg-green-500/10 border-green-500/20', text: 'text-green-400', label: 'Delivered' },
-      cancelled: { bg: 'bg-red-500/10 border-red-500/20', text: 'text-red-400', label: 'Cancelled' },
-    };
-    return styles[status] || { bg: 'bg-slate-500/10 border-slate-500/20', text: 'text-slate-400', label: status };
-  };
-
-  const getChannelBadge = (channel: string) => {
-    switch (channel) {
-      case 'shopify':
-        return { icon: 'fab fa-shopify', color: 'text-green-400', bg: 'bg-green-500/10', label: 'Shopify' };
-      case 'amazon_fba':
-        return { icon: 'fab fa-amazon', color: 'text-orange-400', bg: 'bg-orange-500/10', label: 'Amazon FBA' };
-      case 'amazon_fbm':
-        return { icon: 'fab fa-amazon', color: 'text-orange-400', bg: 'bg-orange-500/10', label: 'Amazon FBM' };
-      default:
-        return { icon: 'fas fa-store', color: 'text-slate-400', bg: 'bg-slate-500/10', label: 'Manual' };
-    }
-  };
-
-  const statusBadge = getStatusBadge(order.status);
-  const channelBadge = getChannelBadge(order.channel);
 
   // Find related shipment
   const shipment = state.shipments.find(s => s.orderNumber === order.orderNumber);
@@ -162,9 +125,7 @@ export default function OrderDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-white">Order #{order.orderNumber}</h1>
-              <span className={`px-3 py-1 text-sm rounded-full border ${statusBadge.bg} ${statusBadge.text}`}>
-                {statusBadge.label}
-              </span>
+              <OrderStatusBadge status={order.status} />
             </div>
             <p className="text-sm text-slate-400">
               {new Date(order.createdAt).toLocaleDateString('en-US', {
@@ -418,10 +379,7 @@ export default function OrderDetailPage() {
             <div className="p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Channel</span>
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${channelBadge.bg} ${channelBadge.color}`}>
-                  <i className={channelBadge.icon}></i>
-                  {channelBadge.label}
-                </span>
+                <ChannelBadge channel={order.channel} />
               </div>
               {order.veeqoId && (
                 <div className="flex items-center justify-between">
