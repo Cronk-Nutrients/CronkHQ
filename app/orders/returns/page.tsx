@@ -7,35 +7,19 @@ import { useToast } from '@/components/ui/Toast';
 import { formatCurrency } from '@/lib/formatting';
 import { CreateReturnModal } from '@/components/modals';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import {
+  ReturnStatusBadge,
+  ReturnChannelBadge,
+  ReturnStatCard,
+  ReturnsStatsGrid,
+  returnReasonLabels,
+  formatReturnDate,
+} from '@/components/returns';
 
 type StatusFilter = Return['status'] | '';
 type ReasonFilter = ReturnReason | '';
 type ChannelFilter = Return['channel'] | '';
 type DateFilter = 'all' | 'today' | 'yesterday' | 'last7' | 'last30' | 'thisMonth';
-
-// Status configuration
-const statusConfig: Record<Return['status'], { color: string; icon: string; label: string }> = {
-  requested: { color: 'amber', icon: 'fa-clock', label: 'Requested' },
-  approved: { color: 'blue', icon: 'fa-check', label: 'Approved' },
-  in_transit: { color: 'purple', icon: 'fa-truck', label: 'In Transit' },
-  received: { color: 'cyan', icon: 'fa-box', label: 'Received' },
-  inspected: { color: 'indigo', icon: 'fa-search', label: 'Inspected' },
-  refunded: { color: 'emerald', icon: 'fa-check-circle', label: 'Refunded' },
-  rejected: { color: 'red', icon: 'fa-times-circle', label: 'Rejected' },
-};
-
-// Reason labels
-const reasonLabels: Record<ReturnReason, string> = {
-  damaged_in_transit: 'Damaged in Transit',
-  defective: 'Defective Product',
-  wrong_item_sent: 'Wrong Item Sent',
-  not_as_described: 'Not as Described',
-  changed_mind: 'Changed Mind',
-  ordered_wrong: 'Ordered Wrong',
-  arrived_late: 'Arrived Late',
-  better_price_found: 'Better Price Found',
-  other: 'Other',
-};
 
 function ReturnsPageContent() {
   const searchParams = useSearchParams();
@@ -45,7 +29,6 @@ function ReturnsPageContent() {
 
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [selectedReturn, setSelectedReturn] = useState<Return | null>(null);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,23 +75,15 @@ function ReturnsPageContent() {
   // Filter returns
   const filteredReturns = useMemo(() => {
     return state.returns.filter(ret => {
-      // Search
       const matchesSearch =
         ret.returnNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ret.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ret.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ret.customer.email.toLowerCase().includes(searchQuery.toLowerCase());
 
-      // Status
       const matchesStatus = !statusFilter || ret.status === statusFilter;
-
-      // Reason (check any item)
       const matchesReason = !reasonFilter || ret.items.some(item => item.reason === reasonFilter);
-
-      // Channel
       const matchesChannel = !channelFilter || ret.channel === channelFilter;
-
-      // Date
       const matchesDate = filterByDate(ret.createdAt, dateFilter);
 
       return matchesSearch && matchesStatus && matchesReason && matchesChannel && matchesDate;
@@ -122,12 +97,11 @@ function ReturnsPageContent() {
     currentPage * itemsPerPage
   );
 
-  // Calculate stats from real data
+  // Calculate stats
   const stats = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-
     const monthsReturns = state.returns.filter(r => new Date(r.createdAt) >= thisMonth);
 
     return {
@@ -140,60 +114,6 @@ function ReturnsPageContent() {
         .reduce((sum, r) => sum + r.refund.total, 0),
     };
   }, [state.returns]);
-
-  // Format date
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
-
-  // Get channel badge
-  const getChannelBadge = (channel: Return['channel']) => {
-    switch (channel) {
-      case 'shopify':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-500/10 text-green-400 text-xs font-medium rounded-full border border-green-500/20">
-            <i className="fab fa-shopify"></i>
-            Shopify
-          </span>
-        );
-      case 'amazon_fbm':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-orange-500/10 text-orange-400 text-xs font-medium rounded-full border border-orange-500/20">
-            <i className="fab fa-amazon"></i>
-            FBM
-          </span>
-        );
-      case 'amazon_fba':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-orange-500/10 text-orange-400 text-xs font-medium rounded-full border border-orange-500/20">
-            <i className="fab fa-amazon"></i>
-            FBA
-          </span>
-        );
-      case 'manual':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-500/10 text-slate-400 text-xs font-medium rounded-full border border-slate-500/20">
-            <i className="fas fa-user"></i>
-            Manual
-          </span>
-        );
-    }
-  };
-
-  // Get status badge
-  const getStatusBadge = (status: Return['status']) => {
-    const config = statusConfig[status];
-    return (
-      <span className={`inline-flex items-center gap-1 px-2.5 py-1 bg-${config.color}-500/10 text-${config.color}-400 text-xs font-medium rounded-full border border-${config.color}-500/20`}>
-        <i className={`fas ${config.icon} text-[10px]`}></i>
-        {config.label}
-      </span>
-    );
-  };
 
   // Handle stat click
   const handleStatClick = (status: StatusFilter) => {
@@ -246,15 +166,14 @@ function ReturnsPageContent() {
   // Export returns
   const handleExport = () => {
     const headers = ['Return #', 'Order #', 'Date', 'Customer', 'Channel', 'Items', 'Reason', 'Refund Amount', 'Status'];
-
     const rows = filteredReturns.map(r => [
       r.returnNumber,
       r.orderNumber,
-      formatDate(r.createdAt),
+      formatReturnDate(r.createdAt),
       r.customer.name,
       r.channel,
       r.items.reduce((sum, i) => sum + i.quantity, 0),
-      r.items[0]?.reason ? reasonLabels[r.items[0].reason] : '',
+      r.items[0]?.reason ? returnReasonLabels[r.items[0].reason] : '',
       r.refund.total.toFixed(2),
       r.status
     ]);
@@ -267,13 +186,13 @@ function ReturnsPageContent() {
     a.download = `returns-export-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-
     success(`Exported ${filteredReturns.length} returns`);
   };
 
+  const hasFilters = !!(searchQuery || statusFilter || reasonFilter || channelFilter || dateFilter !== 'all');
+
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
       <Breadcrumb items={[{ label: 'Orders', href: '/orders' }, { label: 'Returns' }]} />
 
       {/* Header */}
@@ -301,96 +220,49 @@ function ReturnsPageContent() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-5 gap-4">
-        {/* Pending Approval */}
-        <div
-          className={`bg-slate-800/50 backdrop-blur border rounded-xl p-4 cursor-pointer hover:bg-amber-500/10 transition-colors ${
-            statusFilter === 'requested' ? 'border-amber-500/50 bg-amber-500/10 ring-2 ring-amber-500/30' : 'border-amber-500/30'
-          }`}
+      <ReturnsStatsGrid columns={5}>
+        <ReturnStatCard
+          icon="fa-clock"
+          color="amber"
+          value={stats.pendingApproval}
+          label="Pending Approval"
           onClick={() => handleStatClick('requested')}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
-              <i className="fas fa-clock text-amber-400"></i>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-amber-400">{stats.pendingApproval}</div>
-              <div className="text-xs text-slate-400">Pending Approval</div>
-            </div>
-          </div>
-        </div>
-
-        {/* In Transit */}
-        <div
-          className={`bg-slate-800/50 backdrop-blur border rounded-xl p-4 cursor-pointer hover:bg-purple-500/10 transition-colors ${
-            statusFilter === 'in_transit' ? 'border-purple-500/50 bg-purple-500/10 ring-2 ring-purple-500/30' : 'border-purple-500/30'
-          }`}
+          isActive={statusFilter === 'requested'}
+        />
+        <ReturnStatCard
+          icon="fa-truck"
+          color="purple"
+          value={stats.inTransit}
+          label="In Transit"
           onClick={() => handleStatClick('in_transit')}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-              <i className="fas fa-truck text-purple-400"></i>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-purple-400">{stats.inTransit}</div>
-              <div className="text-xs text-slate-400">In Transit</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Awaiting Inspection */}
-        <div
-          className={`bg-slate-800/50 backdrop-blur border rounded-xl p-4 cursor-pointer hover:bg-cyan-500/10 transition-colors ${
-            statusFilter === 'received' ? 'border-cyan-500/50 bg-cyan-500/10 ring-2 ring-cyan-500/30' : 'border-cyan-500/30'
-          }`}
+          isActive={statusFilter === 'in_transit'}
+        />
+        <ReturnStatCard
+          icon="fa-box"
+          color="cyan"
+          value={stats.awaitingInspection}
+          label="Awaiting Inspection"
           onClick={() => handleStatClick('received')}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-              <i className="fas fa-box text-cyan-400"></i>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-cyan-400">{stats.awaitingInspection}</div>
-              <div className="text-xs text-slate-400">Awaiting Inspection</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Ready to Refund */}
-        <div
-          className={`bg-slate-800/50 backdrop-blur border rounded-xl p-4 cursor-pointer hover:bg-indigo-500/10 transition-colors ${
-            statusFilter === 'inspected' ? 'border-indigo-500/50 bg-indigo-500/10 ring-2 ring-indigo-500/30' : 'border-indigo-500/30'
-          }`}
+          isActive={statusFilter === 'received'}
+        />
+        <ReturnStatCard
+          icon="fa-search"
+          color="indigo"
+          value={stats.readyToRefund}
+          label="Ready to Refund"
           onClick={() => handleStatClick('inspected')}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center">
-              <i className="fas fa-search text-indigo-400"></i>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-indigo-400">{stats.readyToRefund}</div>
-              <div className="text-xs text-slate-400">Ready to Refund</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Monthly Refunds */}
-        <div className="bg-slate-800/50 backdrop-blur border border-emerald-500/30 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-              <i className="fas fa-dollar-sign text-emerald-400"></i>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-emerald-400">{formatCurrency(stats.monthlyRefunds)}</div>
-              <div className="text-xs text-slate-400">This Month&apos;s Refunds</div>
-            </div>
-          </div>
-        </div>
-      </div>
+          isActive={statusFilter === 'inspected'}
+        />
+        <ReturnStatCard
+          icon="fa-dollar-sign"
+          color="emerald"
+          value={formatCurrency(stats.monthlyRefunds)}
+          label="This Month's Refunds"
+        />
+      </ReturnsStatsGrid>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
-        {/* Search */}
         <div className="relative flex-1 min-w-[200px]">
           <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"></i>
           <input
@@ -402,7 +274,6 @@ function ReturnsPageContent() {
           />
         </div>
 
-        {/* Status Filter */}
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value as StatusFilter); setCurrentPage(1); }}
@@ -418,19 +289,17 @@ function ReturnsPageContent() {
           <option value="rejected">Rejected</option>
         </select>
 
-        {/* Reason Filter */}
         <select
           value={reasonFilter}
           onChange={(e) => { setReasonFilter(e.target.value as ReasonFilter); setCurrentPage(1); }}
           className="bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2.5 text-slate-200 focus:outline-none focus:border-emerald-500"
         >
           <option value="">All Reasons</option>
-          {Object.entries(reasonLabels).map(([key, label]) => (
+          {Object.entries(returnReasonLabels).map(([key, label]) => (
             <option key={key} value={key}>{label}</option>
           ))}
         </select>
 
-        {/* Channel Filter */}
         <select
           value={channelFilter}
           onChange={(e) => { setChannelFilter(e.target.value as ChannelFilter); setCurrentPage(1); }}
@@ -443,7 +312,6 @@ function ReturnsPageContent() {
           <option value="manual">Manual</option>
         </select>
 
-        {/* Date Filter */}
         <select
           value={dateFilter}
           onChange={(e) => { setDateFilter(e.target.value as DateFilter); setCurrentPage(1); }}
@@ -457,8 +325,7 @@ function ReturnsPageContent() {
           <option value="thisMonth">This Month</option>
         </select>
 
-        {/* Clear Filters */}
-        {(searchQuery || statusFilter || reasonFilter || channelFilter || dateFilter !== 'all') && (
+        {hasFilters && (
           <button
             onClick={() => {
               setSearchQuery('');
@@ -498,9 +365,7 @@ function ReturnsPageContent() {
                 <td colSpan={9} className="p-8 text-center text-slate-500">
                   <i className="fas fa-undo-alt text-4xl mb-4 text-slate-600"></i>
                   <p>No returns found</p>
-                  {(searchQuery || statusFilter || reasonFilter || channelFilter || dateFilter !== 'all') && (
-                    <p className="text-sm mt-2">Try adjusting your filters</p>
-                  )}
+                  {hasFilters && <p className="text-sm mt-2">Try adjusting your filters</p>}
                 </td>
               </tr>
             ) : (
@@ -514,12 +379,12 @@ function ReturnsPageContent() {
                     <div className="font-medium text-white">{returnItem.returnNumber}</div>
                     <div className="text-xs text-slate-500">Order: {returnItem.orderNumber}</div>
                   </td>
-                  <td className="p-4 text-slate-300">{formatDate(returnItem.createdAt)}</td>
+                  <td className="p-4 text-slate-300">{formatReturnDate(returnItem.createdAt)}</td>
                   <td className="p-4">
                     <div className="text-slate-200">{returnItem.customer.name}</div>
                     <div className="text-xs text-slate-500">{returnItem.customer.email}</div>
                   </td>
-                  <td className="p-4">{getChannelBadge(returnItem.channel)}</td>
+                  <td className="p-4"><ReturnChannelBadge channel={returnItem.channel} /></td>
                   <td className="p-4">
                     <div className="text-slate-200">
                       {returnItem.items.reduce((sum, i) => sum + i.quantity, 0)} item(s)
@@ -532,7 +397,7 @@ function ReturnsPageContent() {
                   </td>
                   <td className="p-4">
                     <span className="text-sm text-slate-300">
-                      {returnItem.items[0]?.reason ? reasonLabels[returnItem.items[0].reason] : '-'}
+                      {returnItem.items[0]?.reason ? returnReasonLabels[returnItem.items[0].reason] : '-'}
                     </span>
                   </td>
                   <td className="p-4 text-right">
@@ -543,7 +408,7 @@ function ReturnsPageContent() {
                       </div>
                     )}
                   </td>
-                  <td className="p-4">{getStatusBadge(returnItem.status)}</td>
+                  <td className="p-4"><ReturnStatusBadge status={returnItem.status} /></td>
                   <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-2">
                       {returnItem.status === 'requested' && (
@@ -639,7 +504,6 @@ function ReturnsPageContent() {
         )}
       </div>
 
-      {/* Create Return Modal */}
       <CreateReturnModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
