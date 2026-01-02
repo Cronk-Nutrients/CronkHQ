@@ -48,7 +48,7 @@ function LoginForm() {
           <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/20">
             <i className="fas fa-leaf text-white text-2xl"></i>
           </div>
-          <h1 className="text-2xl font-bold text-white">Cronk WMS</h1>
+          <h1 className="text-2xl font-bold text-white">Cronk HQ</h1>
           <p className="text-slate-400 text-sm mt-1">Sign in to your account</p>
         </div>
 

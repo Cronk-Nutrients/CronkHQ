@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cronk Nutrients WMS",
-  description: "Warehouse Management System for Cronk Nutrients",
+  title: "Cronk HQ",
+  description: "Operations & Fulfillment Headquarters for Cronk Nutrients",
 };
 
 export default function RootLayout({

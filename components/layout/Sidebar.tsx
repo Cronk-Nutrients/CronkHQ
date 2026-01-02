@@ -155,17 +155,17 @@ export default function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-slate-900/80 border-r border-slate-700/50 flex flex-col">
       {/* Logo */}
-      <div className="p-5 border-b border-slate-700/50">
+      <Link href="/" className="block p-5 border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center">
             <i className="fas fa-leaf text-white text-lg"></i>
           </div>
           <div>
-            <h1 className="font-bold text-white text-lg">Cronk WMS</h1>
-            <p className="text-xs text-slate-400">Inventory Management</p>
+            <h1 className="font-bold text-white text-lg">Cronk HQ</h1>
+            <p className="text-xs text-slate-400">Operations & Fulfillment</p>
           </div>
         </div>
-      </div>
+      </Link>
 
       {/* Main Navigation */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">

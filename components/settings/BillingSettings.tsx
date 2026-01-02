@@ -1,6 +1,17 @@
 'use client';
 
+import { useAuth } from '@/context/AuthContext';
+
 export function BillingSettings() {
+  const { isDemo } = useAuth();
+
+  // Demo pricing
+  const monthlyPrice = isDemo ? 499 : 79;
+  const planName = isDemo ? 'Enterprise Plan' : 'Pro Plan';
+  const planFeatures = isDemo
+    ? 'Unlimited everything, dedicated support, custom integrations, API access'
+    : 'Unlimited orders, advanced analytics, priority support';
+
   return (
     <div className="space-y-6">
       {/* Current Plan */}
@@ -8,15 +19,15 @@ export function BillingSettings() {
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <h2 className="text-xl font-bold text-white">Pro Plan</h2>
+              <h2 className="text-xl font-bold text-white">{planName}</h2>
               <span className="px-2 py-0.5 bg-emerald-500/30 text-emerald-400 text-xs rounded-full">
                 Active
               </span>
             </div>
-            <p className="text-slate-300">Unlimited orders, advanced analytics, priority support</p>
+            <p className="text-slate-300">{planFeatures}</p>
           </div>
           <div className="text-right">
-            <div className="text-3xl font-bold text-white">$79</div>
+            <div className="text-3xl font-bold text-white">${monthlyPrice}</div>
             <div className="text-slate-400">/month</div>
           </div>
         </div>
@@ -113,8 +124,8 @@ export function BillingSettings() {
             <tbody className="divide-y divide-slate-700">
               <tr className="hover:bg-slate-800/50">
                 <td className="px-4 py-3 text-white">Jan 15, 2024</td>
-                <td className="px-4 py-3 text-slate-300">Pro Plan - Monthly</td>
-                <td className="px-4 py-3 text-white">$79.00</td>
+                <td className="px-4 py-3 text-slate-300">{planName} - Monthly</td>
+                <td className="px-4 py-3 text-white">${monthlyPrice}.00</td>
                 <td className="px-4 py-3">
                   <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">
                     Paid
@@ -129,8 +140,8 @@ export function BillingSettings() {
               </tr>
               <tr className="hover:bg-slate-800/50">
                 <td className="px-4 py-3 text-white">Dec 15, 2023</td>
-                <td className="px-4 py-3 text-slate-300">Pro Plan - Monthly</td>
-                <td className="px-4 py-3 text-white">$79.00</td>
+                <td className="px-4 py-3 text-slate-300">{planName} - Monthly</td>
+                <td className="px-4 py-3 text-white">${monthlyPrice}.00</td>
                 <td className="px-4 py-3">
                   <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">
                     Paid
@@ -145,8 +156,8 @@ export function BillingSettings() {
               </tr>
               <tr className="hover:bg-slate-800/50">
                 <td className="px-4 py-3 text-white">Nov 15, 2023</td>
-                <td className="px-4 py-3 text-slate-300">Pro Plan - Monthly</td>
-                <td className="px-4 py-3 text-white">$79.00</td>
+                <td className="px-4 py-3 text-slate-300">{planName} - Monthly</td>
+                <td className="px-4 py-3 text-white">${monthlyPrice}.00</td>
                 <td className="px-4 py-3">
                   <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">
                     Paid
