@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronk WMS - Reports</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            750: '#293548',
+                            850: '#162032',
+                            950: '#0a1628'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .glass { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); }
+        .glow-emerald { box-shadow: 0 0 20px rgba(52, 211, 153, 0.15); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .table-row:hover { background: rgba(51, 65, 85, 0.3); }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100">
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- Sidebar -->
+        <aside class="w-64 bg-slate-900/80 border-r border-slate-700/50 flex flex-col">
+            <!-- Logo -->
+            <div class="p-5 border-b border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-leaf text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-white text-lg">Cronk WMS</h1>
+                        <p class="text-xs text-slate-400">Inventory Management</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 p-4 space-y-1">
+                <a href="demo-01-dashboard.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-chart-line w-5"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="demo-02-inventory.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-boxes-stacked w-5"></i>
+                    <span>Inventory</span>
+                </a>
+                <a href="demo-03-orders.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-shopping-cart w-5"></i>
+                    <span>Orders</span>
+                </a>
+                
+                <div class="pt-2 pb-1">
+                    <div class="text-xs text-slate-500 uppercase tracking-wider px-4">Fulfillment</div>
+                </div>
+                
+                <a href="demo-05-pick.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-hand-pointer w-5"></i>
+                    <span>Pick</span>
+                </a>
+                <a href="demo-06-pack.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-box w-5"></i>
+                    <span>Pack</span>
+                </a>
+                <a href="demo-07-fba-prep.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fab fa-amazon w-5"></i>
+                    <span>FBA Prep</span>
+                </a>
+                
+                <div class="pt-2 pb-1">
+                    <div class="text-xs text-slate-500 uppercase tracking-wider px-4">Operations</div>
+                </div>
+                
+                <a href="demo-11-bundles.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-layer-group w-5"></i>
+                    <span>Bundles</span>
+                </a>
+                <a href="demo-10-work-orders.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-industry w-5"></i>
+                    <span>Work Orders</span>
+                </a>
+                <a href="demo-09-purchase-orders.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-file-invoice w-5"></i>
+                    <span>Purchase Orders</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 bg-indigo-500/10 text-indigo-400 rounded-lg border border-indigo-500/20">
+                    <i class="fas fa-chart-pie w-5"></i>
+                    <span class="font-medium">Reports</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-cog w-5"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <!-- User -->
+            <div class="p-4 border-t border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">JC</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium text-white truncate">John Cronk</div>
+                        <div class="text-xs text-slate-400 truncate">Admin</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-auto">
+            <!-- Header -->
+            <header class="sticky top-0 z-10 bg-slate-900/80 backdrop-blur border-b border-slate-700/50 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">Reports</h1>
+                        <p class="text-sm text-slate-400">Business analytics and performance metrics</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <!-- Date Range Picker -->
+                        <div class="flex items-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg">
+                            <i class="fas fa-calendar text-slate-400 text-sm"></i>
+                            <select class="bg-transparent text-white text-sm focus:outline-none">
+                                <option>Last 30 Days</option>
+                                <option>This Month</option>
+                                <option>Last Month</option>
+                                <option>This Quarter</option>
+                                <option>This Year</option>
+                                <option>Custom Range</option>
+                            </select>
+                        </div>
+                        <button class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition-colors flex items-center gap-2">
+                            <i class="fas fa-download text-sm"></i>
+                            Export
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <div class="p-6 space-y-6">
+
+                <!-- Report Type Tabs -->
+                <div class="flex items-center gap-2">
+                    <button class="px-4 py-2 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-lg text-sm font-medium">
+                        <i class="fas fa-dollar-sign mr-2"></i>Profitability
+                    </button>
+                    <button class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm">
+                        <i class="fas fa-boxes-stacked mr-2"></i>Inventory
+                    </button>
+                    <button class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm">
+                        <i class="fas fa-truck mr-2"></i>Fulfillment
+                    </button>
+                    <button class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm">
+                        <i class="fas fa-shopping-cart mr-2"></i>Sales
+                    </button>
+                    <button class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm">
+                        <i class="fas fa-exchange-alt mr-2"></i>Channels
+                    </button>
+                </div>
+
+                <!-- Key Metrics -->
+                <div class="grid grid-cols-6 gap-4">
+                    <div class="glass border border-emerald-500/30 rounded-xl p-4 glow-emerald">
+                        <div class="text-sm text-slate-400 mb-1">Gross Revenue</div>
+                        <div class="text-2xl font-bold text-white">$47,892</div>
+                        <div class="text-xs text-emerald-400 mt-1">↑ 18.2% vs last period</div>
+                    </div>
+                    <div class="glass border border-slate-700/50 rounded-xl p-4">
+                        <div class="text-sm text-slate-400 mb-1">Total COGS</div>
+                        <div class="text-2xl font-bold text-white">$18,456</div>
+                        <div class="text-xs text-slate-400 mt-1">38.5% of revenue</div>
+                    </div>
+                    <div class="glass border border-emerald-500/30 rounded-xl p-4">
+                        <div class="text-sm text-slate-400 mb-1">Gross Profit</div>
+                        <div class="text-2xl font-bold text-emerald-400">$29,436</div>
+                        <div class="text-xs text-emerald-400 mt-1">↑ 22.4% vs last period</div>
+                    </div>
+                    <div class="glass border border-slate-700/50 rounded-xl p-4">
+                        <div class="text-sm text-slate-400 mb-1">Gross Margin</div>
+                        <div class="text-2xl font-bold text-white">61.5%</div>
+                        <div class="text-xs text-emerald-400 mt-1">↑ 2.1pp vs last period</div>
+                    </div>
+                    <div class="glass border border-slate-700/50 rounded-xl p-4">
+                        <div class="text-sm text-slate-400 mb-1">Orders</div>
+                        <div class="text-2xl font-bold text-white">1,247</div>
+                        <div class="text-xs text-emerald-400 mt-1">↑ 15.3% vs last period</div>
+                    </div>
+                    <div class="glass border border-slate-700/50 rounded-xl p-4">
+                        <div class="text-sm text-slate-400 mb-1">Avg Order Value</div>
+                        <div class="text-2xl font-bold text-white">$38.40</div>
+                        <div class="text-xs text-emerald-400 mt-1">↑ $2.52 vs last period</div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="grid grid-cols-2 gap-6">
+                    <!-- Profit Trend Chart -->
+                    <div class="glass border border-slate-700/50 rounded-xl p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-semibold text-white">Profit Trend</h3>
+                            <div class="flex items-center gap-4 text-xs">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-emerald-400"></div>
+                                    <span class="text-slate-400">Gross Profit</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-blue-400"></div>
+                                    <span class="text-slate-400">Revenue</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Simple SVG Chart -->
+                        <div class="h-48 relative">
+                            <svg class="w-full h-full">
+                                <!-- Grid lines -->
+                                <line x1="0" y1="25%" x2="100%" y2="25%" stroke="#334155" stroke-width="1" stroke-dasharray="4"/>
+                                <line x1="0" y1="50%" x2="100%" y2="50%" stroke="#334155" stroke-width="1" stroke-dasharray="4"/>
+                                <line x1="0" y1="75%" x2="100%" y2="75%" stroke="#334155" stroke-width="1" stroke-dasharray="4"/>
+                                
+                                <!-- Revenue line (blue) -->
+                                <polyline 
+                                    points="0,140 50,130 100,125 150,115 200,100 250,95 300,85 350,80 400,70 450,60 500,55 550,50"
+                                    fill="none" 
+                                    stroke="#60a5fa" 
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"/>
+                                
+                                <!-- Profit line (green) -->
+                                <polyline 
+                                    points="0,150 50,145 100,140 150,130 200,120 250,115 300,105 350,100 400,90 450,85 500,80 550,75"
+                                    fill="none" 
+                                    stroke="#34d399" 
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"/>
+                            </svg>
+                            <!-- X-axis labels -->
+                            <div class="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-slate-500 px-2">
+                                <span>Nov 16</span>
+                                <span>Nov 23</span>
+                                <span>Nov 30</span>
+                                <span>Dec 7</span>
+                                <span>Dec 14</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Channel Mix -->
+                    <div class="glass border border-slate-700/50 rounded-xl p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-semibold text-white">Channel Performance</h3>
+                        </div>
+                        <div class="space-y-4">
+                            <!-- Shopify -->
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="flex items-center gap-2">
+                                        <i class="fab fa-shopify text-green-400"></i>
+                                        <span class="text-white">Shopify</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-white font-medium">$28,735</span>
+                                        <span class="text-slate-400 text-sm ml-2">60%</span>
+                                    </div>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-green-500 rounded-full" style="width: 60%"></div>
+                                </div>
+                                <div class="flex justify-between mt-1 text-xs">
+                                    <span class="text-slate-500">752 orders</span>
+                                    <span class="text-emerald-400">64.2% margin</span>
+                                </div>
+                            </div>
+
+                            <!-- Amazon FBA -->
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="flex items-center gap-2">
+                                        <i class="fab fa-amazon text-orange-400"></i>
+                                        <span class="text-white">Amazon FBA</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-white font-medium">$14,368</span>
+                                        <span class="text-slate-400 text-sm ml-2">30%</span>
+                                    </div>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-orange-500 rounded-full" style="width: 30%"></div>
+                                </div>
+                                <div class="flex justify-between mt-1 text-xs">
+                                    <span class="text-slate-500">412 orders</span>
+                                    <span class="text-emerald-400">56.8% margin</span>
+                                </div>
+                            </div>
+
+                            <!-- Amazon FBM -->
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="flex items-center gap-2">
+                                        <i class="fab fa-amazon text-yellow-400"></i>
+                                        <span class="text-white">Amazon FBM</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-white font-medium">$2,873</span>
+                                        <span class="text-slate-400 text-sm ml-2">6%</span>
+                                    </div>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-yellow-500 rounded-full" style="width: 6%"></div>
+                                </div>
+                                <div class="flex justify-between mt-1 text-xs">
+                                    <span class="text-slate-500">58 orders</span>
+                                    <span class="text-emerald-400">62.1% margin</span>
+                                </div>
+                            </div>
+
+                            <!-- Wholesale -->
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="flex items-center gap-2">
+                                        <i class="fas fa-store text-blue-400"></i>
+                                        <span class="text-white">Wholesale</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-white font-medium">$1,916</span>
+                                        <span class="text-slate-400 text-sm ml-2">4%</span>
+                                    </div>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-blue-500 rounded-full" style="width: 4%"></div>
+                                </div>
+                                <div class="flex justify-between mt-1 text-xs">
+                                    <span class="text-slate-500">25 orders</span>
+                                    <span class="text-amber-400">48.5% margin</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Profitability Table -->
+                <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                        <div>
+                            <h2 class="font-semibold text-white">Product Profitability</h2>
+                            <p class="text-xs text-slate-400">Performance by SKU (Top 10)</p>
+                        </div>
+                        <button class="text-sm text-indigo-400 hover:text-indigo-300">View All →</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-slate-800/50 border-b border-slate-700/50">
+                                <tr class="text-left text-xs text-slate-400 uppercase tracking-wider">
+                                    <th class="px-4 py-3 font-medium">Product</th>
+                                    <th class="px-4 py-3 font-medium text-right">Units Sold</th>
+                                    <th class="px-4 py-3 font-medium text-right">Revenue</th>
+                                    <th class="px-4 py-3 font-medium text-right">COGS</th>
+                                    <th class="px-4 py-3 font-medium text-right">Gross Profit</th>
+                                    <th class="px-4 py-3 font-medium text-right">Margin</th>
+                                    <th class="px-4 py-3 font-medium text-right">Velocity</th>
+                                    <th class="px-4 py-3 font-medium">Trend</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700/50">
+                                <tr class="table-row transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 bg-emerald-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-flask text-emerald-400 text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm font-medium text-white">1L Micro Classic</div>
+                                                <div class="text-xs text-slate-400">CLM1L</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">287</td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">$6,599</td>
+                                    <td class="px-4 py-3 text-right text-sm text-slate-400">$1,891</td>
+                                    <td class="px-4 py-3 text-right text-sm text-emerald-400 font-medium">$4,708</td>
+                                    <td class="px-4 py-3 text-right">
+                                        <span class="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded-full">71.3%</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">9.6/day</td>
+                                    <td class="px-4 py-3">
+                                        <span class="text-emerald-400"><i class="fas fa-arrow-up text-xs mr-1"></i>12%</span>
+                                    </td>
+                                </tr>
+                                <tr class="table-row transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 bg-purple-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-seedling text-purple-400 text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm font-medium text-white">Bud Booster 1L</div>
+                                                <div class="text-xs text-slate-400">BB1L</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">234</td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">$5,382</td>
+                                    <td class="px-4 py-3 text-right text-sm text-slate-400">$1,544</td>
+                                    <td class="px-4 py-3 text-right text-sm text-emerald-400 font-medium">$3,838</td>
+                                    <td class="px-4 py-3 text-right">
+                                        <span class="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded-full">71.3%</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">7.8/day</td>
+                                    <td class="px-4 py-3">
+                                        <span class="text-emerald-400"><i class="fas fa-arrow-up text-xs mr-1"></i>8%</span>
+                                    </td>
+                                </tr>
+                                <tr class="table-row transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 bg-amber-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-layer-group text-amber-400 text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm font-medium text-white">Starter Kit</div>
+                                                <div class="text-xs text-slate-400">STRKIT-01 • Bundle</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">156</td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">$9,358</td>
+                                    <td class="px-4 py-3 text-right text-sm text-slate-400">$3,276</td>
+                                    <td class="px-4 py-3 text-right text-sm text-emerald-400 font-medium">$6,082</td>
+                                    <td class="px-4 py-3 text-right">
+                                        <span class="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded-full">65.0%</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">5.2/day</td>
+                                    <td class="px-4 py-3">
+                                        <span class="text-emerald-400"><i class="fas fa-arrow-up text-xs mr-1"></i>24%</span>
+                                    </td>
+                                </tr>
+                                <tr class="table-row transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 bg-cyan-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-flask text-cyan-400 text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm font-medium text-white">Cal-Mag Plus 1L</div>
+                                                <div class="text-xs text-slate-400">CMP1L</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">189</td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">$3,591</td>
+                                    <td class="px-4 py-3 text-right text-sm text-slate-400">$1,247</td>
+                                    <td class="px-4 py-3 text-right text-sm text-emerald-400 font-medium">$2,344</td>
+                                    <td class="px-4 py-3 text-right">
+                                        <span class="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded-full">65.3%</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">6.3/day</td>
+                                    <td class="px-4 py-3">
+                                        <span class="text-slate-400"><i class="fas fa-minus text-xs mr-1"></i>0%</span>
+                                    </td>
+                                </tr>
+                                <tr class="table-row transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 bg-red-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-arrow-down text-red-400 text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm font-medium text-white">pH Down 500ml</div>
+                                                <div class="text-xs text-slate-400">PHD500</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">312</td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">$4,056</td>
+                                    <td class="px-4 py-3 text-right text-sm text-slate-400">$1,560</td>
+                                    <td class="px-4 py-3 text-right text-sm text-emerald-400 font-medium">$2,496</td>
+                                    <td class="px-4 py-3 text-right">
+                                        <span class="px-2 py-1 bg-amber-500/10 text-amber-400 text-xs rounded-full">61.5%</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">10.4/day</td>
+                                    <td class="px-4 py-3">
+                                        <span class="text-red-400"><i class="fas fa-arrow-down text-xs mr-1"></i>5%</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Bottom Row -->
+                <div class="grid grid-cols-3 gap-6">
+                    <!-- Shipping Cost Breakdown -->
+                    <div class="glass border border-slate-700/50 rounded-xl p-5">
+                        <h3 class="font-semibold text-white mb-4">Shipping Economics</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-400">Customer Paid</span>
+                                <span class="text-white font-medium">$8,942</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-400">Actual Cost</span>
+                                <span class="text-white font-medium">$6,234</span>
+                            </div>
+                            <div class="border-t border-slate-700 pt-3">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-emerald-400 font-medium">Shipping Profit</span>
+                                    <span class="text-emerald-400 font-bold text-lg">$2,708</span>
+                                </div>
+                                <div class="text-xs text-slate-500 mt-1">30.3% profit on shipping</div>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-slate-700">
+                            <div class="text-xs text-slate-400 mb-2">By Carrier</div>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-slate-300">USPS</span>
+                                    <span class="text-white">$3,456 (55%)</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-300">UPS</span>
+                                    <span class="text-white">$1,872 (30%)</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-300">FedEx</span>
+                                    <span class="text-white">$906 (15%)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- COGS Breakdown -->
+                    <div class="glass border border-slate-700/50 rounded-xl p-5">
+                        <h3 class="font-semibold text-white mb-4">COGS Breakdown</h3>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span class="text-slate-400">Product Cost</span>
+                                    <span class="text-white">$15,234 (82.5%)</span>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-blue-500 rounded-full" style="width: 82.5%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span class="text-slate-400">Packaging</span>
+                                    <span class="text-white">$1,845 (10.0%)</span>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-purple-500 rounded-full" style="width: 10%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span class="text-slate-400">Labels</span>
+                                    <span class="text-white">$738 (4.0%)</span>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-amber-500 rounded-full" style="width: 4%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span class="text-slate-400">FBA Prep</span>
+                                    <span class="text-white">$639 (3.5%)</span>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-orange-500 rounded-full" style="width: 3.5%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-slate-700 flex justify-between items-center">
+                            <span class="text-white font-medium">Total COGS</span>
+                            <span class="text-white font-bold text-lg">$18,456</span>
+                        </div>
+                    </div>
+
+                    <!-- Inventory Turnover -->
+                    <div class="glass border border-slate-700/50 rounded-xl p-5">
+                        <h3 class="font-semibold text-white mb-4">Inventory Health</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-400">Turnover Rate</span>
+                                <span class="text-white font-medium">4.2×/mo</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-400">Days of Stock</span>
+                                <span class="text-white font-medium">32 days</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-400">Inventory Value</span>
+                                <span class="text-white font-medium">$22,348</span>
+                            </div>
+                            <div class="border-t border-slate-700 pt-3">
+                                <div class="text-xs text-slate-400 mb-2">Stock Status</div>
+                                <div class="grid grid-cols-3 gap-2 text-center">
+                                    <div class="p-2 bg-emerald-500/10 rounded-lg">
+                                        <div class="text-lg font-bold text-emerald-400">35</div>
+                                        <div class="text-xs text-slate-500">Healthy</div>
+                                    </div>
+                                    <div class="p-2 bg-amber-500/10 rounded-lg">
+                                        <div class="text-lg font-bold text-amber-400">8</div>
+                                        <div class="text-xs text-slate-500">Low</div>
+                                    </div>
+                                    <div class="p-2 bg-red-500/10 rounded-lg">
+                                        <div class="text-lg font-bold text-red-400">4</div>
+                                        <div class="text-xs text-slate-500">Out</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+</body>
+</html>

@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronk WMS - Pick & Pack</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            750: '#293548',
+                            850: '#162032',
+                            950: '#0a1628'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .glass { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); }
+        .glow { box-shadow: 0 0 20px rgba(52, 211, 153, 0.1); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .table-row:hover { background: rgba(51, 65, 85, 0.3); }
+        .scan-input:focus { box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.3); }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100">
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- Sidebar -->
+        <aside class="w-64 bg-slate-900/80 border-r border-slate-700/50 flex flex-col">
+            <!-- Logo -->
+            <div class="p-5 border-b border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-leaf text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-white text-lg">Cronk WMS</h1>
+                        <p class="text-xs text-slate-400">Inventory Management</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 p-4 space-y-1">
+                <a href="demo-01-dashboard.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-chart-line w-5"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="demo-02-inventory.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-boxes-stacked w-5"></i>
+                    <span>Inventory</span>
+                </a>
+                <a href="demo-03-orders.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-shopping-cart w-5"></i>
+                    <span>Orders</span>
+                    <span class="ml-auto bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full">16</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20">
+                    <i class="fas fa-dolly w-5"></i>
+                    <span class="font-medium">Pick & Pack</span>
+                    <span class="ml-auto bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full">11</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-layer-group w-5"></i>
+                    <span>Bundles</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-industry w-5"></i>
+                    <span>Work Orders</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-file-invoice w-5"></i>
+                    <span>Purchase Orders</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-chart-pie w-5"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-cog w-5"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <!-- Sync Status -->
+            <div class="p-4 border-t border-slate-700/50">
+                <div class="text-xs text-slate-500 mb-2">Channel Sync Status</div>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                            <span class="text-slate-300">Veeqo</span>
+                        </div>
+                        <span class="text-slate-500 text-xs">2m ago</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User -->
+            <div class="p-4 border-t border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">JC</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium text-white truncate">John Cronk</div>
+                        <div class="text-xs text-slate-400 truncate">Admin</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-auto">
+            <!-- Header with Tabs -->
+            <header class="sticky top-0 z-10 bg-slate-900/80 backdrop-blur border-b border-slate-700/50">
+                <div class="px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h1 class="text-2xl font-bold text-white">Pick & Pack</h1>
+                            <p class="text-sm text-slate-400">Manage picking batches and pack orders for shipping</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition-colors flex items-center gap-2">
+                                <i class="fas fa-print text-sm"></i>
+                                Print Pick Lists
+                            </button>
+                            <button onclick="showCreateBatchModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors flex items-center gap-2">
+                                <i class="fas fa-plus text-sm"></i>
+                                Create Batch
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Sub-tabs -->
+                <div class="px-6 flex gap-1">
+                    <button onclick="switchTab('pick')" id="tab-pick" class="px-5 py-3 text-sm font-medium border-b-2 border-emerald-500 text-emerald-400 bg-emerald-500/5">
+                        <i class="fas fa-hand-pointer mr-2"></i>
+                        Pick Queue
+                        <span class="ml-2 px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded-full">8</span>
+                    </button>
+                    <button onclick="switchTab('pack')" id="tab-pack" class="px-5 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-slate-800/50">
+                        <i class="fas fa-box mr-2"></i>
+                        Pack Station
+                        <span class="ml-2 px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full">3</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- PICK TAB CONTENT -->
+            <div id="pickContent" class="p-6 space-y-6">
+                
+                <!-- Pick Stats Row -->
+                <div class="grid grid-cols-5 gap-4">
+                    <div class="glass border border-slate-700/50 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
+                                <i class="fas fa-clock text-slate-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-white">8</div>
+                                <div class="text-xs text-slate-400">Awaiting Pick</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-amber-500/30 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                <i class="fas fa-spinner text-amber-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-amber-400">2</div>
+                                <div class="text-xs text-slate-400">In Progress</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-blue-500/30 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                <i class="fas fa-check text-blue-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-blue-400">3</div>
+                                <div class="text-xs text-slate-400">Picked (To Pack)</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-slate-700/50 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
+                                <i class="fas fa-boxes-stacked text-slate-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-white">3</div>
+                                <div class="text-xs text-slate-400">Active Batches</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-emerald-500/30 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                <i class="fas fa-truck text-emerald-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-emerald-400">47</div>
+                                <div class="text-xs text-slate-400">Shipped Today</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scan to Start Pick Section -->
+                <div class="glass border border-emerald-500/30 rounded-xl p-6 glow">
+                    <div class="flex items-center gap-6">
+                        <div class="w-16 h-16 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                            <i class="fas fa-barcode text-emerald-400 text-2xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-white mb-1">Scan Tote to Start Picking</h3>
+                            <p class="text-sm text-slate-400">Scan a tote barcode to assign it to the next available order in queue</p>
+                        </div>
+                        <div class="flex-1 max-w-md">
+                            <div class="relative">
+                                <i class="fas fa-barcode absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                <input type="text" id="toteScanInput" placeholder="Scan tote barcode..." 
+                                    class="scan-input w-full bg-slate-800 border-2 border-emerald-500/50 rounded-xl pl-12 pr-4 py-4 text-white text-lg placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                                    onkeypress="handleToteScan(event)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Batches -->
+                <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                        <div>
+                            <h2 class="font-semibold text-white">Active Pick Batches</h2>
+                            <p class="text-xs text-slate-400">Batches currently being processed</p>
+                        </div>
+                    </div>
+                    <div class="p-5 grid grid-cols-3 gap-4">
+                        <!-- Batch 1 - In Progress -->
+                        <div class="bg-slate-800/50 border border-amber-500/30 rounded-xl p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="font-mono text-sm font-medium text-white">BATCH-001</span>
+                                <span class="px-2 py-1 bg-amber-500/10 text-amber-400 text-xs rounded-full">In Progress</span>
+                            </div>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Orders</span>
+                                    <span class="text-white">5 orders</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Items</span>
+                                    <span class="text-white">12 items</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Picker</span>
+                                    <span class="text-white">John C.</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Progress</span>
+                                    <span class="text-amber-400">8/12 items</span>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-amber-500 rounded-full" style="width: 66%"></div>
+                                </div>
+                            </div>
+                            <button class="mt-3 w-full px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded-lg text-sm transition-colors">
+                                Continue Picking
+                            </button>
+                        </div>
+
+                        <!-- Batch 2 - Ready -->
+                        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="font-mono text-sm font-medium text-white">BATCH-002</span>
+                                <span class="px-2 py-1 bg-slate-700 text-slate-300 text-xs rounded-full">Ready</span>
+                            </div>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Orders</span>
+                                    <span class="text-white">3 orders</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Items</span>
+                                    <span class="text-white">7 items</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Picker</span>
+                                    <span class="text-slate-500">Unassigned</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Priority</span>
+                                    <span class="text-amber-400">High</span>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-slate-600 rounded-full" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <button onclick="showPickModal()" class="mt-3 w-full px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm transition-colors">
+                                Start Batch
+                            </button>
+                        </div>
+
+                        <!-- Batch 3 - Complete -->
+                        <div class="bg-slate-800/50 border border-blue-500/30 rounded-xl p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="font-mono text-sm font-medium text-white">BATCH-003</span>
+                                <span class="px-2 py-1 bg-blue-500/10 text-blue-400 text-xs rounded-full">Picked</span>
+                            </div>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Orders</span>
+                                    <span class="text-white">4 orders</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Items</span>
+                                    <span class="text-white">9 items</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Picker</span>
+                                    <span class="text-white">Sarah M.</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Completed</span>
+                                    <span class="text-emerald-400">10:45 AM</span>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-blue-500 rounded-full" style="width: 100%"></div>
+                                </div>
+                            </div>
+                            <button onclick="switchTab('pack')" class="mt-3 w-full px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-sm transition-colors">
+                                Move to Pack
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Orders Awaiting Pick -->
+                <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                        <div>
+                            <h2 class="font-semibold text-white">Orders Awaiting Pick</h2>
+                            <p class="text-xs text-slate-400">Orders ready to be added to a batch</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <select class="bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-300">
+                                <option>Sort by: Priority</option>
+                                <option>Sort by: Order Date</option>
+                                <option>Sort by: Ship By</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-slate-800/50 border-b border-slate-700/50">
+                                <tr class="text-left text-xs text-slate-400 uppercase tracking-wider">
+                                    <th class="px-4 py-3 font-medium">
+                                        <input type="checkbox" class="rounded bg-slate-700 border-slate-600">
+                                    </th>
+                                    <th class="px-4 py-3 font-medium">Order</th>
+                                    <th class="px-4 py-3 font-medium">Customer</th>
+                                    <th class="px-4 py-3 font-medium">Channel</th>
+                                    <th class="px-4 py-3 font-medium">Items</th>
+                                    <th class="px-4 py-3 font-medium">Ship By</th>
+                                    <th class="px-4 py-3 font-medium">Priority</th>
+                                    <th class="px-4 py-3 font-medium">Status</th>
+                                    <th class="px-4 py-3 font-medium">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700/50">
+                                <tr class="table-row transition-colors">
+                                    <td class="px-4 py-3"><input type="checkbox" class="rounded bg-slate-700 border-slate-600"></td>
+                                    <td class="px-4 py-3 font-mono text-sm text-white">#SH-4521</td>
+                                    <td class="px-4 py-3">
+                                        <div class="text-sm text-white">Sarah Johnson</div>
+                                        <div class="text-xs text-slate-500">Houston, TX</div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="px-2 py-1 bg-green-500/10 text-green-400 text-xs rounded-full"><i class="fab fa-shopify mr-1"></i>Shopify</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-white">3 items</td>
+                                    <td class="px-4 py-3">
+                                        <div class="text-sm text-white">Dec 17</div>
+                                        <div class="text-xs text-slate-500">Tomorrow</div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="px-2 py-1 bg-red-500/10 text-red-400 text-xs rounded-full">Urgent</span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="px-2 py-1 bg-slate-700 text-slate-300 text-xs rounded-full">Awaiting Pick</span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <button class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-lg">Add to Batch</button>
+                                    </td>
+                                </tr>
+                                <tr class="table-row transition-colors">
+                                    <td class="px-4 py-3"><input type="checkbox" class="rounded bg-slate-700 border-slate-600"></td>
+                                    <td class="px-4 py-3 font-mono text-sm text-white">#AZ-8834</td>
+                                    <td class="px-4 py-3">
+                                        <div class="text-sm text-white">Mike Chen</div>
+                                        <div class="text-xs text-slate-500">Los Angeles, CA</div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="px-2 py-1 bg-orange-500/10 text-orange-400 text-xs rounded-full"><i class="fab fa-amazon mr-1"></i>Amazon</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-white">1 item</td>
+                                    <td class="px-4 py-3">
+                                        <div class="text-sm text-white">Dec 18</div>
+                                        <div class="text-xs text-slate-500">2 days</div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="px-2 py-1 bg-amber-500/10 text-amber-400 text-xs rounded-full">High</span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="px-2 py-1 bg-slate-700 text-slate-300 text-xs rounded-full">Awaiting Pick</span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <button class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-lg">Add to Batch</button>
+                                    </td>
+                                </tr>
+                                <tr class="table-row transition-colors">
+                                    <td class="px-4 py-3"><input type="checkbox" class="rounded bg-slate-700 border-slate-600"></td>
+                                    <td class="px-4 py-3 font-mono text-sm text-white">#SH-4522</td>
+                                    <td class="px-4 py-3">
+                                        <div class="text-sm text-white">Jennifer Adams</div>
+                                        <div class="text-xs text-slate-500">Phoenix, AZ</div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="px-2 py-1 bg-green-500/10 text-green-400 text-xs rounded-full"><i class="fab fa-shopify mr-1"></i>Shopify</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-white">1 item <span class="text-amber-400 text-xs">(Bundle)</span></td>
+                                    <td class="px-4 py-3">
+                                        <div class="text-sm text-white">Dec 19</div>
+                                        <div class="text-xs text-slate-500">3 days</div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="px-2 py-1 bg-slate-700 text-slate-300 text-xs rounded-full">Normal</span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="px-2 py-1 bg-slate-700 text-slate-300 text-xs rounded-full">Awaiting Pick</span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <button class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-lg">Add to Batch</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="px-5 py-3 border-t border-slate-700/50 flex items-center justify-between">
+                        <span class="text-sm text-slate-400">3 of 8 orders shown</span>
+                        <button class="text-sm text-emerald-400 hover:text-emerald-300">View All Orders →</button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- PACK TAB CONTENT -->
+            <div id="packContent" class="p-6 space-y-6 hidden">
+                
+                <!-- Pack Stats Row -->
+                <div class="grid grid-cols-4 gap-4">
+                    <div class="glass border border-blue-500/30 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                <i class="fas fa-box text-blue-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-blue-400">3</div>
+                                <div class="text-xs text-slate-400">Ready to Pack</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-purple-500/30 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                <i class="fas fa-tag text-purple-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-purple-400">5</div>
+                                <div class="text-xs text-slate-400">Labels Printed</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-emerald-500/30 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                <i class="fas fa-truck text-emerald-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-emerald-400">47</div>
+                                <div class="text-xs text-slate-400">Shipped Today</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-slate-700/50 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
+                                <i class="fas fa-dollar-sign text-slate-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-white">$342.50</div>
+                                <div class="text-xs text-slate-400">Shipping Cost Today</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scan Tote to Pack Section -->
+                <div class="glass border border-blue-500/30 rounded-xl p-6">
+                    <div class="flex items-center gap-6">
+                        <div class="w-16 h-16 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                            <i class="fas fa-qrcode text-blue-400 text-2xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-white mb-1">Scan Tote to Start Packing</h3>
+                            <p class="text-sm text-slate-400">Scan the tote barcode to load order details and select shipping</p>
+                        </div>
+                        <div class="flex-1 max-w-md">
+                            <div class="relative">
+                                <i class="fas fa-qrcode absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                <input type="text" id="packToteScanInput" placeholder="Scan tote barcode..." 
+                                    class="scan-input w-full bg-slate-800 border-2 border-blue-500/50 rounded-xl pl-12 pr-4 py-4 text-white text-lg placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                                    onkeypress="handlePackToteScan(event)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pack Station - Active Order -->
+                <div class="grid grid-cols-3 gap-6">
+                    <!-- Order Details -->
+                    <div class="col-span-2 space-y-4">
+                        <div class="glass border border-blue-500/30 rounded-xl overflow-hidden">
+                            <div class="px-5 py-4 border-b border-slate-700/50 bg-blue-500/5 flex items-center justify-between">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                                        <i class="fas fa-box-open text-blue-400 text-xl"></i>
+                                    </div>
+                                    <div>
+                                        <h2 class="font-semibold text-white">Order #SH-4520</h2>
+                                        <p class="text-xs text-slate-400">Tote: TOTE-042 • Emily Rodriguez • Miami, FL</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-3 py-1 bg-green-500/10 text-green-400 text-sm rounded-full"><i class="fab fa-shopify mr-1"></i>Shopify</span>
+                                    <span class="px-3 py-1 bg-blue-500/10 text-blue-400 text-sm rounded-full">Ready to Pack</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Items to Pack -->
+                            <div class="p-5">
+                                <h3 class="text-sm font-medium text-slate-400 mb-3">ITEMS TO VERIFY (5)</h3>
+                                <div class="space-y-3">
+                                    <div class="flex items-center gap-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                                        <div class="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-flask text-emerald-400"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="font-medium text-white">1L Micro Classic</div>
+                                            <div class="text-xs text-slate-400">SKU: CLM1L</div>
+                                        </div>
+                                        <div class="text-center">
+                                            <div class="text-lg font-bold text-white">× 2</div>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <button class="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                                        <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-seedling text-purple-400"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="font-medium text-white">Bud Booster 1L</div>
+                                            <div class="text-xs text-slate-400">SKU: BB1L</div>
+                                        </div>
+                                        <div class="text-center">
+                                            <div class="text-lg font-bold text-white">× 2</div>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <button class="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                                        <div class="w-10 h-10 bg-cyan-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-flask text-cyan-400"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="font-medium text-white">Cal-Mag Plus 1L</div>
+                                            <div class="text-xs text-slate-400">SKU: CMP1L</div>
+                                        </div>
+                                        <div class="text-center">
+                                            <div class="text-lg font-bold text-white">× 1</div>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <button class="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Fulfillment Rules Applied -->
+                            <div class="px-5 pb-5">
+                                <h3 class="text-sm font-medium text-slate-400 mb-3">FULFILLMENT RULES</h3>
+                                <div class="flex flex-wrap gap-2">
+                                    <span class="px-3 py-1.5 bg-amber-500/10 text-amber-400 text-sm rounded-lg flex items-center gap-2">
+                                        <i class="fas fa-box"></i>
+                                        Large Box
+                                    </span>
+                                    <span class="px-3 py-1.5 bg-blue-500/10 text-blue-400 text-sm rounded-lg flex items-center gap-2">
+                                        <i class="fas fa-grip-lines"></i>
+                                        5 Gripper Stickers
+                                    </span>
+                                    <span class="px-3 py-1.5 bg-slate-700 text-slate-300 text-sm rounded-lg flex items-center gap-2">
+                                        <i class="fas fa-weight-hanging"></i>
+                                        Est. 6.2 lbs
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Shipping Address -->
+                        <div class="glass border border-slate-700/50 rounded-xl p-5">
+                            <h3 class="text-sm font-medium text-slate-400 mb-3">SHIP TO</h3>
+                            <div class="text-white">
+                                <div class="font-medium">Emily Rodriguez</div>
+                                <div class="text-slate-300">456 Ocean Drive, Apt 12</div>
+                                <div class="text-slate-300">Miami, FL 33139</div>
+                                <div class="text-slate-300">United States</div>
+                                <div class="text-slate-400 text-sm mt-2">+1 (305) 555-0123</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Shipping Selection -->
+                    <div class="space-y-4">
+                        <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                            <div class="px-5 py-4 border-b border-slate-700/50">
+                                <h3 class="font-semibold text-white">Select Shipping</h3>
+                                <p class="text-xs text-slate-400">Choose carrier and service</p>
+                            </div>
+                            <div class="p-4 space-y-3">
+                                <!-- USPS Priority -->
+                                <label class="flex items-center gap-3 p-3 bg-emerald-500/10 border-2 border-emerald-500/50 rounded-xl cursor-pointer">
+                                    <input type="radio" name="shipping" checked class="text-emerald-500">
+                                    <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                                        <span class="text-white text-xs font-bold">USPS</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="text-sm font-medium text-white">Priority Mail</div>
+                                        <div class="text-xs text-slate-400">2-3 business days</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-lg font-bold text-white">$8.45</div>
+                                    </div>
+                                </label>
+
+                                <!-- USPS Ground -->
+                                <label class="flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700/50 rounded-xl cursor-pointer hover:border-slate-600">
+                                    <input type="radio" name="shipping" class="text-emerald-500">
+                                    <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                                        <span class="text-white text-xs font-bold">USPS</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="text-sm font-medium text-white">Ground Advantage</div>
+                                        <div class="text-xs text-slate-400">3-5 business days</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-lg font-bold text-white">$6.20</div>
+                                    </div>
+                                </label>
+
+                                <!-- UPS Ground -->
+                                <label class="flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700/50 rounded-xl cursor-pointer hover:border-slate-600">
+                                    <input type="radio" name="shipping" class="text-emerald-500">
+                                    <div class="w-10 h-10 bg-amber-600 rounded-lg flex items-center justify-center">
+                                        <span class="text-white text-xs font-bold">UPS</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="text-sm font-medium text-white">UPS Ground</div>
+                                        <div class="text-xs text-slate-400">3-5 business days</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-lg font-bold text-white">$9.85</div>
+                                    </div>
+                                </label>
+
+                                <!-- FedEx Ground -->
+                                <label class="flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700/50 rounded-xl cursor-pointer hover:border-slate-600">
+                                    <input type="radio" name="shipping" class="text-emerald-500">
+                                    <div class="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
+                                        <span class="text-white text-xs font-bold">FDX</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="text-sm font-medium text-white">FedEx Ground</div>
+                                        <div class="text-xs text-slate-400">3-5 business days</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-lg font-bold text-white">$10.25</div>
+                                    </div>
+                                </label>
+
+                                <!-- FedEx 2Day -->
+                                <label class="flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700/50 rounded-xl cursor-pointer hover:border-slate-600">
+                                    <input type="radio" name="shipping" class="text-emerald-500">
+                                    <div class="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
+                                        <span class="text-white text-xs font-bold">FDX</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="text-sm font-medium text-white">FedEx 2Day</div>
+                                        <div class="text-xs text-slate-400">2 business days</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-lg font-bold text-white">$18.90</div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Order Summary -->
+                        <div class="glass border border-slate-700/50 rounded-xl p-5">
+                            <h3 class="text-sm font-medium text-slate-400 mb-3">ORDER SUMMARY</h3>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Subtotal</span>
+                                    <span class="text-white">$149.95</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Customer Paid Shipping</span>
+                                    <span class="text-white">$12.99</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">Actual Shipping Cost</span>
+                                    <span class="text-amber-400">-$8.45</span>
+                                </div>
+                                <div class="border-t border-slate-700 pt-2 mt-2">
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-400">COGS</span>
+                                        <span class="text-white">$60.72</span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between font-medium text-lg pt-2">
+                                    <span class="text-white">Net Profit</span>
+                                    <span class="text-emerald-400">$93.77</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Buy Label Button -->
+                        <button onclick="showLabelModal()" class="w-full px-6 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-colors flex items-center justify-center gap-3 font-semibold text-lg">
+                            <i class="fas fa-tag"></i>
+                            Buy Label & Ship - $8.45
+                        </button>
+
+                        <div class="flex gap-2">
+                            <button class="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm">
+                                <i class="fas fa-pause mr-2"></i>Hold Order
+                            </button>
+                            <button class="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm">
+                                <i class="fas fa-undo mr-2"></i>Back to Pick
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Orders Ready to Pack Queue -->
+                <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-700/50">
+                        <h2 class="font-semibold text-white">Orders Ready to Pack</h2>
+                        <p class="text-xs text-slate-400">Picked orders waiting at pack station</p>
+                    </div>
+                    <div class="p-4 grid grid-cols-4 gap-3">
+                        <!-- Tote cards -->
+                        <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 cursor-pointer hover:bg-blue-500/20 transition-colors">
+                            <div class="flex items-center gap-2 mb-2">
+                                <i class="fas fa-box text-blue-400"></i>
+                                <span class="font-mono text-sm text-white">TOTE-042</span>
+                            </div>
+                            <div class="text-xs text-slate-400">#SH-4520 • 5 items</div>
+                            <div class="text-xs text-slate-500 mt-1">Emily Rodriguez</div>
+                        </div>
+                        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 cursor-pointer hover:bg-slate-700/50 transition-colors">
+                            <div class="flex items-center gap-2 mb-2">
+                                <i class="fas fa-box text-slate-400"></i>
+                                <span class="font-mono text-sm text-white">TOTE-038</span>
+                            </div>
+                            <div class="text-xs text-slate-400">#SH-4519 • 2 items</div>
+                            <div class="text-xs text-slate-500 mt-1">David Park</div>
+                        </div>
+                        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 cursor-pointer hover:bg-slate-700/50 transition-colors">
+                            <div class="flex items-center gap-2 mb-2">
+                                <i class="fas fa-box text-slate-400"></i>
+                                <span class="font-mono text-sm text-white">TOTE-041</span>
+                            </div>
+                            <div class="text-xs text-slate-400">#AZ-8833 • 4 items</div>
+                            <div class="text-xs text-slate-500 mt-1">Lisa Thompson</div>
+                        </div>
+                        <div class="border-2 border-dashed border-slate-700 rounded-xl p-4 flex items-center justify-center text-slate-500">
+                            <span class="text-sm">Scan tote to add</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Pick Modal -->
+    <div id="pickModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="hidePickModal()"></div>
+        <div class="relative bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-auto m-4">
+            <div class="p-6 border-b border-slate-700 flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Pick Items - BATCH-002</h2>
+                    <p class="text-sm text-slate-400">3 orders • 7 items total</p>
+                </div>
+                <button onclick="hidePickModal()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <!-- Current Pick Item -->
+                <div class="bg-emerald-500/10 border-2 border-emerald-500/50 rounded-xl p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-emerald-400 font-medium">NOW PICKING (1 of 7)</span>
+                        <span class="px-3 py-1 bg-blue-500/20 text-blue-400 text-sm rounded-full">Tote: TOTE-042</span>
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <div class="w-20 h-20 bg-emerald-500/20 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-flask text-emerald-400 text-3xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-2xl font-bold text-white">1L Micro Classic</div>
+                            <div class="text-slate-400">SKU: CLM1L</div>
+                            <div class="mt-2 flex items-center gap-4">
+                                <span class="px-3 py-1.5 bg-amber-500/20 text-amber-400 rounded-lg text-sm">
+                                    <i class="fas fa-location-dot mr-1"></i>
+                                    Bin: A1-03
+                                </span>
+                                <span class="text-slate-400">For Order #SH-4520</span>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-5xl font-bold text-white">2</div>
+                            <div class="text-slate-400">units</div>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex gap-3">
+                        <input type="text" placeholder="Scan item barcode to confirm..." class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+                        <button class="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium">
+                            <i class="fas fa-check mr-2"></i>Confirm Pick
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Next Items Preview -->
+                <div class="space-y-2">
+                    <div class="text-sm text-slate-400">UP NEXT</div>
+                    <div class="flex items-center gap-4 p-3 bg-slate-800/50 rounded-lg">
+                        <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-seedling text-purple-400"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-white">Bud Booster 1L</div>
+                            <div class="text-xs text-slate-400">Bin: A2-01 • Order #SH-4520</div>
+                        </div>
+                        <div class="text-white font-bold">× 2</div>
+                    </div>
+                    <div class="flex items-center gap-4 p-3 bg-slate-800/50 rounded-lg">
+                        <div class="w-10 h-10 bg-cyan-500/20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-flask text-cyan-400"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-white">Cal-Mag Plus 1L</div>
+                            <div class="text-xs text-slate-400">Bin: A3-02 • Order #SH-4520</div>
+                        </div>
+                        <div class="text-white font-bold">× 1</div>
+                    </div>
+                </div>
+
+                <!-- Progress -->
+                <div class="pt-4 border-t border-slate-700">
+                    <div class="flex items-center justify-between text-sm mb-2">
+                        <span class="text-slate-400">Batch Progress</span>
+                        <span class="text-white">0 / 7 items picked</span>
+                    </div>
+                    <div class="h-3 bg-slate-700 rounded-full overflow-hidden">
+                        <div class="h-full bg-emerald-500 rounded-full transition-all" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Label Success Modal -->
+    <div id="labelModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="hideLabelModal()"></div>
+        <div class="relative bg-slate-900 border border-emerald-500/50 rounded-2xl w-full max-w-md m-4 text-center p-8">
+            <div class="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-check text-emerald-400 text-4xl"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-white mb-2">Label Purchased!</h2>
+            <p class="text-slate-400 mb-4">Order #SH-4520 is ready to ship</p>
+            
+            <div class="bg-slate-800 rounded-xl p-4 mb-6">
+                <div class="text-sm text-slate-400 mb-1">Tracking Number</div>
+                <div class="font-mono text-lg text-white">9400111899223334445556</div>
+                <div class="text-sm text-slate-400 mt-2">USPS Priority Mail • $8.45</div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="hideLabelModal()" class="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium">
+                    <i class="fas fa-print mr-2"></i>Print Label
+                </button>
+                <button onclick="hideLabelModal()" class="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl">
+                    Next Order
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Batch Modal -->
+    <div id="createBatchModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="hideCreateBatchModal()"></div>
+        <div class="relative bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg m-4">
+            <div class="p-6 border-b border-slate-700 flex items-center justify-between">
+                <h2 class="text-xl font-bold text-white">Create Pick Batch</h2>
+                <button onclick="hideCreateBatchModal()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Batch Type</label>
+                    <select class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500">
+                        <option>Auto-assign orders (Smart Batch)</option>
+                        <option>Manual selection</option>
+                        <option>Single-item orders only</option>
+                        <option>Multi-item orders only</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Max Orders per Batch</label>
+                    <input type="number" value="10" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Priority</label>
+                    <select class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500">
+                        <option>Urgent orders first</option>
+                        <option>Oldest orders first</option>
+                        <option>Ship-by date</option>
+                    </select>
+                </div>
+                <div class="pt-4 flex gap-3">
+                    <button onclick="hideCreateBatchModal()" class="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl">Cancel</button>
+                    <button onclick="hideCreateBatchModal()" class="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium">Create Batch</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tab) {
+            const pickTab = document.getElementById('tab-pick');
+            const packTab = document.getElementById('tab-pack');
+            const pickContent = document.getElementById('pickContent');
+            const packContent = document.getElementById('packContent');
+
+            if (tab === 'pick') {
+                pickTab.className = 'px-5 py-3 text-sm font-medium border-b-2 border-emerald-500 text-emerald-400 bg-emerald-500/5';
+                packTab.className = 'px-5 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-slate-800/50';
+                pickContent.classList.remove('hidden');
+                packContent.classList.add('hidden');
+            } else {
+                packTab.className = 'px-5 py-3 text-sm font-medium border-b-2 border-blue-500 text-blue-400 bg-blue-500/5';
+                pickTab.className = 'px-5 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-slate-800/50';
+                packContent.classList.remove('hidden');
+                pickContent.classList.add('hidden');
+            }
+        }
+
+        function handleToteScan(event) {
+            if (event.key === 'Enter') {
+                showPickModal();
+                document.getElementById('toteScanInput').value = '';
+            }
+        }
+
+        function handlePackToteScan(event) {
+            if (event.key === 'Enter') {
+                // In real app, this would load the order
+                document.getElementById('packToteScanInput').value = '';
+            }
+        }
+
+        function showPickModal() {
+            document.getElementById('pickModal').classList.remove('hidden');
+            document.getElementById('pickModal').classList.add('flex');
+        }
+
+        function hidePickModal() {
+            document.getElementById('pickModal').classList.add('hidden');
+            document.getElementById('pickModal').classList.remove('flex');
+        }
+
+        function showLabelModal() {
+            document.getElementById('labelModal').classList.remove('hidden');
+            document.getElementById('labelModal').classList.add('flex');
+        }
+
+        function hideLabelModal() {
+            document.getElementById('labelModal').classList.add('hidden');
+            document.getElementById('labelModal').classList.remove('flex');
+        }
+
+        function showCreateBatchModal() {
+            document.getElementById('createBatchModal').classList.remove('hidden');
+            document.getElementById('createBatchModal').classList.add('flex');
+        }
+
+        function hideCreateBatchModal() {
+            document.getElementById('createBatchModal').classList.add('hidden');
+            document.getElementById('createBatchModal').classList.remove('flex');
+        }
+    </script>
+</body>
+</html>

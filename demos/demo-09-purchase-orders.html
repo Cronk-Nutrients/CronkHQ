@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronk WMS - Purchase Orders</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            750: '#293548',
+                            850: '#162032',
+                            950: '#0a1628'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .glass { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); }
+        .glow-purple { box-shadow: 0 0 20px rgba(168, 85, 247, 0.15); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .table-row:hover { background: rgba(51, 65, 85, 0.3); }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100">
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- Sidebar -->
+        <aside class="w-64 bg-slate-900/80 border-r border-slate-700/50 flex flex-col">
+            <!-- Logo -->
+            <div class="p-5 border-b border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-leaf text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-white text-lg">Cronk WMS</h1>
+                        <p class="text-xs text-slate-400">Inventory Management</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 p-4 space-y-1">
+                <a href="demo-01-dashboard.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-chart-line w-5"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="demo-02-inventory.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-boxes-stacked w-5"></i>
+                    <span>Inventory</span>
+                </a>
+                <a href="demo-03-orders.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-shopping-cart w-5"></i>
+                    <span>Orders</span>
+                </a>
+                
+                <div class="pt-2 pb-1">
+                    <div class="text-xs text-slate-500 uppercase tracking-wider px-4">Fulfillment</div>
+                </div>
+                
+                <a href="demo-05-pick.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-hand-pointer w-5"></i>
+                    <span>Pick</span>
+                </a>
+                <a href="demo-06-pack.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-box w-5"></i>
+                    <span>Pack</span>
+                </a>
+                <a href="demo-07-fba-prep.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fab fa-amazon w-5"></i>
+                    <span>FBA Prep</span>
+                </a>
+                
+                <div class="pt-2 pb-1">
+                    <div class="text-xs text-slate-500 uppercase tracking-wider px-4">Operations</div>
+                </div>
+                
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-layer-group w-5"></i>
+                    <span>Bundles</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-industry w-5"></i>
+                    <span>Work Orders</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 bg-purple-500/10 text-purple-400 rounded-lg border border-purple-500/20">
+                    <i class="fas fa-file-invoice w-5"></i>
+                    <span class="font-medium">Purchase Orders</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-chart-pie w-5"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-cog w-5"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <!-- User -->
+            <div class="p-4 border-t border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">JC</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium text-white truncate">John Cronk</div>
+                        <div class="text-xs text-slate-400 truncate">Admin</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-auto">
+            <!-- Header -->
+            <header class="sticky top-0 z-10 bg-slate-900/80 backdrop-blur border-b border-slate-700/50 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">Purchase Orders</h1>
+                        <p class="text-sm text-slate-400">Manage supplier orders and inventory replenishment</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <!-- Currency Display -->
+                        <div class="flex items-center gap-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg">
+                            <span class="text-xs text-slate-400">Exchange Rate:</span>
+                            <span class="text-sm font-medium text-white">1 USD = 1.36 CAD</span>
+                            <button class="text-slate-400 hover:text-white ml-1" title="Refresh rate">
+                                <i class="fas fa-sync-alt text-xs"></i>
+                            </button>
+                        </div>
+                        <button class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition-colors flex items-center gap-2">
+                            <i class="fas fa-download text-sm"></i>
+                            Export
+                        </button>
+                        <button onclick="showCreatePOModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors flex items-center gap-2">
+                            <i class="fas fa-plus text-sm"></i>
+                            New Purchase Order
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <div class="p-6 space-y-6">
+
+                <!-- Stats Row -->
+                <div class="grid grid-cols-6 gap-4">
+                    <div class="glass border border-amber-500/30 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                <i class="fas fa-clock text-amber-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-amber-400">3</div>
+                                <div class="text-xs text-slate-400">Pending</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-blue-500/30 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                <i class="fas fa-truck text-blue-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-blue-400">2</div>
+                                <div class="text-xs text-slate-400">In Transit</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-purple-500/30 rounded-xl p-4 glow-purple">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                <i class="fas fa-box-open text-purple-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-purple-400">1</div>
+                                <div class="text-xs text-slate-400">Ready to Receive</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-slate-700/50 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
+                                <i class="fas fa-dollar-sign text-slate-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-white">$12,450</div>
+                                <div class="text-xs text-slate-400">Open PO Value</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-slate-700/50 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
+                                <span class="text-red-400 font-bold text-sm">CAD</span>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-white">$8,200</div>
+                                <div class="text-xs text-slate-400">CAD Committed</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-emerald-500/30 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                <i class="fas fa-check-circle text-emerald-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-emerald-400">12</div>
+                                <div class="text-xs text-slate-400">Received (MTD)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="glass border border-slate-700/50 rounded-xl p-4">
+                    <div class="flex items-center gap-4">
+                        <div class="flex-1 relative">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" placeholder="Search by PO #, supplier, or product..." class="w-full bg-slate-800/50 border border-slate-700 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:border-purple-500/50">
+                        </div>
+                        <select class="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:outline-none">
+                            <option>All Statuses</option>
+                            <option>Draft</option>
+                            <option>Pending</option>
+                            <option>In Transit</option>
+                            <option>Ready to Receive</option>
+                            <option>Partially Received</option>
+                            <option>Received</option>
+                            <option>Cancelled</option>
+                        </select>
+                        <select class="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:outline-none">
+                            <option>All Suppliers</option>
+                            <option>Cronk Labs (CAD)</option>
+                            <option>PackagingCo (USD)</option>
+                            <option>LabelPro (USD)</option>
+                        </select>
+                        <select class="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:outline-none">
+                            <option>All Currencies</option>
+                            <option>🇺🇸 USD</option>
+                            <option>🇨🇦 CAD</option>
+                        </select>
+                        <select class="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:outline-none">
+                            <option>Last 30 days</option>
+                            <option>Last 60 days</option>
+                            <option>Last 90 days</option>
+                            <option>This year</option>
+                            <option>All time</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Purchase Orders Table -->
+                <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-slate-800/50 border-b border-slate-700/50">
+                                <tr class="text-left text-xs text-slate-400 uppercase tracking-wider">
+                                    <th class="px-4 py-3 font-medium">PO Number</th>
+                                    <th class="px-4 py-3 font-medium">Supplier</th>
+                                    <th class="px-4 py-3 font-medium">Items</th>
+                                    <th class="px-4 py-3 font-medium text-right">Total (Original)</th>
+                                    <th class="px-4 py-3 font-medium text-right">Total (USD)</th>
+                                    <th class="px-4 py-3 font-medium">Expected</th>
+                                    <th class="px-4 py-3 font-medium">Status</th>
+                                    <th class="px-4 py-3 font-medium">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700/50">
+                                <!-- PO 1 - Ready to Receive (CAD) -->
+                                <tr class="table-row transition-colors cursor-pointer bg-purple-500/5" onclick="showPODetail('PO-2024-092')">
+                                    <td class="px-4 py-4">
+                                        <div class="font-mono text-sm font-medium text-white">PO-2024-092</div>
+                                        <div class="text-xs text-slate-500">Created Dec 5</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                                <i class="fas fa-flask text-emerald-400 text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm text-white">Cronk Labs</div>
+                                                <div class="text-xs text-slate-400">🇨🇦 Ontario, Canada</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">5 products</div>
+                                        <div class="text-xs text-slate-400">2,500 units</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$8,200.00</div>
+                                        <div class="text-xs text-red-400">CAD</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$6,029.41</div>
+                                        <div class="text-xs text-slate-400">@ 1.36</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">Dec 15</div>
+                                        <div class="text-xs text-emerald-400">Arrived</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="px-2.5 py-1 bg-purple-500/10 text-purple-400 text-xs font-medium rounded-full border border-purple-500/20">
+                                            Ready to Receive
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <div class="flex items-center gap-1">
+                                            <button onclick="showReceiveModal()" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs rounded-lg">
+                                                Receive
+                                            </button>
+                                            <button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg">
+                                                <i class="fas fa-ellipsis-v text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <!-- PO 2 - In Transit (CAD) -->
+                                <tr class="table-row transition-colors cursor-pointer">
+                                    <td class="px-4 py-4">
+                                        <div class="font-mono text-sm font-medium text-white">PO-2024-091</div>
+                                        <div class="text-xs text-slate-500">Created Dec 1</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                                <i class="fas fa-flask text-emerald-400 text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm text-white">Cronk Labs</div>
+                                                <div class="text-xs text-slate-400">🇨🇦 Ontario, Canada</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">3 products</div>
+                                        <div class="text-xs text-slate-400">1,500 units</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$4,875.00</div>
+                                        <div class="text-xs text-red-400">CAD</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$3,584.56</div>
+                                        <div class="text-xs text-slate-400">@ 1.36</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">Dec 18</div>
+                                        <div class="text-xs text-blue-400">In 2 days</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="px-2.5 py-1 bg-blue-500/10 text-blue-400 text-xs font-medium rounded-full border border-blue-500/20 flex items-center gap-1 w-fit">
+                                            <span class="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></span>
+                                            In Transit
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <div class="flex items-center gap-1">
+                                            <button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg" title="Track">
+                                                <i class="fas fa-map-marker-alt text-sm"></i>
+                                            </button>
+                                            <button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg" title="View">
+                                                <i class="fas fa-eye text-sm"></i>
+                                            </button>
+                                            <button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg">
+                                                <i class="fas fa-ellipsis-v text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <!-- PO 3 - Pending (USD) -->
+                                <tr class="table-row transition-colors cursor-pointer">
+                                    <td class="px-4 py-4">
+                                        <div class="font-mono text-sm font-medium text-white">PO-2024-090</div>
+                                        <div class="text-xs text-slate-500">Created Dec 10</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                                <i class="fas fa-box text-amber-400 text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm text-white">PackagingCo</div>
+                                                <div class="text-xs text-slate-400">🇺🇸 Texas, USA</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">4 products</div>
+                                        <div class="text-xs text-slate-400">5,000 units</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$1,250.00</div>
+                                        <div class="text-xs text-emerald-400">USD</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$1,250.00</div>
+                                        <div class="text-xs text-slate-400">—</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">Dec 22</div>
+                                        <div class="text-xs text-slate-400">In 6 days</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="px-2.5 py-1 bg-amber-500/10 text-amber-400 text-xs font-medium rounded-full border border-amber-500/20">
+                                            Pending
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <div class="flex items-center gap-1">
+                                            <button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg" title="Edit">
+                                                <i class="fas fa-edit text-sm"></i>
+                                            </button>
+                                            <button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg" title="View">
+                                                <i class="fas fa-eye text-sm"></i>
+                                            </button>
+                                            <button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg">
+                                                <i class="fas fa-ellipsis-v text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <!-- PO 4 - Pending (USD) -->
+                                <tr class="table-row transition-colors cursor-pointer">
+                                    <td class="px-4 py-4">
+                                        <div class="font-mono text-sm font-medium text-white">PO-2024-089</div>
+                                        <div class="text-xs text-slate-500">Created Dec 8</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                                <i class="fas fa-tag text-blue-400 text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm text-white">LabelPro</div>
+                                                <div class="text-xs text-slate-400">🇺🇸 California, USA</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">6 products</div>
+                                        <div class="text-xs text-slate-400">50,000 units</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$2,840.00</div>
+                                        <div class="text-xs text-emerald-400">USD</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$2,840.00</div>
+                                        <div class="text-xs text-slate-400">—</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">Dec 20</div>
+                                        <div class="text-xs text-slate-400">In 4 days</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="px-2.5 py-1 bg-amber-500/10 text-amber-400 text-xs font-medium rounded-full border border-amber-500/20">
+                                            Pending
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <div class="flex items-center gap-1">
+                                            <button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg" title="Edit">
+                                                <i class="fas fa-edit text-sm"></i>
+                                            </button>
+                                            <button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg" title="View">
+                                                <i class="fas fa-eye text-sm"></i>
+                                            </button>
+                                            <button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg">
+                                                <i class="fas fa-ellipsis-v text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <!-- PO 5 - Received (CAD) -->
+                                <tr class="table-row transition-colors cursor-pointer opacity-70">
+                                    <td class="px-4 py-4">
+                                        <div class="font-mono text-sm font-medium text-white">PO-2024-088</div>
+                                        <div class="text-xs text-slate-500">Created Nov 25</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                                <i class="fas fa-flask text-emerald-400 text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm text-white">Cronk Labs</div>
+                                                <div class="text-xs text-slate-400">🇨🇦 Ontario, Canada</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">4 products</div>
+                                        <div class="text-xs text-slate-400">2,000 units</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$6,120.00</div>
+                                        <div class="text-xs text-red-400">CAD</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$4,500.00</div>
+                                        <div class="text-xs text-slate-400">@ 1.36</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">Dec 5</div>
+                                        <div class="text-xs text-emerald-400">Received Dec 5</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded-full border border-emerald-500/20">
+                                            <i class="fas fa-check mr-1"></i>
+                                            Received
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <div class="flex items-center gap-1">
+                                            <button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg" title="View">
+                                                <i class="fas fa-eye text-sm"></i>
+                                            </button>
+                                            <button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg">
+                                                <i class="fas fa-ellipsis-v text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="px-5 py-4 border-t border-slate-700/50 flex items-center justify-between">
+                        <div class="text-sm text-slate-400">
+                            Showing <span class="text-white">1-5</span> of <span class="text-white">24</span> purchase orders
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg disabled:opacity-50" disabled>
+                                <i class="fas fa-chevron-left text-sm"></i>
+                            </button>
+                            <button class="px-3 py-1.5 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-lg">1</button>
+                            <button class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg">2</button>
+                            <button class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg">3</button>
+                            <button class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg">
+                                <i class="fas fa-chevron-right text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Low Stock Suggestions -->
+                <div class="glass border border-amber-500/30 rounded-xl overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between bg-amber-500/5">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                <i class="fas fa-exclamation-triangle text-amber-400"></i>
+                            </div>
+                            <div>
+                                <h2 class="font-semibold text-white">Reorder Suggestions</h2>
+                                <p class="text-xs text-slate-400">Products below reorder point</p>
+                            </div>
+                        </div>
+                        <button onclick="showCreatePOModal()" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm rounded-lg">
+                            Create PO for All
+                        </button>
+                    </div>
+                    <div class="p-4 grid grid-cols-4 gap-4">
+                        <div class="p-4 bg-slate-800/50 rounded-xl border border-red-500/30">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                    <i class="fas fa-arrow-up text-blue-400"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-white">pH Up 500ml</div>
+                                    <div class="text-xs text-slate-400">CLM-PHU500</div>
+                                </div>
+                            </div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-slate-400">Current</span>
+                                <span class="text-red-400 font-bold">0 units</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-400">Reorder Qty</span>
+                                <span class="text-white">500 units</span>
+                            </div>
+                        </div>
+                        <div class="p-4 bg-slate-800/50 rounded-xl border border-amber-500/30">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                    <i class="fas fa-flask text-emerald-400"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-white">1L Micro Classic</div>
+                                    <div class="text-xs text-slate-400">CLM1L</div>
+                                </div>
+                            </div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-slate-400">Current</span>
+                                <span class="text-amber-400 font-bold">24 units</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-400">Reorder Qty</span>
+                                <span class="text-white">500 units</span>
+                            </div>
+                        </div>
+                        <div class="p-4 bg-slate-800/50 rounded-xl border border-amber-500/30">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                    <i class="fas fa-box text-amber-400"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-white">Small Shipping Box</div>
+                                    <div class="text-xs text-slate-400">PKG-SML</div>
+                                </div>
+                            </div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-slate-400">Current</span>
+                                <span class="text-amber-400 font-bold">45 units</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-400">Reorder Qty</span>
+                                <span class="text-white">500 units</span>
+                            </div>
+                        </div>
+                        <div class="p-4 bg-slate-800/50 rounded-xl border border-amber-500/30">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                    <i class="fas fa-grip-lines text-blue-400"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-white">Gripper Stickers</div>
+                                    <div class="text-xs text-slate-400">PKG-GRIP</div>
+                                </div>
+                            </div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-slate-400">Current</span>
+                                <span class="text-amber-400 font-bold">120 units</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-400">Reorder Qty</span>
+                                <span class="text-white">5,000 units</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Create PO Modal -->
+    <div id="createPOModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="hideCreatePOModal()"></div>
+        <div class="relative bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-auto m-4">
+            <div class="p-6 border-b border-slate-700 flex items-center justify-between sticky top-0 bg-slate-900 z-10">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Create Purchase Order</h2>
+                    <p class="text-sm text-slate-400">Add products and set quantities</p>
+                </div>
+                <button onclick="hideCreatePOModal()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-6">
+                <!-- Supplier & Currency -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-2">Supplier</label>
+                        <select id="supplierSelect" onchange="updateCurrency()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500">
+                            <option value="">Select supplier...</option>
+                            <option value="cronk-cad">Cronk Labs (Ontario, Canada)</option>
+                            <option value="packaging-usd">PackagingCo (Texas, USA)</option>
+                            <option value="labels-usd">LabelPro (California, USA)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-2">Currency</label>
+                        <div class="flex items-center gap-2">
+                            <select id="currencySelect" class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500">
+                                <option value="USD">🇺🇸 USD - US Dollar</option>
+                                <option value="CAD">🇨🇦 CAD - Canadian Dollar</option>
+                            </select>
+                            <div class="px-3 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-sm">
+                                <span class="text-slate-400">Rate:</span>
+                                <span class="text-white font-medium" id="exchangeRateDisplay">1.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Products -->
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Products</label>
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700">
+                            <div class="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-flask text-emerald-400"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="text-white">1L Micro Classic</div>
+                                <div class="text-xs text-slate-400">CLM1L • Current: 24 units</div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="number" value="500" class="w-24 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-center text-sm">
+                                <span class="text-slate-400">×</span>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                                    <input type="number" value="6.00" step="0.01" class="w-24 bg-slate-700 border border-slate-600 rounded-lg pl-7 pr-3 py-2 text-white text-sm">
+                                </div>
+                                <span class="text-white font-medium w-24 text-right">$3,000.00</span>
+                                <button class="p-2 text-slate-500 hover:text-red-400">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700">
+                            <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-seedling text-purple-400"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="text-white">Bud Booster 1L</div>
+                                <div class="text-xs text-slate-400">BB1L • Current: 342 units</div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="number" value="250" class="w-24 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-center text-sm">
+                                <span class="text-slate-400">×</span>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                                    <input type="number" value="6.50" step="0.01" class="w-24 bg-slate-700 border border-slate-600 rounded-lg pl-7 pr-3 py-2 text-white text-sm">
+                                </div>
+                                <span class="text-white font-medium w-24 text-right">$1,625.00</span>
+                                <button class="p-2 text-slate-500 hover:text-red-400">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button class="w-full p-3 border-2 border-dashed border-slate-700 rounded-xl text-slate-400 hover:text-white hover:border-slate-600 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>
+                            Add Product
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Expected Date -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-2">Expected Delivery Date</label>
+                        <input type="date" value="2024-12-22" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-2">PO Reference (Optional)</label>
+                        <input type="text" placeholder="Supplier's reference #" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                    </div>
+                </div>
+
+                <!-- Summary -->
+                <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-slate-400">Order Summary</span>
+                        <span class="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded">CAD</span>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Subtotal (2 products)</span>
+                            <span class="text-white">$4,625.00 CAD</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Shipping (Est.)</span>
+                            <span class="text-white">$250.00 CAD</span>
+                        </div>
+                        <div class="border-t border-slate-700 pt-2 mt-2">
+                            <div class="flex justify-between font-medium">
+                                <span class="text-white">Total (CAD)</span>
+                                <span class="text-white text-lg">$4,875.00</span>
+                            </div>
+                            <div class="flex justify-between text-slate-400 mt-1">
+                                <span>Equivalent (USD)</span>
+                                <span>≈ $3,584.56 @ 1.36</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes -->
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Notes (Optional)</label>
+                    <textarea rows="2" placeholder="Add any notes for this order..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 resize-none"></textarea>
+                </div>
+
+                <div class="flex gap-3 pt-4">
+                    <button onclick="hideCreatePOModal()" class="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl">Cancel</button>
+                    <button class="px-6 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl">Save as Draft</button>
+                    <button onclick="hideCreatePOModal()" class="flex-1 px-4 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-medium">
+                        <i class="fas fa-paper-plane mr-2"></i>Submit PO
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receive PO Modal -->
+    <div id="receiveModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="hideReceiveModal()"></div>
+        <div class="relative bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-auto m-4">
+            <div class="p-6 border-b border-slate-700 flex items-center justify-between sticky top-0 bg-slate-900 z-10">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Receive PO-2024-092</h2>
+                    <p class="text-sm text-slate-400">Cronk Labs • $8,200.00 CAD</p>
+                </div>
+                <button onclick="hideReceiveModal()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <!-- Items to Receive -->
+                <div class="space-y-3">
+                    <div class="flex items-center gap-4 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
+                        <div class="w-12 h-12 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-flask text-emerald-400"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium text-white">1L Micro Classic</div>
+                            <div class="text-xs text-slate-400">CLM1L • Ordered: 500 units</div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div>
+                                <div class="text-xs text-slate-400 mb-1">Received</div>
+                                <input type="number" value="500" class="w-24 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-center">
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                                <i class="fas fa-check text-emerald-400"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-4 p-4 bg-slate-800/50 rounded-xl border border-slate-700">
+                        <div class="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-seedling text-purple-400"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium text-white">Bud Booster 1L</div>
+                            <div class="text-xs text-slate-400">BB1L • Ordered: 500 units</div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div>
+                                <div class="text-xs text-slate-400 mb-1">Received</div>
+                                <input type="number" value="500" class="w-24 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-center">
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                                <i class="fas fa-check text-emerald-400"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-4 p-4 bg-slate-800/50 rounded-xl border border-amber-500/30">
+                        <div class="w-12 h-12 bg-cyan-500/20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-flask text-cyan-400"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium text-white">Cal-Mag Plus 1L</div>
+                            <div class="text-xs text-slate-400">CMP1L • Ordered: 500 units</div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div>
+                                <div class="text-xs text-slate-400 mb-1">Received</div>
+                                <input type="number" value="480" class="w-24 bg-slate-700 border border-amber-500/50 rounded-lg px-3 py-2 text-amber-400 text-center">
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                                <i class="fas fa-exclamation text-amber-400"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Receiving Location -->
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Receive to Location</label>
+                    <select class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500">
+                        <option>Texas WH - Main Storage</option>
+                        <option>Texas WH - Receiving Area</option>
+                    </select>
+                </div>
+
+                <!-- Summary -->
+                <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <div class="text-2xl font-bold text-white">2,500</div>
+                            <div class="text-xs text-slate-400">Ordered</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-emerald-400">2,480</div>
+                            <div class="text-xs text-slate-400">Receiving</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-amber-400">20</div>
+                            <div class="text-xs text-slate-400">Shortage</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes -->
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Receiving Notes</label>
+                    <textarea rows="2" placeholder="Note any discrepancies or issues..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 resize-none">20 units of Cal-Mag Plus 1L damaged in shipping.</textarea>
+                </div>
+
+                <div class="flex gap-3 pt-4">
+                    <button onclick="hideReceiveModal()" class="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl">Cancel</button>
+                    <button onclick="hideReceiveModal()" class="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium">
+                        <i class="fas fa-check mr-2"></i>Complete Receiving
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showCreatePOModal() {
+            document.getElementById('createPOModal').classList.remove('hidden');
+            document.getElementById('createPOModal').classList.add('flex');
+        }
+
+        function hideCreatePOModal() {
+            document.getElementById('createPOModal').classList.add('hidden');
+            document.getElementById('createPOModal').classList.remove('flex');
+        }
+
+        function showReceiveModal() {
+            document.getElementById('receiveModal').classList.remove('hidden');
+            document.getElementById('receiveModal').classList.add('flex');
+        }
+
+        function hideReceiveModal() {
+            document.getElementById('receiveModal').classList.add('hidden');
+            document.getElementById('receiveModal').classList.remove('flex');
+        }
+
+        function updateCurrency() {
+            const supplier = document.getElementById('supplierSelect').value;
+            const currencySelect = document.getElementById('currencySelect');
+            const rateDisplay = document.getElementById('exchangeRateDisplay');
+            
+            if (supplier.includes('cad')) {
+                currencySelect.value = 'CAD';
+                rateDisplay.textContent = '1.36';
+            } else {
+                currencySelect.value = 'USD';
+                rateDisplay.textContent = '1.00';
+            }
+        }
+
+        function showPODetail(poId) {
+            // In real app, would navigate to PO detail page
+            console.log('Show PO:', poId);
+        }
+    </script>
+</body>
+</html>

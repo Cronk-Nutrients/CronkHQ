@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronk WMS - Orders</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            750: '#293548',
+                            850: '#162032',
+                            950: '#0a1628'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .glass { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); }
+        .glow { box-shadow: 0 0 20px rgba(52, 211, 153, 0.1); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .table-row:hover { background: rgba(51, 65, 85, 0.3); }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100">
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- Sidebar -->
+        <aside class="w-64 bg-slate-900/80 border-r border-slate-700/50 flex flex-col">
+            <!-- Logo -->
+            <div class="p-5 border-b border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-leaf text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-white text-lg">Cronk WMS</h1>
+                        <p class="text-xs text-slate-400">Inventory Management</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 p-4 space-y-1">
+                <a href="demo-01-dashboard.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-chart-line w-5"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="demo-02-inventory.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-boxes-stacked w-5"></i>
+                    <span>Inventory</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20">
+                    <i class="fas fa-shopping-cart w-5"></i>
+                    <span class="font-medium">Orders</span>
+                    <span class="ml-auto bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full">16</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-hand-pointer w-5"></i>
+                    <span>Pick</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-box w-5"></i>
+                    <span>Pack</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-layer-group w-5"></i>
+                    <span>Bundles</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-industry w-5"></i>
+                    <span>Work Orders</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-file-invoice w-5"></i>
+                    <span>Purchase Orders</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-chart-pie w-5"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-cog w-5"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <!-- Sync Status -->
+            <div class="p-4 border-t border-slate-700/50">
+                <div class="text-xs text-slate-500 mb-2">Channel Sync Status</div>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                            <span class="text-slate-300">Veeqo</span>
+                        </div>
+                        <span class="text-slate-500 text-xs">2m ago</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                            <span class="text-slate-300">Shopify</span>
+                        </div>
+                        <span class="text-slate-500 text-xs">Live</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                            <span class="text-slate-300">Amazon</span>
+                        </div>
+                        <span class="text-slate-500 text-xs">Live</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User -->
+            <div class="p-4 border-t border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">JC</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium text-white truncate">John Cronk</div>
+                        <div class="text-xs text-slate-400 truncate">Admin</div>
+                    </div>
+                    <button class="text-slate-400 hover:text-white">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-auto">
+            <!-- Header -->
+            <header class="sticky top-0 z-10 bg-slate-900/80 backdrop-blur border-b border-slate-700/50 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">Orders</h1>
+                        <p class="text-sm text-slate-400">Manage and fulfill customer orders</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition-colors flex items-center gap-2">
+                            <i class="fas fa-download text-sm"></i>
+                            Export
+                        </button>
+                        <button class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition-colors flex items-center gap-2">
+                            <i class="fas fa-sync-alt text-sm"></i>
+                            Sync Orders
+                        </button>
+                        <button class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors flex items-center gap-2">
+                            <i class="fas fa-plus text-sm"></i>
+                            Manual Order
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <div class="p-6 space-y-6">
+
+                <!-- Stats Row -->
+                <div class="grid grid-cols-6 gap-4">
+                    <div class="glass border border-amber-500/30 rounded-xl p-4 glow-amber cursor-pointer hover:bg-amber-500/10 transition-colors" onclick="filterByStatus('to_pick')">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                <i class="fas fa-hand-pointer text-amber-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-amber-400">8</div>
+                                <div class="text-xs text-slate-400">To Pick</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-blue-500/30 rounded-xl p-4 cursor-pointer hover:bg-blue-500/10 transition-colors" onclick="filterByStatus('to_pack')">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                <i class="fas fa-box text-blue-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-blue-400">3</div>
+                                <div class="text-xs text-slate-400">To Pack</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-purple-500/30 rounded-xl p-4 cursor-pointer hover:bg-purple-500/10 transition-colors" onclick="filterByStatus('ready')">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                <i class="fas fa-tag text-purple-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-purple-400">5</div>
+                                <div class="text-xs text-slate-400">Ready to Ship</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-emerald-500/30 rounded-xl p-4 cursor-pointer hover:bg-emerald-500/10 transition-colors" onclick="filterByStatus('shipped')">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                <i class="fas fa-truck text-emerald-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-emerald-400">47</div>
+                                <div class="text-xs text-slate-400">Shipped Today</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-slate-700/50 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
+                                <i class="fas fa-dollar-sign text-slate-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-white">$2,847</div>
+                                <div class="text-xs text-slate-400">Today's Revenue</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-slate-700/50 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                <i class="fas fa-chart-line text-emerald-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-emerald-400">$1,708</div>
+                                <div class="text-xs text-slate-400">Today's Profit</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters & Search -->
+                <div class="glass border border-slate-700/50 rounded-xl p-4">
+                    <div class="flex items-center gap-4">
+                        <!-- Search -->
+                        <div class="flex-1 relative">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" placeholder="Search by order #, customer name, email..." class="w-full bg-slate-800/50 border border-slate-700 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50">
+                        </div>
+                        
+                        <!-- Status Filter -->
+                        <select id="statusFilter" class="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:outline-none focus:border-emerald-500/50">
+                            <option value="">All Statuses</option>
+                            <option value="to_pick">To Pick</option>
+                            <option value="to_pack">To Pack</option>
+                            <option value="ready">Ready to Ship</option>
+                            <option value="shipped">Shipped</option>
+                            <option value="delivered">Delivered</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+
+                        <!-- Channel Filter -->
+                        <select class="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:outline-none focus:border-emerald-500/50">
+                            <option>All Channels</option>
+                            <option>Shopify</option>
+                            <option>Amazon FBM</option>
+                            <option>Amazon FBA</option>
+                            <option>Manual</option>
+                        </select>
+
+                        <!-- Date Filter -->
+                        <select class="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:outline-none focus:border-emerald-500/50">
+                            <option>Today</option>
+                            <option>Yesterday</option>
+                            <option>Last 7 days</option>
+                            <option>Last 30 days</option>
+                            <option>This month</option>
+                            <option>Custom range</option>
+                        </select>
+
+                        <!-- Bulk Actions -->
+                        <div class="relative">
+                            <button class="px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors flex items-center gap-2">
+                                Bulk Actions
+                                <i class="fas fa-chevron-down text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Orders Table -->
+                <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-slate-800/50 border-b border-slate-700/50">
+                                <tr class="text-left text-xs text-slate-400 uppercase tracking-wider">
+                                    <th class="px-4 py-3 font-medium">
+                                        <input type="checkbox" class="rounded bg-slate-700 border-slate-600">
+                                    </th>
+                                    <th class="px-4 py-3 font-medium">Order</th>
+                                    <th class="px-4 py-3 font-medium">Date</th>
+                                    <th class="px-4 py-3 font-medium">Customer</th>
+                                    <th class="px-4 py-3 font-medium">Channel</th>
+                                    <th class="px-4 py-3 font-medium">Items</th>
+                                    <th class="px-4 py-3 font-medium text-right">Total</th>
+                                    <th class="px-4 py-3 font-medium text-right">COGS</th>
+                                    <th class="px-4 py-3 font-medium text-right">Profit</th>
+                                    <th class="px-4 py-3 font-medium text-center">Margin</th>
+                                    <th class="px-4 py-3 font-medium text-center">Status</th>
+                                    <th class="px-4 py-3 font-medium text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700/50">
+                                
+                                <!-- Order 1 - To Pick -->
+                                <tr class="table-row transition-colors cursor-pointer" onclick="showOrderDetail('SH-4521')">
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <input type="checkbox" class="rounded bg-slate-700 border-slate-600">
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="font-mono text-sm font-medium text-white">#SH-4521</div>
+                                        <div class="text-xs text-slate-500">Veeqo: 89234</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">Dec 16, 2024</div>
+                                        <div class="text-xs text-slate-500">10:34 AM</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm font-medium text-white">Sarah Johnson</div>
+                                        <div class="text-xs text-slate-400">sarah.j@email.com</div>
+                                        <div class="text-xs text-slate-500">Houston, TX 77001</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-500/10 text-green-400 text-xs font-medium rounded-full border border-green-500/20">
+                                            <i class="fab fa-shopify"></i>
+                                            Shopify
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">3 items</div>
+                                        <div class="text-xs text-slate-500">2 SKUs</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$89.97</div>
+                                        <div class="text-xs text-slate-500">+ $8.99 ship</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm text-slate-300">$35.85</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-emerald-400">$54.12</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-center">
+                                        <span class="inline-flex items-center px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded-full">
+                                            60.2%
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4 text-center">
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 text-amber-400 text-xs font-medium rounded-full border border-amber-500/20">
+                                            <i class="fas fa-hand-pointer text-[10px]"></i>
+                                            To Pick
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button class="p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors" title="Start Pick">
+                                                <i class="fas fa-play text-sm"></i>
+                                            </button>
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="View">
+                                                <i class="fas fa-eye text-sm"></i>
+                                            </button>
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="More">
+                                                <i class="fas fa-ellipsis-v text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <!-- Order 2 - To Pick (Amazon) -->
+                                <tr class="table-row transition-colors cursor-pointer">
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <input type="checkbox" class="rounded bg-slate-700 border-slate-600">
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="font-mono text-sm font-medium text-white">#AZ-8834</div>
+                                        <div class="text-xs text-slate-500">Veeqo: 89235</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">Dec 16, 2024</div>
+                                        <div class="text-xs text-slate-500">10:28 AM</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm font-medium text-white">Mike Chen</div>
+                                        <div class="text-xs text-slate-400">m.chen@email.com</div>
+                                        <div class="text-xs text-slate-500">Los Angeles, CA 90012</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-orange-500/10 text-orange-400 text-xs font-medium rounded-full border border-orange-500/20">
+                                            <i class="fab fa-amazon"></i>
+                                            Amazon FBM
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">1 item</div>
+                                        <div class="text-xs text-slate-500">1 SKU</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$24.99</div>
+                                        <div class="text-xs text-slate-500">Free ship</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm text-slate-300">$10.12</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-emerald-400">$14.87</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-center">
+                                        <span class="inline-flex items-center px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded-full">
+                                            59.5%
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4 text-center">
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 text-amber-400 text-xs font-medium rounded-full border border-amber-500/20">
+                                            <i class="fas fa-hand-pointer text-[10px]"></i>
+                                            To Pick
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button class="p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors" title="Start Pick">
+                                                <i class="fas fa-play text-sm"></i>
+                                            </button>
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="View">
+                                                <i class="fas fa-eye text-sm"></i>
+                                            </button>
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="More">
+                                                <i class="fas fa-ellipsis-v text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <!-- Order 3 - To Pack -->
+                                <tr class="table-row transition-colors cursor-pointer">
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <input type="checkbox" class="rounded bg-slate-700 border-slate-600">
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="font-mono text-sm font-medium text-white">#SH-4520</div>
+                                        <div class="text-xs text-slate-500">Veeqo: 89230</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">Dec 16, 2024</div>
+                                        <div class="text-xs text-slate-500">9:45 AM</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm font-medium text-white">Emily Rodriguez</div>
+                                        <div class="text-xs text-slate-400">emily.r@email.com</div>
+                                        <div class="text-xs text-slate-500">Miami, FL 33101</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-500/10 text-green-400 text-xs font-medium rounded-full border border-green-500/20">
+                                            <i class="fab fa-shopify"></i>
+                                            Shopify
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">5 items</div>
+                                        <div class="text-xs text-slate-500">3 SKUs</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$149.95</div>
+                                        <div class="text-xs text-slate-500">+ $12.99 ship</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm text-slate-300">$60.72</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-emerald-400">$89.23</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-center">
+                                        <span class="inline-flex items-center px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded-full">
+                                            59.5%
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4 text-center">
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-500/10 text-blue-400 text-xs font-medium rounded-full border border-blue-500/20">
+                                            <i class="fas fa-box text-[10px]"></i>
+                                            To Pack
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button class="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors" title="Start Pack">
+                                                <i class="fas fa-box text-sm"></i>
+                                            </button>
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="View">
+                                                <i class="fas fa-eye text-sm"></i>
+                                            </button>
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="More">
+                                                <i class="fas fa-ellipsis-v text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <!-- Order 4 - Ready to Ship -->
+                                <tr class="table-row transition-colors cursor-pointer">
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <input type="checkbox" class="rounded bg-slate-700 border-slate-600">
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="font-mono text-sm font-medium text-white">#SH-4519</div>
+                                        <div class="text-xs text-slate-500">Veeqo: 89228</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">Dec 16, 2024</div>
+                                        <div class="text-xs text-slate-500">9:12 AM</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm font-medium text-white">David Park</div>
+                                        <div class="text-xs text-slate-400">d.park@email.com</div>
+                                        <div class="text-xs text-slate-500">Seattle, WA 98101</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-500/10 text-green-400 text-xs font-medium rounded-full border border-green-500/20">
+                                            <i class="fab fa-shopify"></i>
+                                            Shopify
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">2 items</div>
+                                        <div class="text-xs text-slate-500">2 SKUs</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$59.98</div>
+                                        <div class="text-xs text-slate-500">+ $6.99 ship</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm text-slate-300">$24.11</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-emerald-400">$35.87</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-center">
+                                        <span class="inline-flex items-center px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded-full">
+                                            59.8%
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4 text-center">
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-500/10 text-purple-400 text-xs font-medium rounded-full border border-purple-500/20">
+                                            <i class="fas fa-tag text-[10px]"></i>
+                                            Ready
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button class="p-2 text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-colors" title="Print Label">
+                                                <i class="fas fa-print text-sm"></i>
+                                            </button>
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="View">
+                                                <i class="fas fa-eye text-sm"></i>
+                                            </button>
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="More">
+                                                <i class="fas fa-ellipsis-v text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <!-- Order 5 - Shipped -->
+                                <tr class="table-row transition-colors cursor-pointer">
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <input type="checkbox" class="rounded bg-slate-700 border-slate-600">
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="font-mono text-sm font-medium text-white">#AZ-8833</div>
+                                        <div class="text-xs text-slate-500">Veeqo: 89225</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">Dec 16, 2024</div>
+                                        <div class="text-xs text-slate-500">8:45 AM</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm font-medium text-white">Lisa Thompson</div>
+                                        <div class="text-xs text-slate-400">l.thompson@email.com</div>
+                                        <div class="text-xs text-slate-500">Denver, CO 80202</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-orange-500/10 text-orange-400 text-xs font-medium rounded-full border border-orange-500/20">
+                                            <i class="fab fa-amazon"></i>
+                                            Amazon FBM
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">4 items</div>
+                                        <div class="text-xs text-slate-500">2 SKUs</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$119.96</div>
+                                        <div class="text-xs text-slate-500">Free ship</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm text-slate-300">$48.51</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-emerald-400">$71.45</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-center">
+                                        <span class="inline-flex items-center px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded-full">
+                                            59.6%
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4 text-center">
+                                        <div>
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded-full border border-emerald-500/20">
+                                                <i class="fas fa-truck text-[10px]"></i>
+                                                Shipped
+                                            </span>
+                                            <div class="text-xs text-slate-500 mt-1">1Z999AA10123</div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="Track">
+                                                <i class="fas fa-map-marker-alt text-sm"></i>
+                                            </button>
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="View">
+                                                <i class="fas fa-eye text-sm"></i>
+                                            </button>
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="More">
+                                                <i class="fas fa-ellipsis-v text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <!-- Order 6 - Shipped -->
+                                <tr class="table-row transition-colors cursor-pointer">
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <input type="checkbox" class="rounded bg-slate-700 border-slate-600">
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="font-mono text-sm font-medium text-white">#SH-4518</div>
+                                        <div class="text-xs text-slate-500">Veeqo: 89220</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">Dec 16, 2024</div>
+                                        <div class="text-xs text-slate-500">8:15 AM</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm font-medium text-white">Robert Wilson</div>
+                                        <div class="text-xs text-slate-400">r.wilson@email.com</div>
+                                        <div class="text-xs text-slate-500">Austin, TX 78701</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-500/10 text-green-400 text-xs font-medium rounded-full border border-green-500/20">
+                                            <i class="fab fa-shopify"></i>
+                                            Shopify
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">1 item</div>
+                                        <div class="text-xs text-slate-500">1 SKU</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$44.99</div>
+                                        <div class="text-xs text-slate-500">+ $6.99 ship</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm text-slate-300">$13.68</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-emerald-400">$31.31</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-center">
+                                        <span class="inline-flex items-center px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded-full">
+                                            69.6%
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4 text-center">
+                                        <div>
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded-full border border-emerald-500/20">
+                                                <i class="fas fa-truck text-[10px]"></i>
+                                                Shipped
+                                            </span>
+                                            <div class="text-xs text-slate-500 mt-1">9400111899</div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="Track">
+                                                <i class="fas fa-map-marker-alt text-sm"></i>
+                                            </button>
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="View">
+                                                <i class="fas fa-eye text-sm"></i>
+                                            </button>
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="More">
+                                                <i class="fas fa-ellipsis-v text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <!-- Order 7 - Bundle Order -->
+                                <tr class="table-row transition-colors cursor-pointer">
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <input type="checkbox" class="rounded bg-slate-700 border-slate-600">
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="font-mono text-sm font-medium text-white">#SH-4517</div>
+                                        <div class="text-xs text-slate-500">Veeqo: 89218</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">Dec 16, 2024</div>
+                                        <div class="text-xs text-slate-500">7:55 AM</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm font-medium text-white">Jennifer Adams</div>
+                                        <div class="text-xs text-slate-400">j.adams@email.com</div>
+                                        <div class="text-xs text-slate-500">Phoenix, AZ 85001</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-500/10 text-green-400 text-xs font-medium rounded-full border border-green-500/20">
+                                            <i class="fab fa-shopify"></i>
+                                            Shopify
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white flex items-center gap-1">
+                                            1 item 
+                                            <span class="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] rounded">Bundle</span>
+                                        </div>
+                                        <div class="text-xs text-slate-500">Starter Kit</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-white">$44.99</div>
+                                        <div class="text-xs text-slate-500">+ $9.99 ship</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm text-slate-300">$13.68</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-right">
+                                        <div class="text-sm font-medium text-emerald-400">$31.31</div>
+                                    </td>
+                                    <td class="px-4 py-4 text-center">
+                                        <span class="inline-flex items-center px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded-full">
+                                            69.6%
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4 text-center">
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 text-amber-400 text-xs font-medium rounded-full border border-amber-500/20">
+                                            <i class="fas fa-hand-pointer text-[10px]"></i>
+                                            To Pick
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-4" onclick="event.stopPropagation()">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button class="p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors" title="Start Pick">
+                                                <i class="fas fa-play text-sm"></i>
+                                            </button>
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="View">
+                                                <i class="fas fa-eye text-sm"></i>
+                                            </button>
+                                            <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="More">
+                                                <i class="fas fa-ellipsis-v text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="px-5 py-4 border-t border-slate-700/50 flex items-center justify-between">
+                        <div class="text-sm text-slate-400">
+                            Showing <span class="text-white">1-7</span> of <span class="text-white">63</span> orders
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg transition-colors disabled:opacity-50" disabled>
+                                <i class="fas fa-chevron-left text-sm"></i>
+                            </button>
+                            <button class="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg">1</button>
+                            <button class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg transition-colors">2</button>
+                            <button class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg transition-colors">3</button>
+                            <span class="text-slate-500">...</span>
+                            <button class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg transition-colors">9</button>
+                            <button class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg transition-colors">
+                                <i class="fas fa-chevron-right text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Order Detail Slide-over -->
+    <div id="orderDetailPanel" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="hideOrderDetail()"></div>
+        <div class="absolute right-0 top-0 h-full w-full max-w-2xl bg-slate-900 border-l border-slate-700 shadow-2xl overflow-auto">
+            <!-- Panel Header -->
+            <div class="sticky top-0 bg-slate-900 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Order #SH-4521</h2>
+                    <p class="text-sm text-slate-400">December 16, 2024 at 10:34 AM</p>
+                </div>
+                <button onclick="hideOrderDetail()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Panel Content -->
+            <div class="p-6 space-y-6">
+                <!-- Status & Channel -->
+                <div class="flex items-center gap-3">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-400 text-sm font-medium rounded-full border border-amber-500/20">
+                        <i class="fas fa-hand-pointer text-xs"></i>
+                        To Pick
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 text-green-400 text-sm font-medium rounded-full border border-green-500/20">
+                        <i class="fab fa-shopify"></i>
+                        Shopify
+                    </span>
+                </div>
+
+                <!-- Customer Info -->
+                <div class="glass border border-slate-700/50 rounded-xl p-5">
+                    <h3 class="font-semibold text-white mb-4 flex items-center gap-2">
+                        <i class="fas fa-user text-slate-400"></i>
+                        Customer
+                    </h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="text-sm text-slate-400 mb-1">Name</div>
+                            <div class="text-white">Sarah Johnson</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-slate-400 mb-1">Email</div>
+                            <div class="text-white">sarah.j@email.com</div>
+                        </div>
+                        <div class="col-span-2">
+                            <div class="text-sm text-slate-400 mb-1">Shipping Address</div>
+                            <div class="text-white">
+                                123 Main Street<br>
+                                Houston, TX 77001<br>
+                                United States
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Items -->
+                <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-700/50">
+                        <h3 class="font-semibold text-white flex items-center gap-2">
+                            <i class="fas fa-box text-slate-400"></i>
+                            Items (3)
+                        </h3>
+                    </div>
+                    <div class="divide-y divide-slate-700/50">
+                        <div class="px-5 py-4 flex items-center gap-4">
+                            <div class="w-12 h-12 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-flask text-emerald-400"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-medium text-white">1L Micro Classic</div>
+                                <div class="text-xs text-slate-400">SKU: CLM1L • Bin: A1-03</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-white">× 2</div>
+                                <div class="text-sm text-slate-400">$49.98</div>
+                            </div>
+                        </div>
+                        <div class="px-5 py-4 flex items-center gap-4">
+                            <div class="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-seedling text-purple-400"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-medium text-white">Bud Booster 1L</div>
+                                <div class="text-xs text-slate-400">SKU: BB1L • Bin: A2-01</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-white">× 1</div>
+                                <div class="text-sm text-slate-400">$29.99</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Totals -->
+                <div class="glass border border-slate-700/50 rounded-xl p-5">
+                    <h3 class="font-semibold text-white mb-4 flex items-center gap-2">
+                        <i class="fas fa-calculator text-slate-400"></i>
+                        Order Summary
+                    </h3>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-400">Subtotal</span>
+                            <span class="text-white">$79.97</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-400">Discount</span>
+                            <span class="text-emerald-400">-$0.00</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-400">Shipping</span>
+                            <span class="text-white">$8.99</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-400">Tax</span>
+                            <span class="text-white">$1.01</span>
+                        </div>
+                        <div class="border-t border-slate-700 pt-2 mt-2">
+                            <div class="flex justify-between font-medium">
+                                <span class="text-white">Total</span>
+                                <span class="text-white">$89.97</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profitability -->
+                <div class="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-emerald-500/20 rounded-xl p-5">
+                    <h3 class="font-semibold text-white mb-4 flex items-center gap-2">
+                        <i class="fas fa-chart-line text-emerald-400"></i>
+                        Profitability
+                    </h3>
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <div class="text-2xl font-bold text-white">$89.97</div>
+                            <div class="text-xs text-slate-400">Revenue</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-slate-300">$35.85</div>
+                            <div class="text-xs text-slate-400">COGS</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-emerald-400">$54.12</div>
+                            <div class="text-xs text-slate-400">Profit (60.2%)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fulfillment Rules -->
+                <div class="glass border border-slate-700/50 rounded-xl p-5">
+                    <h3 class="font-semibold text-white mb-4 flex items-center gap-2">
+                        <i class="fas fa-cogs text-slate-400"></i>
+                        Fulfillment Rules
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg">
+                            <div class="w-8 h-8 rounded bg-amber-500/20 flex items-center justify-center">
+                                <i class="fas fa-box text-amber-400 text-sm"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="text-sm font-medium text-white">Medium Box</div>
+                                <div class="text-xs text-slate-400">3 items = Medium box</div>
+                            </div>
+                            <i class="fas fa-check text-emerald-400"></i>
+                        </div>
+                        <div class="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg">
+                            <div class="w-8 h-8 rounded bg-blue-500/20 flex items-center justify-center">
+                                <i class="fas fa-grip-lines text-blue-400 text-sm"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="text-sm font-medium text-white">3 Gripper Stickers</div>
+                                <div class="text-xs text-slate-400">1 per bottle</div>
+                            </div>
+                            <i class="fas fa-check text-emerald-400"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex gap-3">
+                    <button class="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors flex items-center justify-center gap-2 font-medium">
+                        <i class="fas fa-play"></i>
+                        Start Picking
+                    </button>
+                    <button class="px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition-colors">
+                        <i class="fas fa-print"></i>
+                    </button>
+                    <button class="px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition-colors">
+                        <i class="fas fa-ellipsis-h"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function filterByStatus(status) {
+            document.getElementById('statusFilter').value = status;
+            // In real app, this would filter the table
+        }
+
+        function showOrderDetail(orderId) {
+            document.getElementById('orderDetailPanel').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideOrderDetail() {
+            document.getElementById('orderDetailPanel').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    </script>
+</body>
+</html>

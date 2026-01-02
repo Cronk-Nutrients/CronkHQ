@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronk WMS - Bundles</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            750: '#293548',
+                            850: '#162032',
+                            950: '#0a1628'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .glass { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); }
+        .glow-amber { box-shadow: 0 0 20px rgba(251, 191, 36, 0.15); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .table-row:hover { background: rgba(51, 65, 85, 0.3); }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100">
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- Sidebar -->
+        <aside class="w-64 bg-slate-900/80 border-r border-slate-700/50 flex flex-col">
+            <!-- Logo -->
+            <div class="p-5 border-b border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-leaf text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-white text-lg">Cronk WMS</h1>
+                        <p class="text-xs text-slate-400">Inventory Management</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 p-4 space-y-1">
+                <a href="demo-01-dashboard.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-chart-line w-5"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="demo-02-inventory.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-boxes-stacked w-5"></i>
+                    <span>Inventory</span>
+                </a>
+                <a href="demo-03-orders.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-shopping-cart w-5"></i>
+                    <span>Orders</span>
+                </a>
+                
+                <div class="pt-2 pb-1">
+                    <div class="text-xs text-slate-500 uppercase tracking-wider px-4">Fulfillment</div>
+                </div>
+                
+                <a href="demo-05-pick.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-hand-pointer w-5"></i>
+                    <span>Pick</span>
+                </a>
+                <a href="demo-06-pack.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-box w-5"></i>
+                    <span>Pack</span>
+                </a>
+                <a href="demo-07-fba-prep.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fab fa-amazon w-5"></i>
+                    <span>FBA Prep</span>
+                </a>
+                
+                <div class="pt-2 pb-1">
+                    <div class="text-xs text-slate-500 uppercase tracking-wider px-4">Operations</div>
+                </div>
+                
+                <a href="#" class="flex items-center gap-3 px-4 py-3 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/20">
+                    <i class="fas fa-layer-group w-5"></i>
+                    <span class="font-medium">Bundles</span>
+                </a>
+                <a href="demo-10-work-orders.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-industry w-5"></i>
+                    <span>Work Orders</span>
+                </a>
+                <a href="demo-09-purchase-orders.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-file-invoice w-5"></i>
+                    <span>Purchase Orders</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-chart-pie w-5"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-cog w-5"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <!-- User -->
+            <div class="p-4 border-t border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">JC</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium text-white truncate">John Cronk</div>
+                        <div class="text-xs text-slate-400 truncate">Admin</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-auto">
+            <!-- Header -->
+            <header class="sticky top-0 z-10 bg-slate-900/80 backdrop-filter border-b border-slate-700/50 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">Bundles</h1>
+                        <p class="text-sm text-slate-400">Product bundles and kits with component tracking</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition-colors flex items-center gap-2">
+                            <i class="fas fa-sync-alt text-sm"></i>
+                            Sync Availability
+                        </button>
+                        <button onclick="showCreateBundleModal()" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-colors flex items-center gap-2">
+                            <i class="fas fa-plus text-sm"></i>
+                            New Bundle
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <div class="p-6 space-y-6">
+
+                <!-- Stats Row -->
+                <div class="grid grid-cols-5 gap-4">
+                    <div class="glass border border-amber-500/30 rounded-xl p-4 glow-amber">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                <i class="fas fa-layer-group text-amber-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-amber-400">8</div>
+                                <div class="text-xs text-slate-400">Active Bundles</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-emerald-500/30 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                <i class="fas fa-check-circle text-emerald-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-emerald-400">5</div>
+                                <div class="text-xs text-slate-400">Fully Available</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-amber-500/30 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                <i class="fas fa-exclamation-triangle text-amber-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-amber-400">2</div>
+                                <div class="text-xs text-slate-400">Limited Stock</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-red-500/30 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
+                                <i class="fas fa-times-circle text-red-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-red-400">1</div>
+                                <div class="text-xs text-slate-400">Out of Stock</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-slate-700/50 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
+                                <i class="fas fa-dollar-sign text-slate-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-white">$4,280</div>
+                                <div class="text-xs text-slate-400">Bundle Sales (MTD)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bundle Type Explanation -->
+                <div class="glass border border-slate-700/50 rounded-xl p-4">
+                    <div class="flex items-center gap-6">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                <i class="fas fa-ghost text-blue-400 text-sm"></i>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium text-white">Virtual Bundle</div>
+                                <div class="text-xs text-slate-400">Pick components separately, assemble at pack</div>
+                            </div>
+                        </div>
+                        <div class="h-8 w-px bg-slate-700"></div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                <i class="fas fa-box text-purple-400 text-sm"></i>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium text-white">Physical Bundle</div>
+                                <div class="text-xs text-slate-400">Pre-assembled, has own SKU and inventory</div>
+                            </div>
+                        </div>
+                        <div class="h-8 w-px bg-slate-700"></div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                                <i class="fab fa-amazon text-orange-400 text-sm"></i>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium text-white">FBA Bundle</div>
+                                <div class="text-xs text-slate-400">Pre-kitted and shipped to Amazon FBA</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bundle Cards -->
+                <div class="grid grid-cols-3 gap-6">
+                    
+                    <!-- Bundle 1 - Starter Kit (Virtual + Physical) -->
+                    <div class="glass border border-emerald-500/30 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 bg-emerald-500/5 border-b border-slate-700/50">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                                        <i class="fas fa-layer-group text-amber-400 text-xl"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-white">Starter Kit</h3>
+                                        <div class="text-xs text-slate-400">SKU: STRKIT-01</div>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded-full">In Stock</span>
+                            </div>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <!-- Bundle Types -->
+                            <div class="flex gap-2">
+                                <span class="px-2 py-1 bg-blue-500/10 text-blue-400 text-xs rounded-full flex items-center gap-1">
+                                    <i class="fas fa-ghost text-[10px]"></i> Virtual
+                                </span>
+                                <span class="px-2 py-1 bg-purple-500/10 text-purple-400 text-xs rounded-full flex items-center gap-1">
+                                    <i class="fas fa-box text-[10px]"></i> Physical
+                                </span>
+                                <span class="px-2 py-1 bg-orange-500/10 text-orange-400 text-xs rounded-full flex items-center gap-1">
+                                    <i class="fab fa-amazon text-[10px]"></i> FBA
+                                </span>
+                            </div>
+
+                            <!-- Components -->
+                            <div>
+                                <div class="text-xs text-slate-400 mb-2">COMPONENTS (3 SKUs)</div>
+                                <div class="space-y-2">
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-emerald-400 rounded-full"></div>
+                                            <span class="text-slate-300">1L Micro Classic</span>
+                                        </div>
+                                        <span class="text-slate-400">124 avail</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-emerald-400 rounded-full"></div>
+                                            <span class="text-slate-300">Bud Booster 1L</span>
+                                        </div>
+                                        <span class="text-slate-400">342 avail</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-emerald-400 rounded-full"></div>
+                                            <span class="text-slate-300">Cal-Mag Plus 500ml</span>
+                                        </div>
+                                        <span class="text-slate-400">156 avail</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Availability -->
+                            <div class="bg-slate-800/50 rounded-lg p-3">
+                                <div class="grid grid-cols-3 gap-3 text-center text-sm">
+                                    <div>
+                                        <div class="text-lg font-bold text-blue-400">124</div>
+                                        <div class="text-xs text-slate-500">Virtual</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-lg font-bold text-purple-400">48</div>
+                                        <div class="text-xs text-slate-500">Physical</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-lg font-bold text-orange-400">36</div>
+                                        <div class="text-xs text-slate-500">FBA</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Pricing -->
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-700">
+                                <div>
+                                    <div class="text-xs text-slate-400">Bundle Price</div>
+                                    <div class="text-lg font-bold text-white">$59.99</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs text-slate-400">vs Separate</div>
+                                    <div class="text-sm text-emerald-400">Save $12.98</div>
+                                </div>
+                            </div>
+
+                            <button onclick="showBundleDetail('starter')" class="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm">
+                                View Details
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Bundle 2 - Pro Kit (Limited) -->
+                    <div class="glass border border-amber-500/30 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 bg-amber-500/5 border-b border-slate-700/50">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                                        <i class="fas fa-layer-group text-purple-400 text-xl"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-white">Pro Kit</h3>
+                                        <div class="text-xs text-slate-400">SKU: PROKIT-01</div>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-1 bg-amber-500/10 text-amber-400 text-xs rounded-full">Limited</span>
+                            </div>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <!-- Bundle Types -->
+                            <div class="flex gap-2">
+                                <span class="px-2 py-1 bg-blue-500/10 text-blue-400 text-xs rounded-full flex items-center gap-1">
+                                    <i class="fas fa-ghost text-[10px]"></i> Virtual
+                                </span>
+                                <span class="px-2 py-1 bg-purple-500/10 text-purple-400 text-xs rounded-full flex items-center gap-1">
+                                    <i class="fas fa-box text-[10px]"></i> Physical
+                                </span>
+                            </div>
+
+                            <!-- Components -->
+                            <div>
+                                <div class="text-xs text-slate-400 mb-2">COMPONENTS (6 SKUs)</div>
+                                <div class="space-y-2">
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-emerald-400 rounded-full"></div>
+                                            <span class="text-slate-300">4L Micro Classic</span>
+                                        </div>
+                                        <span class="text-slate-400">45 avail</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-emerald-400 rounded-full"></div>
+                                            <span class="text-slate-300">4L Bud Booster</span>
+                                        </div>
+                                        <span class="text-slate-400">38 avail</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-amber-400 rounded-full"></div>
+                                            <span class="text-slate-300">pH Up 500ml</span>
+                                        </div>
+                                        <span class="text-amber-400">12 avail</span>
+                                    </div>
+                                    <div class="text-xs text-slate-500">+3 more components</div>
+                                </div>
+                            </div>
+
+                            <!-- Availability -->
+                            <div class="bg-slate-800/50 rounded-lg p-3">
+                                <div class="grid grid-cols-2 gap-3 text-center text-sm">
+                                    <div>
+                                        <div class="text-lg font-bold text-amber-400">12</div>
+                                        <div class="text-xs text-slate-500">Virtual (limited by pH Up)</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-lg font-bold text-purple-400">8</div>
+                                        <div class="text-xs text-slate-500">Physical</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Pricing -->
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-700">
+                                <div>
+                                    <div class="text-xs text-slate-400">Bundle Price</div>
+                                    <div class="text-lg font-bold text-white">$149.99</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs text-slate-400">vs Separate</div>
+                                    <div class="text-sm text-emerald-400">Save $34.95</div>
+                                </div>
+                            </div>
+
+                            <button class="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm">
+                                View Details
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Bundle 3 - Sample Pack (Out of Stock) -->
+                    <div class="glass border border-red-500/30 rounded-xl overflow-hidden opacity-80">
+                        <div class="px-5 py-4 bg-red-500/5 border-b border-slate-700/50">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-xl bg-cyan-500/20 flex items-center justify-center">
+                                        <i class="fas fa-vials text-cyan-400 text-xl"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-white">Sample Pack</h3>
+                                        <div class="text-xs text-slate-400">SKU: SAMPLE-01</div>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-1 bg-red-500/10 text-red-400 text-xs rounded-full">Out of Stock</span>
+                            </div>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <!-- Bundle Types -->
+                            <div class="flex gap-2">
+                                <span class="px-2 py-1 bg-purple-500/10 text-purple-400 text-xs rounded-full flex items-center gap-1">
+                                    <i class="fas fa-box text-[10px]"></i> Physical Only
+                                </span>
+                            </div>
+
+                            <!-- Components -->
+                            <div>
+                                <div class="text-xs text-slate-400 mb-2">COMPONENTS (5 SKUs)</div>
+                                <div class="space-y-2">
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-red-400 rounded-full"></div>
+                                            <span class="text-slate-300">100ml Micro Sample</span>
+                                        </div>
+                                        <span class="text-red-400">0 avail</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-red-400 rounded-full"></div>
+                                            <span class="text-slate-300">100ml Bud Sample</span>
+                                        </div>
+                                        <span class="text-red-400">0 avail</span>
+                                    </div>
+                                    <div class="text-xs text-slate-500">+3 more components</div>
+                                </div>
+                            </div>
+
+                            <!-- Availability -->
+                            <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center">
+                                <div class="text-red-400 font-medium">Cannot Fulfill</div>
+                                <div class="text-xs text-slate-400 mt-1">2 components out of stock</div>
+                            </div>
+
+                            <!-- Pricing -->
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-700">
+                                <div>
+                                    <div class="text-xs text-slate-400">Bundle Price</div>
+                                    <div class="text-lg font-bold text-white">$19.99</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs text-slate-400">vs Separate</div>
+                                    <div class="text-sm text-emerald-400">Save $8.96</div>
+                                </div>
+                            </div>
+
+                            <button class="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm">
+                                View Details
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Bundle 4 - pH Kit -->
+                    <div class="glass border border-emerald-500/30 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 bg-emerald-500/5 border-b border-slate-700/50">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                                        <i class="fas fa-balance-scale text-blue-400 text-xl"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-white">pH Control Kit</h3>
+                                        <div class="text-xs text-slate-400">SKU: PHKIT-01</div>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded-full">In Stock</span>
+                            </div>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div class="flex gap-2">
+                                <span class="px-2 py-1 bg-blue-500/10 text-blue-400 text-xs rounded-full flex items-center gap-1">
+                                    <i class="fas fa-ghost text-[10px]"></i> Virtual
+                                </span>
+                            </div>
+
+                            <div>
+                                <div class="text-xs text-slate-400 mb-2">COMPONENTS (3 SKUs)</div>
+                                <div class="space-y-2">
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-emerald-400 rounded-full"></div>
+                                            <span class="text-slate-300">pH Up 500ml</span>
+                                        </div>
+                                        <span class="text-slate-400">89 avail</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-emerald-400 rounded-full"></div>
+                                            <span class="text-slate-300">pH Down 500ml</span>
+                                        </div>
+                                        <span class="text-slate-400">144 avail</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-emerald-400 rounded-full"></div>
+                                            <span class="text-slate-300">pH Test Kit</span>
+                                        </div>
+                                        <span class="text-slate-400">67 avail</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-slate-800/50 rounded-lg p-3 text-center">
+                                <div class="text-lg font-bold text-blue-400">67</div>
+                                <div class="text-xs text-slate-500">Virtual bundles available</div>
+                            </div>
+
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-700">
+                                <div>
+                                    <div class="text-xs text-slate-400">Bundle Price</div>
+                                    <div class="text-lg font-bold text-white">$34.99</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs text-slate-400">vs Separate</div>
+                                    <div class="text-sm text-emerald-400">Save $7.98</div>
+                                </div>
+                            </div>
+
+                            <button class="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm">
+                                View Details
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Bundle 5 - Grow Duo -->
+                    <div class="glass border border-emerald-500/30 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 bg-emerald-500/5 border-b border-slate-700/50">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                                        <i class="fas fa-seedling text-emerald-400 text-xl"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-white">Grow Duo</h3>
+                                        <div class="text-xs text-slate-400">SKU: GDUO-01</div>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded-full">In Stock</span>
+                            </div>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div class="flex gap-2">
+                                <span class="px-2 py-1 bg-blue-500/10 text-blue-400 text-xs rounded-full flex items-center gap-1">
+                                    <i class="fas fa-ghost text-[10px]"></i> Virtual
+                                </span>
+                                <span class="px-2 py-1 bg-orange-500/10 text-orange-400 text-xs rounded-full flex items-center gap-1">
+                                    <i class="fab fa-amazon text-[10px]"></i> FBA
+                                </span>
+                            </div>
+
+                            <div>
+                                <div class="text-xs text-slate-400 mb-2">COMPONENTS (2 SKUs)</div>
+                                <div class="space-y-2">
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-emerald-400 rounded-full"></div>
+                                            <span class="text-slate-300">1L Micro Classic</span>
+                                        </div>
+                                        <span class="text-slate-400">124 avail</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-emerald-400 rounded-full"></div>
+                                            <span class="text-slate-300">1L Bud Booster</span>
+                                        </div>
+                                        <span class="text-slate-400">342 avail</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-slate-800/50 rounded-lg p-3">
+                                <div class="grid grid-cols-2 gap-3 text-center text-sm">
+                                    <div>
+                                        <div class="text-lg font-bold text-blue-400">124</div>
+                                        <div class="text-xs text-slate-500">Virtual</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-lg font-bold text-orange-400">72</div>
+                                        <div class="text-xs text-slate-500">FBA</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-700">
+                                <div>
+                                    <div class="text-xs text-slate-400">Bundle Price</div>
+                                    <div class="text-lg font-bold text-white">$39.99</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs text-slate-400">vs Separate</div>
+                                    <div class="text-sm text-emerald-400">Save $5.99</div>
+                                </div>
+                            </div>
+
+                            <button class="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm">
+                                View Details
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Bundle 6 - Cal-Mag Duo -->
+                    <div class="glass border border-amber-500/30 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 bg-amber-500/5 border-b border-slate-700/50">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-xl bg-cyan-500/20 flex items-center justify-center">
+                                        <i class="fas fa-flask text-cyan-400 text-xl"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-white">Cal-Mag Duo</h3>
+                                        <div class="text-xs text-slate-400">SKU: CMDUO-01</div>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-1 bg-amber-500/10 text-amber-400 text-xs rounded-full">Limited</span>
+                            </div>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div class="flex gap-2">
+                                <span class="px-2 py-1 bg-blue-500/10 text-blue-400 text-xs rounded-full flex items-center gap-1">
+                                    <i class="fas fa-ghost text-[10px]"></i> Virtual
+                                </span>
+                            </div>
+
+                            <div>
+                                <div class="text-xs text-slate-400 mb-2">COMPONENTS (2 SKUs)</div>
+                                <div class="space-y-2">
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-amber-400 rounded-full"></div>
+                                            <span class="text-slate-300">Cal-Mag Plus 1L</span>
+                                        </div>
+                                        <span class="text-amber-400">24 avail</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 bg-emerald-400 rounded-full"></div>
+                                            <span class="text-slate-300">Cal-Mag Plus 500ml</span>
+                                        </div>
+                                        <span class="text-slate-400">156 avail</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-center">
+                                <div class="text-lg font-bold text-amber-400">24</div>
+                                <div class="text-xs text-slate-400">Limited by Cal-Mag 1L</div>
+                            </div>
+
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-700">
+                                <div>
+                                    <div class="text-xs text-slate-400">Bundle Price</div>
+                                    <div class="text-lg font-bold text-white">$29.99</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs text-slate-400">vs Separate</div>
+                                    <div class="text-sm text-emerald-400">Save $4.99</div>
+                                </div>
+                            </div>
+
+                            <button class="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm">
+                                View Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Component Usage Table -->
+                <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                        <div>
+                            <h2 class="font-semibold text-white">Component Usage Across Bundles</h2>
+                            <p class="text-xs text-slate-400">Which products are used in which bundles</p>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-slate-800/50 border-b border-slate-700/50">
+                                <tr class="text-left text-xs text-slate-400 uppercase tracking-wider">
+                                    <th class="px-4 py-3 font-medium">Component</th>
+                                    <th class="px-4 py-3 font-medium text-right">Available</th>
+                                    <th class="px-4 py-3 font-medium text-center">Starter Kit</th>
+                                    <th class="px-4 py-3 font-medium text-center">Pro Kit</th>
+                                    <th class="px-4 py-3 font-medium text-center">pH Kit</th>
+                                    <th class="px-4 py-3 font-medium text-center">Grow Duo</th>
+                                    <th class="px-4 py-3 font-medium text-right">Total Reserved</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700/50">
+                                <tr class="table-row transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-6 h-6 bg-emerald-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-flask text-emerald-400 text-xs"></i>
+                                            </div>
+                                            <span class="text-sm text-white">1L Micro Classic</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">124</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-400">× 1</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-500">—</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-500">—</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-400">× 1</td>
+                                    <td class="px-4 py-3 text-right text-sm text-amber-400">0</td>
+                                </tr>
+                                <tr class="table-row transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-6 h-6 bg-purple-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-seedling text-purple-400 text-xs"></i>
+                                            </div>
+                                            <span class="text-sm text-white">Bud Booster 1L</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">342</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-400">× 1</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-500">—</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-500">—</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-400">× 1</td>
+                                    <td class="px-4 py-3 text-right text-sm text-amber-400">0</td>
+                                </tr>
+                                <tr class="table-row transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-6 h-6 bg-blue-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-arrow-up text-blue-400 text-xs"></i>
+                                            </div>
+                                            <span class="text-sm text-white">pH Up 500ml</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm text-amber-400">12</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-500">—</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-400">× 1</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-400">× 1</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-500">—</td>
+                                    <td class="px-4 py-3 text-right text-sm text-amber-400">0</td>
+                                </tr>
+                                <tr class="table-row transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-6 h-6 bg-red-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-arrow-down text-red-400 text-xs"></i>
+                                            </div>
+                                            <span class="text-sm text-white">pH Down 500ml</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm text-white">144</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-500">—</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-400">× 1</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-400">× 1</td>
+                                    <td class="px-4 py-3 text-center text-sm text-slate-500">—</td>
+                                    <td class="px-4 py-3 text-right text-sm text-amber-400">0</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Create Bundle Modal -->
+    <div id="createBundleModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="hideCreateBundleModal()"></div>
+        <div class="relative bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-auto m-4">
+            <div class="p-6 border-b border-slate-700 flex items-center justify-between sticky top-0 bg-slate-900 z-10">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Create Bundle</h2>
+                    <p class="text-sm text-slate-400">Define a new product bundle</p>
+                </div>
+                <button onclick="hideCreateBundleModal()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-6">
+                <!-- Basic Info -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-2">Bundle Name</label>
+                        <input type="text" placeholder="e.g., Starter Kit" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-2">SKU</label>
+                        <input type="text" placeholder="e.g., STRKIT-01" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500">
+                    </div>
+                </div>
+
+                <!-- Bundle Types -->
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Bundle Type</label>
+                    <div class="grid grid-cols-3 gap-3">
+                        <label class="flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-blue-500/50 transition-colors">
+                            <input type="checkbox" checked class="rounded bg-slate-700 border-slate-600 text-blue-500">
+                            <div>
+                                <div class="text-sm text-white flex items-center gap-2">
+                                    <i class="fas fa-ghost text-blue-400"></i>
+                                    Virtual
+                                </div>
+                                <div class="text-xs text-slate-500">Pick separately</div>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-purple-500/50 transition-colors">
+                            <input type="checkbox" class="rounded bg-slate-700 border-slate-600 text-purple-500">
+                            <div>
+                                <div class="text-sm text-white flex items-center gap-2">
+                                    <i class="fas fa-box text-purple-400"></i>
+                                    Physical
+                                </div>
+                                <div class="text-xs text-slate-500">Pre-assembled</div>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-orange-500/50 transition-colors">
+                            <input type="checkbox" class="rounded bg-slate-700 border-slate-600 text-orange-500">
+                            <div>
+                                <div class="text-sm text-white flex items-center gap-2">
+                                    <i class="fab fa-amazon text-orange-400"></i>
+                                    FBA
+                                </div>
+                                <div class="text-xs text-slate-500">Ship to Amazon</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Components -->
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Components</label>
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700 rounded-xl">
+                            <div class="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-flask text-emerald-400"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="text-sm text-white">1L Micro Classic</div>
+                                <div class="text-xs text-slate-400">124 available</div>
+                            </div>
+                            <input type="number" value="1" class="w-16 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-center text-sm">
+                            <button class="p-2 text-slate-500 hover:text-red-400">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700 rounded-xl">
+                            <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-seedling text-purple-400"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="text-sm text-white">Bud Booster 1L</div>
+                                <div class="text-xs text-slate-400">342 available</div>
+                            </div>
+                            <input type="number" value="1" class="w-16 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-center text-sm">
+                            <button class="p-2 text-slate-500 hover:text-red-400">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        <button class="w-full p-3 border-2 border-dashed border-slate-700 rounded-xl text-slate-400 hover:text-white hover:border-slate-600 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>
+                            Add Component
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Pricing -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-2">Bundle Price</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                            <input type="number" value="59.99" step="0.01" class="w-full bg-slate-800 border border-slate-700 rounded-xl pl-8 pr-4 py-3 text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-2">Component Total</label>
+                        <div class="px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl">
+                            <span class="text-slate-400">$45.98</span>
+                            <span class="text-emerald-400 ml-2">Save $14.01</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 pt-4">
+                    <button onclick="hideCreateBundleModal()" class="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl">Cancel</button>
+                    <button onclick="hideCreateBundleModal()" class="flex-1 px-4 py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-medium">
+                        <i class="fas fa-plus mr-2"></i>Create Bundle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showCreateBundleModal() {
+            document.getElementById('createBundleModal').classList.remove('hidden');
+            document.getElementById('createBundleModal').classList.add('flex');
+        }
+
+        function hideCreateBundleModal() {
+            document.getElementById('createBundleModal').classList.add('hidden');
+            document.getElementById('createBundleModal').classList.remove('flex');
+        }
+
+        function showBundleDetail(bundleId) {
+            // In real app, would navigate to bundle detail
+            console.log('Show bundle:', bundleId);
+        }
+    </script>
+</body>
+</html>

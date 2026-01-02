@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronk WMS - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            750: '#293548',
+                            850: '#162032',
+                            950: '#0a1628'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .glass { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); }
+        .glow { box-shadow: 0 0 20px rgba(52, 211, 153, 0.1); }
+        .glow-amber { box-shadow: 0 0 20px rgba(251, 191, 36, 0.1); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100">
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- Sidebar -->
+        <aside class="w-64 bg-slate-900/80 border-r border-slate-700/50 flex flex-col">
+            <!-- Logo -->
+            <div class="p-5 border-b border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-leaf text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-white text-lg">Cronk WMS</h1>
+                        <p class="text-xs text-slate-400">Inventory Management</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 p-4 space-y-1">
+                <a href="#" class="flex items-center gap-3 px-4 py-3 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20">
+                    <i class="fas fa-chart-line w-5"></i>
+                    <span class="font-medium">Dashboard</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-boxes-stacked w-5"></i>
+                    <span>Inventory</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-shopping-cart w-5"></i>
+                    <span>Orders</span>
+                    <span class="ml-auto bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full">16</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-hand-pointer w-5"></i>
+                    <span>Pick</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-box w-5"></i>
+                    <span>Pack</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-layer-group w-5"></i>
+                    <span>Bundles</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-industry w-5"></i>
+                    <span>Work Orders</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-file-invoice w-5"></i>
+                    <span>Purchase Orders</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-chart-pie w-5"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-cog w-5"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <!-- Sync Status -->
+            <div class="p-4 border-t border-slate-700/50">
+                <div class="text-xs text-slate-500 mb-2">Channel Sync Status</div>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                            <span class="text-slate-300">Veeqo</span>
+                        </div>
+                        <span class="text-slate-500 text-xs">2m ago</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                            <span class="text-slate-300">Shopify</span>
+                        </div>
+                        <span class="text-slate-500 text-xs">Live</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                            <span class="text-slate-300">Amazon</span>
+                        </div>
+                        <span class="text-slate-500 text-xs">Live</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User -->
+            <div class="p-4 border-t border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">JC</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium text-white truncate">John Cronk</div>
+                        <div class="text-xs text-slate-400 truncate">Admin</div>
+                    </div>
+                    <button class="text-slate-400 hover:text-white">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-auto">
+            <!-- Header -->
+            <header class="sticky top-0 z-10 bg-slate-900/80 backdrop-blur border-b border-slate-700/50 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">Dashboard</h1>
+                        <p class="text-sm text-slate-400">Welcome back! Here's your business overview.</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <!-- Date Range Picker -->
+                        <div class="flex items-center gap-1 bg-slate-800/50 border border-slate-700/50 rounded-lg p-1">
+                            <button onclick="setDateRange('today')" id="btn-today" class="px-3 py-1.5 text-sm font-medium rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                Today
+                            </button>
+                            <button onclick="setDateRange('wtd')" id="btn-wtd" class="px-3 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-700/50">
+                                WTD
+                            </button>
+                            <button onclick="setDateRange('mtd')" id="btn-mtd" class="px-3 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-700/50">
+                                MTD
+                            </button>
+                            <button onclick="setDateRange('ytd')" id="btn-ytd" class="px-3 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-700/50">
+                                YTD
+                            </button>
+                            <button class="px-3 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-700/50 flex items-center gap-1">
+                                <i class="fas fa-calendar text-xs"></i>
+                                Custom
+                            </button>
+                        </div>
+                        <!-- Quick Actions -->
+                        <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors relative">
+                            <i class="fas fa-bell"></i>
+                            <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <div class="p-6 space-y-6">
+
+                <!-- Key Financial Metrics -->
+                <div class="grid grid-cols-4 gap-4">
+                    <!-- Revenue -->
+                    <div class="glass border border-slate-700/50 rounded-xl p-5 glow">
+                        <div class="flex items-center gap-2 text-slate-400 text-sm mb-2">
+                            <i class="fas fa-dollar-sign"></i>
+                            <span>Revenue</span>
+                        </div>
+                        <div class="text-3xl font-bold text-white" id="metric-revenue">$2,847.52</div>
+                        <div class="text-sm text-slate-400 mt-1"><span id="metric-orders">23</span> orders</div>
+                        <div class="flex items-center gap-1 mt-2">
+                            <i class="fas fa-arrow-up text-emerald-400 text-xs"></i>
+                            <span class="text-xs text-emerald-400">12.3% vs prior period</span>
+                        </div>
+                    </div>
+
+                    <!-- Gross Profit -->
+                    <div class="bg-gradient-to-br from-emerald-500/20 to-green-600/20 border border-emerald-500/30 rounded-xl p-5 glow">
+                        <div class="flex items-center gap-2 text-emerald-300 text-sm mb-2">
+                            <i class="fas fa-trending-up"></i>
+                            <span>Gross Profit</span>
+                        </div>
+                        <div class="text-3xl font-bold text-emerald-400" id="metric-profit">$1,708.53</div>
+                        <div class="text-sm text-slate-300 mt-1"><span id="metric-margin">60.0</span>% margin</div>
+                        <div class="flex items-center gap-1 mt-2">
+                            <i class="fas fa-arrow-up text-emerald-400 text-xs"></i>
+                            <span class="text-xs text-emerald-400">8.5% vs prior period</span>
+                        </div>
+                    </div>
+
+                    <!-- COGS -->
+                    <div class="glass border border-slate-700/50 rounded-xl p-5">
+                        <div class="flex items-center gap-2 text-slate-400 text-sm mb-2">
+                            <i class="fas fa-box"></i>
+                            <span>Cost of Goods</span>
+                        </div>
+                        <div class="text-3xl font-bold text-white" id="metric-cogs">$1,138.99</div>
+                        <div class="text-sm text-slate-400 mt-1"><span id="metric-units">67</span> units sold</div>
+                        <div class="text-xs text-slate-500 mt-2">Avg $<span id="metric-avg-cost">17.00</span>/unit</div>
+                    </div>
+
+                    <!-- AOV -->
+                    <div class="glass border border-slate-700/50 rounded-xl p-5">
+                        <div class="flex items-center gap-2 text-slate-400 text-sm mb-2">
+                            <i class="fas fa-bullseye"></i>
+                            <span>Avg Order Value</span>
+                        </div>
+                        <div class="text-3xl font-bold text-white" id="metric-aov">$123.80</div>
+                        <div class="text-sm text-slate-400 mt-1"><span id="metric-items-per-order">2.9</span> items/order</div>
+                        <div class="flex items-center gap-1 mt-2">
+                            <i class="fas fa-arrow-up text-emerald-400 text-xs"></i>
+                            <span class="text-xs text-emerald-400">3.2% vs prior period</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Inventory Value & Fulfillment Row -->
+                <div class="grid grid-cols-3 gap-4">
+                    <!-- Inventory Valuation -->
+                    <div class="col-span-2 glass border border-slate-700/50 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                            <div>
+                                <h2 class="font-semibold text-white">Inventory Valuation</h2>
+                                <p class="text-xs text-slate-400">Total value across all locations</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold text-white">$69,240.00</div>
+                                <div class="text-xs text-slate-400">3,389 units on hand</div>
+                            </div>
+                        </div>
+                        <div class="p-5">
+                            <div class="grid grid-cols-3 gap-4">
+                                <!-- Texas Warehouse -->
+                                <div class="bg-slate-900/50 rounded-lg p-4">
+                                    <div class="flex items-center gap-2 mb-3">
+                                        <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                            <i class="fas fa-warehouse text-blue-400 text-sm"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium text-white">Texas WH</div>
+                                            <div class="text-xs text-slate-400">Primary</div>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-slate-400">Units</span>
+                                            <span class="text-white font-medium">2,341</span>
+                                        </div>
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-slate-400">MSRP Value</span>
+                                            <span class="text-white font-medium">$47,820</span>
+                                        </div>
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-slate-400">Cost Value</span>
+                                            <span class="text-emerald-400 font-medium">$19,632</span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 pt-3 border-t border-slate-700/50">
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-slate-400">Potential Margin</span>
+                                            <span class="text-emerald-400 font-bold">58.9%</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Amazon FBA -->
+                                <div class="bg-slate-900/50 rounded-lg p-4">
+                                    <div class="flex items-center gap-2 mb-3">
+                                        <div class="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                                            <i class="fab fa-amazon text-orange-400 text-sm"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium text-white">Amazon FBA</div>
+                                            <div class="text-xs text-slate-400">Fulfilled by Amazon</div>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-slate-400">Units</span>
+                                            <span class="text-white font-medium">892</span>
+                                        </div>
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-slate-400">MSRP Value</span>
+                                            <span class="text-white font-medium">$18,240</span>
+                                        </div>
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-slate-400">Cost Value</span>
+                                            <span class="text-emerald-400 font-medium">$7,582</span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 pt-3 border-t border-slate-700/50">
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-slate-400">Potential Margin</span>
+                                            <span class="text-emerald-400 font-bold">58.4%</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Amazon FBM -->
+                                <div class="bg-slate-900/50 rounded-lg p-4">
+                                    <div class="flex items-center gap-2 mb-3">
+                                        <div class="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                            <i class="fas fa-truck text-amber-400 text-sm"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium text-white">Amazon FBM</div>
+                                            <div class="text-xs text-slate-400">Merchant Fulfilled</div>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-slate-400">Units</span>
+                                            <span class="text-white font-medium">156</span>
+                                        </div>
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-slate-400">MSRP Value</span>
+                                            <span class="text-white font-medium">$3,180</span>
+                                        </div>
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-slate-400">Cost Value</span>
+                                            <span class="text-emerald-400 font-medium">$1,341</span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 pt-3 border-t border-slate-700/50">
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-slate-400">Potential Margin</span>
+                                            <span class="text-emerald-400 font-bold">57.8%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Summary Bar -->
+                            <div class="mt-4 p-4 bg-gradient-to-r from-emerald-500/10 to-blue-500/10 rounded-lg border border-emerald-500/20">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <span class="text-slate-400 text-sm">Unrealized Profit Potential</span>
+                                        <div class="text-2xl font-bold text-emerald-400">$40,685</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-slate-400 text-sm">Total Cost on Hand</span>
+                                        <div class="text-xl font-bold text-white">$28,555</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-slate-400 text-sm">Avg Margin</span>
+                                        <div class="text-xl font-bold text-emerald-400">58.7%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fulfillment Status -->
+                    <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 border-b border-slate-700/50">
+                            <h2 class="font-semibold text-white">Fulfillment Status</h2>
+                            <p class="text-xs text-slate-400">Today's order pipeline</p>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <!-- To Pick -->
+                            <div class="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                        <i class="fas fa-hand-pointer text-amber-400"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-white">To Pick</div>
+                                        <div class="text-xs text-slate-400">Awaiting picker</div>
+                                    </div>
+                                </div>
+                                <div class="text-2xl font-bold text-amber-400">8</div>
+                            </div>
+
+                            <!-- To Pack -->
+                            <div class="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                        <i class="fas fa-box text-blue-400"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-white">To Pack</div>
+                                        <div class="text-xs text-slate-400">Picked, ready to pack</div>
+                                    </div>
+                                </div>
+                                <div class="text-2xl font-bold text-blue-400">3</div>
+                            </div>
+
+                            <!-- Ready to Ship -->
+                            <div class="flex items-center justify-between p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                        <i class="fas fa-tag text-purple-400"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-white">Ready to Ship</div>
+                                        <div class="text-xs text-slate-400">Label printed</div>
+                                    </div>
+                                </div>
+                                <div class="text-2xl font-bold text-purple-400">5</div>
+                            </div>
+
+                            <!-- Shipped Today -->
+                            <div class="flex items-center justify-between p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                        <i class="fas fa-check text-emerald-400"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-white">Shipped Today</div>
+                                        <div class="text-xs text-slate-400">Completed</div>
+                                    </div>
+                                </div>
+                                <div class="text-2xl font-bold text-emerald-400">47</div>
+                            </div>
+
+                            <!-- On-Time Rate -->
+                            <div class="mt-4 pt-4 border-t border-slate-700/50">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-slate-400">On-Time Shipping Rate</span>
+                                    <span class="text-lg font-bold text-emerald-400">98.2%</span>
+                                </div>
+                                <div class="mt-2 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full" style="width: 98.2%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Channel Performance & Orders Row -->
+                <div class="grid grid-cols-3 gap-4">
+                    <!-- Channel Performance -->
+                    <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 border-b border-slate-700/50">
+                            <h2 class="font-semibold text-white">Channel Performance</h2>
+                            <p class="text-xs text-slate-400" id="channel-period">Today</p>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <!-- Shopify -->
+                            <div class="p-4 bg-slate-900/50 rounded-lg">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-8 h-8 rounded-lg bg-green-600/20 flex items-center justify-center">
+                                            <i class="fab fa-shopify text-green-400"></i>
+                                        </div>
+                                        <span class="font-medium text-white">Shopify</span>
+                                    </div>
+                                    <span class="text-xs text-slate-400" id="shopify-pct">68%</span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-3 text-center">
+                                    <div>
+                                        <div class="text-lg font-bold text-white" id="shopify-orders">15</div>
+                                        <div class="text-xs text-slate-500">Orders</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-lg font-bold text-white" id="shopify-revenue">$1,923</div>
+                                        <div class="text-xs text-slate-500">Revenue</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-lg font-bold text-emerald-400" id="shopify-profit">$1,154</div>
+                                        <div class="text-xs text-slate-500">Profit</div>
+                                    </div>
+                                </div>
+                                <!-- Mini bar -->
+                                <div class="mt-3 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-green-500 rounded-full" style="width: 68%"></div>
+                                </div>
+                            </div>
+
+                            <!-- Amazon -->
+                            <div class="p-4 bg-slate-900/50 rounded-lg">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                                            <i class="fab fa-amazon text-orange-400"></i>
+                                        </div>
+                                        <span class="font-medium text-white">Amazon</span>
+                                    </div>
+                                    <span class="text-xs text-slate-400" id="amazon-pct">32%</span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-3 text-center">
+                                    <div>
+                                        <div class="text-lg font-bold text-white" id="amazon-orders">8</div>
+                                        <div class="text-xs text-slate-500">Orders</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-lg font-bold text-white" id="amazon-revenue">$924</div>
+                                        <div class="text-xs text-slate-500">Revenue</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-lg font-bold text-emerald-400" id="amazon-profit">$554</div>
+                                        <div class="text-xs text-slate-500">Profit</div>
+                                    </div>
+                                </div>
+                                <!-- Mini bar -->
+                                <div class="mt-3 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-orange-500 rounded-full" style="width: 32%"></div>
+                                </div>
+                            </div>
+
+                            <!-- Comparison -->
+                            <div class="pt-3 border-t border-slate-700/50">
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="text-slate-400">Shopify AOV</span>
+                                    <span class="text-white font-medium">$128.20</span>
+                                </div>
+                                <div class="flex items-center justify-between text-sm mt-1">
+                                    <span class="text-slate-400">Amazon AOV</span>
+                                    <span class="text-white font-medium">$115.50</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Orders -->
+                    <div class="col-span-2 glass border border-slate-700/50 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                            <div>
+                                <h2 class="font-semibold text-white">Recent Orders</h2>
+                                <p class="text-xs text-slate-400">Latest incoming orders</p>
+                            </div>
+                            <a href="#" class="text-sm text-emerald-400 hover:text-emerald-300">View All →</a>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-slate-800/50">
+                                    <tr class="text-left text-xs text-slate-400 uppercase tracking-wider">
+                                        <th class="px-5 py-3 font-medium">Order</th>
+                                        <th class="px-5 py-3 font-medium">Customer</th>
+                                        <th class="px-5 py-3 font-medium">Channel</th>
+                                        <th class="px-5 py-3 font-medium">Items</th>
+                                        <th class="px-5 py-3 font-medium">Total</th>
+                                        <th class="px-5 py-3 font-medium">Profit</th>
+                                        <th class="px-5 py-3 font-medium">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-700/50">
+                                    <tr class="hover:bg-slate-800/30 transition-colors">
+                                        <td class="px-5 py-3">
+                                            <span class="font-mono text-sm text-white">#SH-4521</span>
+                                        </td>
+                                        <td class="px-5 py-3">
+                                            <div class="text-sm text-white">Sarah Johnson</div>
+                                            <div class="text-xs text-slate-400">Houston, TX</div>
+                                        </td>
+                                        <td class="px-5 py-3">
+                                            <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 text-green-400 text-xs rounded-full">
+                                                <i class="fab fa-shopify"></i> Shopify
+                                            </span>
+                                        </td>
+                                        <td class="px-5 py-3 text-sm text-slate-300">3 items</td>
+                                        <td class="px-5 py-3 text-sm text-white font-medium">$89.97</td>
+                                        <td class="px-5 py-3 text-sm text-emerald-400 font-medium">$54.12</td>
+                                        <td class="px-5 py-3">
+                                            <span class="px-2 py-1 bg-amber-500/10 text-amber-400 text-xs rounded-full">To Pick</span>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-800/30 transition-colors">
+                                        <td class="px-5 py-3">
+                                            <span class="font-mono text-sm text-white">#AZ-8834</span>
+                                        </td>
+                                        <td class="px-5 py-3">
+                                            <div class="text-sm text-white">Mike Chen</div>
+                                            <div class="text-xs text-slate-400">Los Angeles, CA</div>
+                                        </td>
+                                        <td class="px-5 py-3">
+                                            <span class="inline-flex items-center gap-1 px-2 py-1 bg-orange-500/10 text-orange-400 text-xs rounded-full">
+                                                <i class="fab fa-amazon"></i> Amazon
+                                            </span>
+                                        </td>
+                                        <td class="px-5 py-3 text-sm text-slate-300">1 item</td>
+                                        <td class="px-5 py-3 text-sm text-white font-medium">$24.99</td>
+                                        <td class="px-5 py-3 text-sm text-emerald-400 font-medium">$14.87</td>
+                                        <td class="px-5 py-3">
+                                            <span class="px-2 py-1 bg-amber-500/10 text-amber-400 text-xs rounded-full">To Pick</span>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-800/30 transition-colors">
+                                        <td class="px-5 py-3">
+                                            <span class="font-mono text-sm text-white">#SH-4520</span>
+                                        </td>
+                                        <td class="px-5 py-3">
+                                            <div class="text-sm text-white">Emily Rodriguez</div>
+                                            <div class="text-xs text-slate-400">Miami, FL</div>
+                                        </td>
+                                        <td class="px-5 py-3">
+                                            <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 text-green-400 text-xs rounded-full">
+                                                <i class="fab fa-shopify"></i> Shopify
+                                            </span>
+                                        </td>
+                                        <td class="px-5 py-3 text-sm text-slate-300">5 items</td>
+                                        <td class="px-5 py-3 text-sm text-white font-medium">$149.95</td>
+                                        <td class="px-5 py-3 text-sm text-emerald-400 font-medium">$89.23</td>
+                                        <td class="px-5 py-3">
+                                            <span class="px-2 py-1 bg-blue-500/10 text-blue-400 text-xs rounded-full">To Pack</span>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-800/30 transition-colors">
+                                        <td class="px-5 py-3">
+                                            <span class="font-mono text-sm text-white">#SH-4519</span>
+                                        </td>
+                                        <td class="px-5 py-3">
+                                            <div class="text-sm text-white">David Park</div>
+                                            <div class="text-xs text-slate-400">Seattle, WA</div>
+                                        </td>
+                                        <td class="px-5 py-3">
+                                            <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 text-green-400 text-xs rounded-full">
+                                                <i class="fab fa-shopify"></i> Shopify
+                                            </span>
+                                        </td>
+                                        <td class="px-5 py-3 text-sm text-slate-300">2 items</td>
+                                        <td class="px-5 py-3 text-sm text-white font-medium">$59.98</td>
+                                        <td class="px-5 py-3 text-sm text-emerald-400 font-medium">$35.87</td>
+                                        <td class="px-5 py-3">
+                                            <span class="px-2 py-1 bg-purple-500/10 text-purple-400 text-xs rounded-full">Ready</span>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-800/30 transition-colors">
+                                        <td class="px-5 py-3">
+                                            <span class="font-mono text-sm text-white">#AZ-8833</span>
+                                        </td>
+                                        <td class="px-5 py-3">
+                                            <div class="text-sm text-white">Lisa Thompson</div>
+                                            <div class="text-xs text-slate-400">Denver, CO</div>
+                                        </td>
+                                        <td class="px-5 py-3">
+                                            <span class="inline-flex items-center gap-1 px-2 py-1 bg-orange-500/10 text-orange-400 text-xs rounded-full">
+                                                <i class="fab fa-amazon"></i> Amazon
+                                            </span>
+                                        </td>
+                                        <td class="px-5 py-3 text-sm text-slate-300">4 items</td>
+                                        <td class="px-5 py-3 text-sm text-white font-medium">$119.96</td>
+                                        <td class="px-5 py-3 text-sm text-emerald-400 font-medium">$71.45</td>
+                                        <td class="px-5 py-3">
+                                            <span class="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded-full">Shipped</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bundles, Work Orders, Low Stock Row -->
+                <div class="grid grid-cols-3 gap-4">
+                    <!-- Bundle Availability -->
+                    <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                            <div>
+                                <h2 class="font-semibold text-white">Bundle Availability</h2>
+                                <p class="text-xs text-slate-400">Virtual kit stock</p>
+                            </div>
+                            <a href="#" class="text-sm text-emerald-400 hover:text-emerald-300">Manage →</a>
+                        </div>
+                        <div class="p-5 space-y-3">
+                            <!-- Bundle Item -->
+                            <div class="p-3 bg-slate-900/50 rounded-lg">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm font-medium text-white">Starter Kit</span>
+                                    <span class="text-lg font-bold text-emerald-400">24</span>
+                                </div>
+                                <div class="text-xs text-slate-400 mb-2">Available to sell</div>
+                                <div class="flex items-center gap-1 text-xs">
+                                    <span class="text-amber-400">⚠</span>
+                                    <span class="text-slate-400">Limited by:</span>
+                                    <span class="text-amber-400">1L Micro Classic</span>
+                                </div>
+                            </div>
+
+                            <div class="p-3 bg-slate-900/50 rounded-lg">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm font-medium text-white">Pro Bundle</span>
+                                    <span class="text-lg font-bold text-emerald-400">156</span>
+                                </div>
+                                <div class="text-xs text-slate-400 mb-2">Available to sell</div>
+                                <div class="flex items-center gap-1 text-xs">
+                                    <span class="text-emerald-400">✓</span>
+                                    <span class="text-slate-400">All components in stock</span>
+                                </div>
+                            </div>
+
+                            <div class="p-3 bg-slate-900/50 rounded-lg">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm font-medium text-white">Complete System</span>
+                                    <span class="text-lg font-bold text-red-400">0</span>
+                                </div>
+                                <div class="text-xs text-slate-400 mb-2">Out of stock</div>
+                                <div class="flex items-center gap-1 text-xs">
+                                    <span class="text-red-400">✕</span>
+                                    <span class="text-slate-400">Missing:</span>
+                                    <span class="text-red-400">pH Up 500ml</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Work Orders -->
+                    <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                            <div>
+                                <h2 class="font-semibold text-white">Active Work Orders</h2>
+                                <p class="text-xs text-slate-400">Manufacturing in progress</p>
+                            </div>
+                            <a href="#" class="text-sm text-emerald-400 hover:text-emerald-300">View All →</a>
+                        </div>
+                        <div class="p-5 space-y-3">
+                            <!-- Work Order -->
+                            <div class="p-3 bg-slate-900/50 rounded-lg">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm font-medium text-white">WO-2024-089</span>
+                                    <span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-xs rounded-full">In Progress</span>
+                                </div>
+                                <div class="text-xs text-slate-400 mb-2">1L Micro Classic × 500</div>
+                                <div class="flex items-center gap-2">
+                                    <div class="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                        <div class="h-full bg-blue-500 rounded-full" style="width: 65%"></div>
+                                    </div>
+                                    <span class="text-xs text-slate-400">65%</span>
+                                </div>
+                            </div>
+
+                            <div class="p-3 bg-slate-900/50 rounded-lg">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm font-medium text-white">WO-2024-090</span>
+                                    <span class="px-2 py-0.5 bg-amber-500/10 text-amber-400 text-xs rounded-full">Pending</span>
+                                </div>
+                                <div class="text-xs text-slate-400 mb-2">Bud Booster 1L × 200</div>
+                                <div class="flex items-center gap-2">
+                                    <div class="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                        <div class="h-full bg-amber-500 rounded-full" style="width: 0%"></div>
+                                    </div>
+                                    <span class="text-xs text-slate-400">0%</span>
+                                </div>
+                            </div>
+
+                            <div class="p-3 bg-slate-900/50 rounded-lg">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm font-medium text-white">WO-2024-088</span>
+                                    <span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-xs rounded-full">Complete</span>
+                                </div>
+                                <div class="text-xs text-slate-400 mb-2">pH Down 500ml × 300</div>
+                                <div class="flex items-center gap-2">
+                                    <div class="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                        <div class="h-full bg-emerald-500 rounded-full" style="width: 100%"></div>
+                                    </div>
+                                    <span class="text-xs text-slate-400">100%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Low Stock Alerts -->
+                    <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <h2 class="font-semibold text-white">Low Stock Alerts</h2>
+                                <span class="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded-full">4</span>
+                            </div>
+                            <a href="#" class="text-sm text-emerald-400 hover:text-emerald-300">View All →</a>
+                        </div>
+                        <div class="p-5 space-y-3">
+                            <!-- Critical -->
+                            <div class="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-sm font-medium text-white">pH Up 500ml</span>
+                                    <span class="text-red-400 font-bold">0</span>
+                                </div>
+                                <div class="text-xs text-slate-400">Reorder point: 50</div>
+                                <div class="text-xs text-red-400 mt-1">⚠ Out of stock!</div>
+                            </div>
+
+                            <!-- Low -->
+                            <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-sm font-medium text-white">1L Micro Classic</span>
+                                    <span class="text-amber-400 font-bold">24</span>
+                                </div>
+                                <div class="text-xs text-slate-400">Reorder point: 100</div>
+                                <div class="text-xs text-amber-400 mt-1">↓ Below reorder point</div>
+                            </div>
+
+                            <!-- Low -->
+                            <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-sm font-medium text-white">Small Shipping Box</span>
+                                    <span class="text-amber-400 font-bold">45</span>
+                                </div>
+                                <div class="text-xs text-slate-400">Reorder point: 100</div>
+                                <div class="text-xs text-amber-400 mt-1">↓ Below reorder point</div>
+                            </div>
+
+                            <!-- Low -->
+                            <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-sm font-medium text-white">Gripper Stickers</span>
+                                    <span class="text-amber-400 font-bold">120</span>
+                                </div>
+                                <div class="text-xs text-slate-400">Reorder point: 500</div>
+                                <div class="text-xs text-amber-400 mt-1">↓ Below reorder point</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="glass border border-slate-700/50 rounded-xl p-5">
+                    <h2 class="font-semibold text-white mb-4">Quick Actions</h2>
+                    <div class="grid grid-cols-6 gap-3">
+                        <button class="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-emerald-500/30 rounded-xl transition-all group">
+                            <div class="w-10 h-10 rounded-lg bg-emerald-500/20 group-hover:bg-emerald-500/30 flex items-center justify-center transition-colors">
+                                <i class="fas fa-plus text-emerald-400"></i>
+                            </div>
+                            <span class="text-sm text-slate-300 group-hover:text-white">New Order</span>
+                        </button>
+                        <button class="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-blue-500/30 rounded-xl transition-all group">
+                            <div class="w-10 h-10 rounded-lg bg-blue-500/20 group-hover:bg-blue-500/30 flex items-center justify-center transition-colors">
+                                <i class="fas fa-industry text-blue-400"></i>
+                            </div>
+                            <span class="text-sm text-slate-300 group-hover:text-white">Work Order</span>
+                        </button>
+                        <button class="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-purple-500/30 rounded-xl transition-all group">
+                            <div class="w-10 h-10 rounded-lg bg-purple-500/20 group-hover:bg-purple-500/30 flex items-center justify-center transition-colors">
+                                <i class="fas fa-boxes-stacked text-purple-400"></i>
+                            </div>
+                            <span class="text-sm text-slate-300 group-hover:text-white">Adjust Stock</span>
+                        </button>
+                        <button class="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-amber-500/30 rounded-xl transition-all group">
+                            <div class="w-10 h-10 rounded-lg bg-amber-500/20 group-hover:bg-amber-500/30 flex items-center justify-center transition-colors">
+                                <i class="fas fa-file-invoice text-amber-400"></i>
+                            </div>
+                            <span class="text-sm text-slate-300 group-hover:text-white">Create PO</span>
+                        </button>
+                        <button class="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-cyan-500/30 rounded-xl transition-all group">
+                            <div class="w-10 h-10 rounded-lg bg-cyan-500/20 group-hover:bg-cyan-500/30 flex items-center justify-center transition-colors">
+                                <i class="fas fa-sync-alt text-cyan-400"></i>
+                            </div>
+                            <span class="text-sm text-slate-300 group-hover:text-white">Sync All</span>
+                        </button>
+                        <button class="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-pink-500/30 rounded-xl transition-all group">
+                            <div class="w-10 h-10 rounded-lg bg-pink-500/20 group-hover:bg-pink-500/30 flex items-center justify-center transition-colors">
+                                <i class="fas fa-download text-pink-400"></i>
+                            </div>
+                            <span class="text-sm text-slate-300 group-hover:text-white">Export</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Date range data
+        const periodData = {
+            today: {
+                revenue: 2847.52, orders: 23, profit: 1708.53, margin: 60.0, cogs: 1138.99, units: 67, avgCost: 17.00, aov: 123.80, itemsPerOrder: 2.9,
+                shopify: { orders: 15, revenue: 1923, profit: 1154, pct: 68 },
+                amazon: { orders: 8, revenue: 924, profit: 554, pct: 32 }
+            },
+            wtd: {
+                revenue: 12453.87, orders: 89, profit: 7472.32, margin: 60.0, cogs: 4981.55, units: 278, avgCost: 17.92, aov: 139.93, itemsPerOrder: 3.1,
+                shopify: { orders: 58, revenue: 8135, profit: 4881, pct: 65 },
+                amazon: { orders: 31, revenue: 4319, profit: 2591, pct: 35 }
+            },
+            mtd: {
+                revenue: 43521.90, orders: 312, profit: 26113.14, margin: 60.0, cogs: 17408.76, units: 892, avgCost: 19.52, aov: 139.49, itemsPerOrder: 2.9,
+                shopify: { orders: 201, revenue: 28735, profit: 17241, pct: 66 },
+                amazon: { orders: 111, revenue: 14787, profit: 8872, pct: 34 }
+            },
+            ytd: {
+                revenue: 412853.20, orders: 2847, profit: 247711.92, margin: 60.0, cogs: 165141.28, units: 8234, avgCost: 20.06, aov: 145.03, itemsPerOrder: 2.9,
+                shopify: { orders: 1842, revenue: 272454, profit: 163472, pct: 66 },
+                amazon: { orders: 1005, revenue: 140399, profit: 84240, pct: 34 }
+            }
+        };
+
+        const periodLabels = {
+            today: 'Today',
+            wtd: 'Week to Date',
+            mtd: 'Month to Date',
+            ytd: 'Year to Date'
+        };
+
+        function formatCurrency(num) {
+            if (num >= 1000) {
+                return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+            }
+            return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function setDateRange(period) {
+            const data = periodData[period];
+            
+            // Update button states
+            ['today', 'wtd', 'mtd', 'ytd'].forEach(p => {
+                const btn = document.getElementById('btn-' + p);
+                if (p === period) {
+                    btn.className = 'px-3 py-1.5 text-sm font-medium rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                } else {
+                    btn.className = 'px-3 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-700/50';
+                }
+            });
+
+            // Update metrics
+            document.getElementById('metric-revenue').textContent = formatCurrency(data.revenue);
+            document.getElementById('metric-orders').textContent = data.orders;
+            document.getElementById('metric-profit').textContent = formatCurrency(data.profit);
+            document.getElementById('metric-margin').textContent = data.margin.toFixed(1);
+            document.getElementById('metric-cogs').textContent = formatCurrency(data.cogs);
+            document.getElementById('metric-units').textContent = data.units;
+            document.getElementById('metric-avg-cost').textContent = data.avgCost.toFixed(2);
+            document.getElementById('metric-aov').textContent = formatCurrency(data.aov);
+            document.getElementById('metric-items-per-order').textContent = data.itemsPerOrder.toFixed(1);
+
+            // Update channel performance
+            document.getElementById('channel-period').textContent = periodLabels[period];
+            document.getElementById('shopify-orders').textContent = data.shopify.orders;
+            document.getElementById('shopify-revenue').textContent = formatCurrency(data.shopify.revenue);
+            document.getElementById('shopify-profit').textContent = formatCurrency(data.shopify.profit);
+            document.getElementById('shopify-pct').textContent = data.shopify.pct + '%';
+            document.getElementById('amazon-orders').textContent = data.amazon.orders;
+            document.getElementById('amazon-revenue').textContent = formatCurrency(data.amazon.revenue);
+            document.getElementById('amazon-profit').textContent = formatCurrency(data.amazon.profit);
+            document.getElementById('amazon-pct').textContent = data.amazon.pct + '%';
+        }
+    </script>
+</body>
+</html>

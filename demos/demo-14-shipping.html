@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronk WMS - Shipping</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            750: '#293548',
+                            850: '#162032',
+                            950: '#0a1628'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .glass { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); }
+        .glow { box-shadow: 0 0 20px rgba(52, 211, 153, 0.1); }
+        .glow-purple { box-shadow: 0 0 20px rgba(168, 85, 247, 0.15); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .table-row:hover { background: rgba(51, 65, 85, 0.3); }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100">
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- Sidebar -->
+        <aside class="w-64 bg-slate-900/80 border-r border-slate-700/50 flex flex-col">
+            <!-- Logo -->
+            <div class="p-5 border-b border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-leaf text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-white text-lg">Cronk WMS</h1>
+                        <p class="text-xs text-slate-400">Inventory Management</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 p-4 space-y-1">
+                <a href="demo-01-dashboard.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-chart-line w-5"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="demo-02-inventory.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-boxes-stacked w-5"></i>
+                    <span>Inventory</span>
+                </a>
+                <a href="demo-03-orders.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-shopping-cart w-5"></i>
+                    <span>Orders</span>
+                </a>
+                
+                <div class="pt-4 pb-2">
+                    <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Fulfillment</p>
+                </div>
+                <a href="demo-05-pick.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-hand-pointer w-5"></i>
+                    <span>Pick</span>
+                </a>
+                <a href="demo-06-pack.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-box w-5"></i>
+                    <span>Pack</span>
+                </a>
+                <a href="demo-14-shipping.html" class="flex items-center gap-3 px-4 py-3 text-white bg-gradient-to-r from-purple-500/20 to-transparent border-l-2 border-purple-400 rounded-lg">
+                    <i class="fas fa-truck-fast w-5 text-purple-400"></i>
+                    <span>Shipping</span>
+                </a>
+                <a href="demo-07-fba-prep.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fab fa-amazon w-5"></i>
+                    <span>FBA Prep</span>
+                </a>
+
+                <div class="pt-4 pb-2">
+                    <p class="px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Operations</p>
+                </div>
+                <a href="demo-09-purchase-orders.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-file-invoice w-5"></i>
+                    <span>Purchase Orders</span>
+                </a>
+                <a href="demo-10-work-orders.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-industry w-5"></i>
+                    <span>Work Orders</span>
+                </a>
+                <a href="demo-11-bundles.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-layer-group w-5"></i>
+                    <span>Bundles</span>
+                </a>
+                <a href="demo-12-reports.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-chart-pie w-5"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="demo-13-settings.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-cog w-5"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <!-- Sync Status -->
+            <div class="p-4 border-t border-slate-700/50">
+                <div class="glass rounded-lg p-3 space-y-2">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-slate-400">Veeqo</span>
+                        <span class="flex items-center gap-1 text-emerald-400">
+                            <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                            Synced
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-slate-400">Shopify</span>
+                        <span class="flex items-center gap-1 text-emerald-400">
+                            <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                            Synced
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-auto">
+            <!-- Header -->
+            <header class="bg-slate-900/50 border-b border-slate-700/50 px-8 py-4 sticky top-0 z-10 backdrop-blur-md">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">Shipping</h1>
+                        <p class="text-slate-400 text-sm">Track shipments, costs, and carrier performance</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <!-- Date Range Picker -->
+                        <div class="flex items-center glass rounded-lg p-1">
+                            <button class="px-4 py-2 text-sm text-slate-400 hover:text-white rounded-lg transition-all">Today</button>
+                            <button class="px-4 py-2 text-sm bg-purple-500/20 text-purple-300 rounded-lg">WTD</button>
+                            <button class="px-4 py-2 text-sm text-slate-400 hover:text-white rounded-lg transition-all">MTD</button>
+                            <button class="px-4 py-2 text-sm text-slate-400 hover:text-white rounded-lg transition-all">YTD</button>
+                            <button class="px-4 py-2 text-sm text-slate-400 hover:text-white rounded-lg transition-all flex items-center gap-2">
+                                <i class="fas fa-calendar"></i>
+                                Custom
+                            </button>
+                        </div>
+                        <!-- Export Button -->
+                        <button class="flex items-center gap-2 px-4 py-2 glass rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/50 transition-all">
+                            <i class="fas fa-download"></i>
+                            Export
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="p-8 space-y-6">
+                <!-- Stats Row -->
+                <div class="grid grid-cols-5 gap-4">
+                    <!-- Total Shipments -->
+                    <div class="glass rounded-xl border border-slate-700/50 p-5 glow-purple">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-slate-400 text-sm">Total Shipments</span>
+                            <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-truck text-purple-400"></i>
+                            </div>
+                        </div>
+                        <p class="text-3xl font-bold text-white">247</p>
+                        <p class="text-xs text-emerald-400 mt-1">
+                            <i class="fas fa-arrow-up mr-1"></i>
+                            +18% vs last week
+                        </p>
+                    </div>
+
+                    <!-- Shipping Revenue -->
+                    <div class="glass rounded-xl border border-slate-700/50 p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-slate-400 text-sm">Shipping Revenue</span>
+                            <div class="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-dollar-sign text-emerald-400"></i>
+                            </div>
+                        </div>
+                        <p class="text-3xl font-bold text-white">$2,847.50</p>
+                        <p class="text-xs text-slate-400 mt-1">What customers paid</p>
+                    </div>
+
+                    <!-- Shipping Cost -->
+                    <div class="glass rounded-xl border border-slate-700/50 p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-slate-400 text-sm">Shipping Cost</span>
+                            <div class="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-receipt text-red-400"></i>
+                            </div>
+                        </div>
+                        <p class="text-3xl font-bold text-white">$1,523.80</p>
+                        <p class="text-xs text-slate-400 mt-1">Paid to carriers</p>
+                    </div>
+
+                    <!-- Shipping Profit -->
+                    <div class="glass rounded-xl border border-slate-700/50 p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-slate-400 text-sm">Shipping Profit</span>
+                            <div class="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-chart-line text-emerald-400"></i>
+                            </div>
+                        </div>
+                        <p class="text-3xl font-bold text-emerald-400">$1,323.70</p>
+                        <p class="text-xs text-emerald-400 mt-1">46.5% margin</p>
+                    </div>
+
+                    <!-- Avg Cost per Shipment -->
+                    <div class="glass rounded-xl border border-slate-700/50 p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-slate-400 text-sm">Avg Cost/Shipment</span>
+                            <div class="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-calculator text-blue-400"></i>
+                            </div>
+                        </div>
+                        <p class="text-3xl font-bold text-white">$6.17</p>
+                        <p class="text-xs text-slate-400 mt-1">Avg revenue: $11.53</p>
+                    </div>
+                </div>
+
+                <!-- Carrier Performance & Chart Row -->
+                <div class="grid grid-cols-3 gap-6">
+                    <!-- Carrier Breakdown -->
+                    <div class="col-span-2 glass rounded-xl border border-slate-700/50 p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-lg font-semibold text-white">Carrier Performance</h2>
+                            <div class="flex items-center gap-2 text-xs text-slate-400">
+                                <span class="w-2 h-2 bg-emerald-400 rounded-full"></span>
+                                Profitable
+                                <span class="w-2 h-2 bg-amber-400 rounded-full ml-2"></span>
+                                Break-even
+                                <span class="w-2 h-2 bg-red-400 rounded-full ml-2"></span>
+                                Loss
+                            </div>
+                        </div>
+                        <table class="w-full">
+                            <thead>
+                                <tr class="text-left text-slate-400 text-sm border-b border-slate-700/50">
+                                    <th class="pb-4 font-medium">Carrier</th>
+                                    <th class="pb-4 font-medium text-right">Shipments</th>
+                                    <th class="pb-4 font-medium text-right">Revenue</th>
+                                    <th class="pb-4 font-medium text-right">Cost</th>
+                                    <th class="pb-4 font-medium text-right">Profit</th>
+                                    <th class="pb-4 font-medium text-right">Margin</th>
+                                    <th class="pb-4 font-medium text-right">Avg Time</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-sm">
+                                <tr class="border-b border-slate-700/30 table-row">
+                                    <td class="py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                                                <span class="text-white font-bold text-xs">USPS</span>
+                                            </div>
+                                            <div>
+                                                <p class="font-medium text-white">USPS</p>
+                                                <p class="text-xs text-slate-400">Priority Mail, First Class</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-4 text-right text-white">142</td>
+                                    <td class="py-4 text-right text-white">$1,562.00</td>
+                                    <td class="py-4 text-right text-slate-300">$798.40</td>
+                                    <td class="py-4 text-right text-emerald-400 font-medium">$763.60</td>
+                                    <td class="py-4 text-right">
+                                        <span class="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-medium">48.9%</span>
+                                    </td>
+                                    <td class="py-4 text-right text-slate-300">2.3 days</td>
+                                </tr>
+                                <tr class="border-b border-slate-700/30 table-row">
+                                    <td class="py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 bg-amber-700 rounded-lg flex items-center justify-center">
+                                                <span class="text-white font-bold text-xs">UPS</span>
+                                            </div>
+                                            <div>
+                                                <p class="font-medium text-white">UPS</p>
+                                                <p class="text-xs text-slate-400">Ground, 2-Day</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-4 text-right text-white">68</td>
+                                    <td class="py-4 text-right text-white">$884.00</td>
+                                    <td class="py-4 text-right text-slate-300">$489.60</td>
+                                    <td class="py-4 text-right text-emerald-400 font-medium">$394.40</td>
+                                    <td class="py-4 text-right">
+                                        <span class="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-medium">44.6%</span>
+                                    </td>
+                                    <td class="py-4 text-right text-slate-300">3.1 days</td>
+                                </tr>
+                                <tr class="border-b border-slate-700/30 table-row">
+                                    <td class="py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
+                                                <span class="text-white font-bold text-xs">FDX</span>
+                                            </div>
+                                            <div>
+                                                <p class="font-medium text-white">FedEx</p>
+                                                <p class="text-xs text-slate-400">Ground, Express</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-4 text-right text-white">32</td>
+                                    <td class="py-4 text-right text-white">$352.00</td>
+                                    <td class="py-4 text-right text-slate-300">$201.60</td>
+                                    <td class="py-4 text-right text-emerald-400 font-medium">$150.40</td>
+                                    <td class="py-4 text-right">
+                                        <span class="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-medium">42.7%</span>
+                                    </td>
+                                    <td class="py-4 text-right text-slate-300">2.8 days</td>
+                                </tr>
+                                <tr class="table-row">
+                                    <td class="py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
+                                                <span class="text-white font-bold text-xs">DHL</span>
+                                            </div>
+                                            <div>
+                                                <p class="font-medium text-white">DHL</p>
+                                                <p class="text-xs text-slate-400">International</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-4 text-right text-white">5</td>
+                                    <td class="py-4 text-right text-white">$49.50</td>
+                                    <td class="py-4 text-right text-slate-300">$34.20</td>
+                                    <td class="py-4 text-right text-emerald-400 font-medium">$15.30</td>
+                                    <td class="py-4 text-right">
+                                        <span class="px-2 py-1 bg-amber-500/20 text-amber-400 rounded-full text-xs font-medium">30.9%</span>
+                                    </td>
+                                    <td class="py-4 text-right text-slate-300">5.2 days</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Shipping by Service -->
+                    <div class="glass rounded-xl border border-slate-700/50 p-6">
+                        <h2 class="text-lg font-semibold text-white mb-6">By Service Type</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm text-slate-300">USPS Priority Mail</span>
+                                    <span class="text-sm text-white font-medium">89</span>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full" style="width: 36%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm text-slate-300">USPS First Class</span>
+                                    <span class="text-sm text-white font-medium">53</span>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full" style="width: 21%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm text-slate-300">UPS Ground</span>
+                                    <span class="text-sm text-white font-medium">48</span>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-amber-600 to-amber-500 rounded-full" style="width: 19%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm text-slate-300">FedEx Ground</span>
+                                    <span class="text-sm text-white font-medium">27</span>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-purple-500 to-purple-400 rounded-full" style="width: 11%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm text-slate-300">UPS 2-Day</span>
+                                    <span class="text-sm text-white font-medium">20</span>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-amber-600 to-amber-500 rounded-full" style="width: 8%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm text-slate-300">Other</span>
+                                    <span class="text-sm text-white font-medium">10</span>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-slate-500 to-slate-400 rounded-full" style="width: 4%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Summary -->
+                        <div class="mt-6 pt-6 border-t border-slate-700/50">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm text-slate-400">Most Profitable</span>
+                                <span class="text-sm text-emerald-400 font-medium">USPS Priority</span>
+                            </div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm text-slate-400">Fastest Avg</span>
+                                <span class="text-sm text-blue-400 font-medium">UPS 2-Day (1.8d)</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-400">Best Value</span>
+                                <span class="text-sm text-purple-400 font-medium">USPS First Class</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Shipments Table -->
+                <div class="glass rounded-xl border border-slate-700/50 p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-lg font-semibold text-white">Recent Shipments</h2>
+                        <div class="flex items-center gap-4">
+                            <!-- Search -->
+                            <div class="relative">
+                                <input type="text" placeholder="Search tracking, order #..." class="bg-slate-800/50 border border-slate-600/50 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-purple-500/50 w-64">
+                                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            </div>
+                            <!-- Filter -->
+                            <select class="bg-slate-800/50 border border-slate-600/50 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50">
+                                <option>All Carriers</option>
+                                <option>USPS</option>
+                                <option>UPS</option>
+                                <option>FedEx</option>
+                                <option>DHL</option>
+                            </select>
+                            <select class="bg-slate-800/50 border border-slate-600/50 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50">
+                                <option>All Statuses</option>
+                                <option>In Transit</option>
+                                <option>Delivered</option>
+                                <option>Exception</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <table class="w-full">
+                        <thead>
+                            <tr class="text-left text-slate-400 text-sm border-b border-slate-700/50">
+                                <th class="pb-4 font-medium">Date/Time</th>
+                                <th class="pb-4 font-medium">Order #</th>
+                                <th class="pb-4 font-medium">Customer</th>
+                                <th class="pb-4 font-medium">Carrier</th>
+                                <th class="pb-4 font-medium">Service</th>
+                                <th class="pb-4 font-medium text-right">Weight</th>
+                                <th class="pb-4 font-medium text-right">Customer Paid</th>
+                                <th class="pb-4 font-medium text-right">Actual Cost</th>
+                                <th class="pb-4 font-medium text-right">Profit</th>
+                                <th class="pb-4 font-medium">Tracking</th>
+                                <th class="pb-4 font-medium">Status</th>
+                                <th class="pb-4 font-medium"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-sm">
+                            <tr class="border-b border-slate-700/30 table-row">
+                                <td class="py-4">
+                                    <p class="text-white">Dec 30, 2024</p>
+                                    <p class="text-xs text-slate-400">2:34 PM</p>
+                                </td>
+                                <td class="py-4">
+                                    <a href="#" class="text-purple-400 hover:text-purple-300">#CN-4521</a>
+                                </td>
+                                <td class="py-4">
+                                    <p class="text-white">John Smith</p>
+                                    <p class="text-xs text-slate-400">Austin, TX</p>
+                                </td>
+                                <td class="py-4">
+                                    <span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs font-medium">USPS</span>
+                                </td>
+                                <td class="py-4 text-slate-300">Priority Mail</td>
+                                <td class="py-4 text-right text-slate-300">2.4 lbs</td>
+                                <td class="py-4 text-right text-white">$12.99</td>
+                                <td class="py-4 text-right text-slate-300">$7.85</td>
+                                <td class="py-4 text-right text-emerald-400 font-medium">$5.14</td>
+                                <td class="py-4">
+                                    <a href="#" class="text-slate-300 hover:text-white text-xs font-mono">9400111...7842</a>
+                                </td>
+                                <td class="py-4">
+                                    <span class="flex items-center gap-1.5 text-blue-400">
+                                        <span class="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></span>
+                                        In Transit
+                                    </span>
+                                </td>
+                                <td class="py-4">
+                                    <button class="p-2 hover:bg-slate-700/50 rounded-lg transition-all">
+                                        <i class="fas fa-ellipsis-v text-slate-400"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="border-b border-slate-700/30 table-row">
+                                <td class="py-4">
+                                    <p class="text-white">Dec 30, 2024</p>
+                                    <p class="text-xs text-slate-400">1:12 PM</p>
+                                </td>
+                                <td class="py-4">
+                                    <a href="#" class="text-purple-400 hover:text-purple-300">#CN-4520</a>
+                                </td>
+                                <td class="py-4">
+                                    <p class="text-white">Sarah Johnson</p>
+                                    <p class="text-xs text-slate-400">Denver, CO</p>
+                                </td>
+                                <td class="py-4">
+                                    <span class="px-2 py-1 bg-amber-500/20 text-amber-400 rounded text-xs font-medium">UPS</span>
+                                </td>
+                                <td class="py-4 text-slate-300">Ground</td>
+                                <td class="py-4 text-right text-slate-300">5.2 lbs</td>
+                                <td class="py-4 text-right text-white">$14.99</td>
+                                <td class="py-4 text-right text-slate-300">$9.42</td>
+                                <td class="py-4 text-right text-emerald-400 font-medium">$5.57</td>
+                                <td class="py-4">
+                                    <a href="#" class="text-slate-300 hover:text-white text-xs font-mono">1Z999...4521</a>
+                                </td>
+                                <td class="py-4">
+                                    <span class="flex items-center gap-1.5 text-blue-400">
+                                        <span class="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></span>
+                                        In Transit
+                                    </span>
+                                </td>
+                                <td class="py-4">
+                                    <button class="p-2 hover:bg-slate-700/50 rounded-lg transition-all">
+                                        <i class="fas fa-ellipsis-v text-slate-400"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="border-b border-slate-700/30 table-row">
+                                <td class="py-4">
+                                    <p class="text-white">Dec 30, 2024</p>
+                                    <p class="text-xs text-slate-400">11:45 AM</p>
+                                </td>
+                                <td class="py-4">
+                                    <a href="#" class="text-purple-400 hover:text-purple-300">#CN-4519</a>
+                                </td>
+                                <td class="py-4">
+                                    <p class="text-white">Mike Chen</p>
+                                    <p class="text-xs text-slate-400">Seattle, WA</p>
+                                </td>
+                                <td class="py-4">
+                                    <span class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs font-medium">USPS</span>
+                                </td>
+                                <td class="py-4 text-slate-300">First Class</td>
+                                <td class="py-4 text-right text-slate-300">0.8 lbs</td>
+                                <td class="py-4 text-right text-white">$5.99</td>
+                                <td class="py-4 text-right text-slate-300">$3.21</td>
+                                <td class="py-4 text-right text-emerald-400 font-medium">$2.78</td>
+                                <td class="py-4">
+                                    <a href="#" class="text-slate-300 hover:text-white text-xs font-mono">9200111...9983</a>
+                                </td>
+                                <td class="py-4">
+                                    <span class="flex items-center gap-1.5 text-emerald-400">
+                                        <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span>
+                                        Delivered
+                                    </span>
+                                </td>
+                                <td class="py-4">
+                                    <button class="p-2 hover:bg-slate-700/50 rounded-lg transition-all">
+                                        <i class="fas fa-ellipsis-v text-slate-400"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="border-b border-slate-700/30 table-row">
+                                <td class="py-4">
+                                    <p class="text-white">Dec 30, 2024</p>
+                                    <p class="text-xs text-slate-400">10:28 AM</p>
+                                </td>
+                                <td class="py-4">
+                                    <a href="#" class="text-purple-400 hover:text-purple-300">#CN-4518</a>
+                                </td>
+                                <td class="py-4">
+                                    <p class="text-white">Lisa Martinez</p>
+                                    <p class="text-xs text-slate-400">Miami, FL</p>
+                                </td>
+                                <td class="py-4">
+                                    <span class="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-xs font-medium">FedEx</span>
+                                </td>
+                                <td class="py-4 text-slate-300">Ground</td>
+                                <td class="py-4 text-right text-slate-300">3.1 lbs</td>
+                                <td class="py-4 text-right text-white">$11.99</td>
+                                <td class="py-4 text-right text-slate-300">$6.78</td>
+                                <td class="py-4 text-right text-emerald-400 font-medium">$5.21</td>
+                                <td class="py-4">
+                                    <a href="#" class="text-slate-300 hover:text-white text-xs font-mono">7489...2847</a>
+                                </td>
+                                <td class="py-4">
+                                    <span class="flex items-center gap-1.5 text-amber-400">
+                                        <span class="w-1.5 h-1.5 bg-amber-400 rounded-full"></span>
+                                        Exception
+                                    </span>
+                                </td>
+                                <td class="py-4">
+                                    <button class="p-2 hover:bg-slate-700/50 rounded-lg transition-all">
+                                        <i class="fas fa-ellipsis-v text-slate-400"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr class="border-b border-slate-700/30 table-row">
+                                <td class="py-4">
+                                    <p class="text-white">Dec 30, 2024</p>
+                                    <p class="text-xs text-slate-400">9:15 AM</p>
+                                </td>
+                                <td class="py-4">
+                                    <a href="#" class="text-purple-400 hover:text-purple-300">#CN-4517</a>
+                                </td>
+                                <td class="py-4">
+                                    <p class="text-white">David Wilson</p>
+                                    <p class="text-xs text-slate-400">Phoenix, AZ</p>
+                                </td>
+                                <td class="py-4">
+                                    <span class="px-2 py-1 bg-amber-500/20 text-amber-400 rounded text-xs font-medium">UPS</span>
+                                </td>
+                                <td class="py-4 text-slate-300">2-Day Air</td>
+                                <td class="py-4 text-right text-slate-300">1.9 lbs</td>
+                                <td class="py-4 text-right text-white">$19.99</td>
+                                <td class="py-4 text-right text-slate-300">$14.23</td>
+                                <td class="py-4 text-right text-emerald-400 font-medium">$5.76</td>
+                                <td class="py-4">
+                                    <a href="#" class="text-slate-300 hover:text-white text-xs font-mono">1Z999...7723</a>
+                                </td>
+                                <td class="py-4">
+                                    <span class="flex items-center gap-1.5 text-emerald-400">
+                                        <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span>
+                                        Delivered
+                                    </span>
+                                </td>
+                                <td class="py-4">
+                                    <button class="p-2 hover:bg-slate-700/50 rounded-lg transition-all">
+                                        <i class="fas fa-ellipsis-v text-slate-400"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Pagination -->
+                    <div class="flex items-center justify-between mt-6 pt-6 border-t border-slate-700/50">
+                        <p class="text-sm text-slate-400">Showing 1-5 of 247 shipments</p>
+                        <div class="flex items-center gap-2">
+                            <button class="px-3 py-1.5 glass rounded-lg text-slate-400 hover:text-white transition-all disabled:opacity-50" disabled>
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <button class="px-3 py-1.5 bg-purple-500/20 text-purple-300 rounded-lg">1</button>
+                            <button class="px-3 py-1.5 glass rounded-lg text-slate-400 hover:text-white transition-all">2</button>
+                            <button class="px-3 py-1.5 glass rounded-lg text-slate-400 hover:text-white transition-all">3</button>
+                            <span class="text-slate-500">...</span>
+                            <button class="px-3 py-1.5 glass rounded-lg text-slate-400 hover:text-white transition-all">50</button>
+                            <button class="px-3 py-1.5 glass rounded-lg text-slate-400 hover:text-white transition-all">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

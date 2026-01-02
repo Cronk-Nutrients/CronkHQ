@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronk WMS - Work Orders</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            750: '#293548',
+                            850: '#162032',
+                            950: '#0a1628'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .glass { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); }
+        .glow-cyan { box-shadow: 0 0 20px rgba(34, 211, 238, 0.15); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .table-row:hover { background: rgba(51, 65, 85, 0.3); }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100">
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- Sidebar -->
+        <aside class="w-64 bg-slate-900/80 border-r border-slate-700/50 flex flex-col">
+            <!-- Logo -->
+            <div class="p-5 border-b border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-leaf text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-white text-lg">Cronk WMS</h1>
+                        <p class="text-xs text-slate-400">Inventory Management</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 p-4 space-y-1">
+                <a href="demo-01-dashboard.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-chart-line w-5"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="demo-02-inventory.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-boxes-stacked w-5"></i>
+                    <span>Inventory</span>
+                </a>
+                <a href="demo-03-orders.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-shopping-cart w-5"></i>
+                    <span>Orders</span>
+                </a>
+                
+                <div class="pt-2 pb-1">
+                    <div class="text-xs text-slate-500 uppercase tracking-wider px-4">Fulfillment</div>
+                </div>
+                
+                <a href="demo-05-pick.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-hand-pointer w-5"></i>
+                    <span>Pick</span>
+                </a>
+                <a href="demo-06-pack.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-box w-5"></i>
+                    <span>Pack</span>
+                </a>
+                <a href="demo-07-fba-prep.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fab fa-amazon w-5"></i>
+                    <span>FBA Prep</span>
+                </a>
+                
+                <div class="pt-2 pb-1">
+                    <div class="text-xs text-slate-500 uppercase tracking-wider px-4">Operations</div>
+                </div>
+                
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-layer-group w-5"></i>
+                    <span>Bundles</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 bg-cyan-500/10 text-cyan-400 rounded-lg border border-cyan-500/20">
+                    <i class="fas fa-industry w-5"></i>
+                    <span class="font-medium">Work Orders</span>
+                    <span class="ml-auto bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full">3</span>
+                </a>
+                <a href="demo-09-purchase-orders.html" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-file-invoice w-5"></i>
+                    <span>Purchase Orders</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-chart-pie w-5"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-all">
+                    <i class="fas fa-cog w-5"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <!-- User -->
+            <div class="p-4 border-t border-slate-700/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">JC</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium text-white truncate">John Cronk</div>
+                        <div class="text-xs text-slate-400 truncate">Admin</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-auto">
+            <!-- Header -->
+            <header class="sticky top-0 z-10 bg-slate-900/80 backdrop-blur border-b border-slate-700/50 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">Work Orders</h1>
+                        <p class="text-sm text-slate-400">Manufacturing and assembly orders with bill of materials</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition-colors flex items-center gap-2">
+                            <i class="fas fa-clipboard-list text-sm"></i>
+                            Manage BOMs
+                        </button>
+                        <button onclick="showCreateWOModal()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors flex items-center gap-2">
+                            <i class="fas fa-plus text-sm"></i>
+                            New Work Order
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <div class="p-6 space-y-6">
+
+                <!-- Stats Row -->
+                <div class="grid grid-cols-6 gap-4">
+                    <div class="glass border border-slate-700/50 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
+                                <i class="fas fa-clipboard text-slate-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-white">1</div>
+                                <div class="text-xs text-slate-400">Draft</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-amber-500/30 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                <i class="fas fa-clock text-amber-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-amber-400">2</div>
+                                <div class="text-xs text-slate-400">Scheduled</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-cyan-500/30 rounded-xl p-4 glow-cyan">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                                <i class="fas fa-cogs text-cyan-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-cyan-400">2</div>
+                                <div class="text-xs text-slate-400">In Progress</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-emerald-500/30 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                <i class="fas fa-check text-emerald-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-emerald-400">8</div>
+                                <div class="text-xs text-slate-400">Completed (MTD)</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-slate-700/50 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
+                                <i class="fas fa-cubes text-slate-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-white">156</div>
+                                <div class="text-xs text-slate-400">Units in Production</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass border border-slate-700/50 rounded-xl p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
+                                <i class="fas fa-layer-group text-slate-400"></i>
+                            </div>
+                            <div>
+                                <div class="text-2xl font-bold text-white">5</div>
+                                <div class="text-xs text-slate-400">Active BOMs</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Work Orders -->
+                <div class="grid grid-cols-2 gap-6">
+                    
+                    <!-- WO 1 - In Progress -->
+                    <div class="glass border border-cyan-500/30 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 bg-cyan-500/5 border-b border-slate-700/50 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                                    <i class="fas fa-layer-group text-amber-400 text-xl"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="font-bold text-white">WO-2024-034</h3>
+                                        <span class="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-xs rounded-full flex items-center gap-1">
+                                            <span class="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse"></span>
+                                            In Progress
+                                        </span>
+                                    </div>
+                                    <p class="text-sm text-slate-400">Starter Kit Bundle Assembly</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold text-white">48</div>
+                                <div class="text-xs text-slate-400">units</div>
+                            </div>
+                        </div>
+
+                        <div class="p-5 space-y-4">
+                            <!-- Output Product -->
+                            <div class="flex items-center gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                                <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                    <i class="fas fa-box text-amber-400"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="text-sm font-medium text-white">Starter Kit</div>
+                                    <div class="text-xs text-slate-400">SKU: STRKIT-01 • Bundle Product</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-lg font-bold text-amber-400">32 / 48</div>
+                                    <div class="text-xs text-slate-400">completed</div>
+                                </div>
+                            </div>
+
+                            <!-- BOM Components -->
+                            <div>
+                                <div class="text-xs text-slate-400 mb-2">BILL OF MATERIALS (per unit)</div>
+                                <div class="space-y-2">
+                                    <div class="flex items-center justify-between text-sm p-2 bg-slate-800/50 rounded-lg">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-6 h-6 bg-emerald-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-flask text-emerald-400 text-xs"></i>
+                                            </div>
+                                            <span class="text-slate-300">1L Micro Classic</span>
+                                        </div>
+                                        <div class="flex items-center gap-4">
+                                            <span class="text-white">× 1</span>
+                                            <span class="text-emerald-400 text-xs">✓ In Stock</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm p-2 bg-slate-800/50 rounded-lg">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-6 h-6 bg-purple-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-seedling text-purple-400 text-xs"></i>
+                                            </div>
+                                            <span class="text-slate-300">Bud Booster 1L</span>
+                                        </div>
+                                        <div class="flex items-center gap-4">
+                                            <span class="text-white">× 1</span>
+                                            <span class="text-emerald-400 text-xs">✓ In Stock</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm p-2 bg-slate-800/50 rounded-lg">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-6 h-6 bg-cyan-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-flask text-cyan-400 text-xs"></i>
+                                            </div>
+                                            <span class="text-slate-300">Cal-Mag Plus 500ml</span>
+                                        </div>
+                                        <div class="flex items-center gap-4">
+                                            <span class="text-white">× 1</span>
+                                            <span class="text-emerald-400 text-xs">✓ In Stock</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm p-2 bg-slate-800/50 rounded-lg">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-6 h-6 bg-slate-600 rounded flex items-center justify-center">
+                                                <i class="fas fa-box text-slate-400 text-xs"></i>
+                                            </div>
+                                            <span class="text-slate-300">Bundle Box</span>
+                                        </div>
+                                        <div class="flex items-center gap-4">
+                                            <span class="text-white">× 1</span>
+                                            <span class="text-emerald-400 text-xs">✓ In Stock</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Progress -->
+                            <div>
+                                <div class="flex items-center justify-between text-sm mb-2">
+                                    <span class="text-slate-400">Progress</span>
+                                    <span class="text-cyan-400 font-medium">66.7%</span>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-cyan-500 rounded-full" style="width: 66.7%"></div>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex gap-2">
+                                <button onclick="showWorkModal()" class="flex-1 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-sm font-medium">
+                                    <i class="fas fa-play mr-2"></i>Continue Assembly
+                                </button>
+                                <button class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm">
+                                    <i class="fas fa-pause"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- WO 2 - In Progress (Labeling) -->
+                    <div class="glass border border-cyan-500/30 rounded-xl overflow-hidden">
+                        <div class="px-5 py-4 bg-cyan-500/5 border-b border-slate-700/50 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                                    <i class="fas fa-tag text-emerald-400 text-xl"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="font-bold text-white">WO-2024-033</h3>
+                                        <span class="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-xs rounded-full flex items-center gap-1">
+                                            <span class="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse"></span>
+                                            In Progress
+                                        </span>
+                                    </div>
+                                    <p class="text-sm text-slate-400">Product Labeling - 1L Bottles</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold text-white">500</div>
+                                <div class="text-xs text-slate-400">units</div>
+                            </div>
+                        </div>
+
+                        <div class="p-5 space-y-4">
+                            <!-- Output Product -->
+                            <div class="flex items-center gap-3 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                                <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                    <i class="fas fa-flask text-emerald-400"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="text-sm font-medium text-white">1L Micro Classic (Labeled)</div>
+                                    <div class="text-xs text-slate-400">SKU: CLM1L • Ready for Sale</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-lg font-bold text-emerald-400">392 / 500</div>
+                                    <div class="text-xs text-slate-400">completed</div>
+                                </div>
+                            </div>
+
+                            <!-- BOM Components -->
+                            <div>
+                                <div class="text-xs text-slate-400 mb-2">BILL OF MATERIALS (per unit)</div>
+                                <div class="space-y-2">
+                                    <div class="flex items-center justify-between text-sm p-2 bg-slate-800/50 rounded-lg">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-6 h-6 bg-emerald-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-flask text-emerald-400 text-xs"></i>
+                                            </div>
+                                            <span class="text-slate-300">1L Bottle (Unlabeled)</span>
+                                        </div>
+                                        <div class="flex items-center gap-4">
+                                            <span class="text-white">× 1</span>
+                                            <span class="text-emerald-400 text-xs">✓ In Stock</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm p-2 bg-slate-800/50 rounded-lg">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-6 h-6 bg-blue-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-tag text-blue-400 text-xs"></i>
+                                            </div>
+                                            <span class="text-slate-300">Front Label - Micro Classic</span>
+                                        </div>
+                                        <div class="flex items-center gap-4">
+                                            <span class="text-white">× 1</span>
+                                            <span class="text-emerald-400 text-xs">✓ In Stock</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm p-2 bg-slate-800/50 rounded-lg">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-6 h-6 bg-blue-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-tag text-blue-400 text-xs"></i>
+                                            </div>
+                                            <span class="text-slate-300">Back Label - 1L</span>
+                                        </div>
+                                        <div class="flex items-center gap-4">
+                                            <span class="text-white">× 1</span>
+                                            <span class="text-emerald-400 text-xs">✓ In Stock</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Progress -->
+                            <div>
+                                <div class="flex items-center justify-between text-sm mb-2">
+                                    <span class="text-slate-400">Progress</span>
+                                    <span class="text-cyan-400 font-medium">78.4%</span>
+                                </div>
+                                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-full bg-cyan-500 rounded-full" style="width: 78.4%"></div>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex gap-2">
+                                <button onclick="showWorkModal()" class="flex-1 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-sm font-medium">
+                                    <i class="fas fa-play mr-2"></i>Continue Labeling
+                                </button>
+                                <button class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm">
+                                    <i class="fas fa-pause"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scheduled Work Orders -->
+                <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                        <div>
+                            <h2 class="font-semibold text-white">Scheduled Work Orders</h2>
+                            <p class="text-xs text-slate-400">Upcoming manufacturing and assembly</p>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-slate-800/50 border-b border-slate-700/50">
+                                <tr class="text-left text-xs text-slate-400 uppercase tracking-wider">
+                                    <th class="px-4 py-3 font-medium">Work Order</th>
+                                    <th class="px-4 py-3 font-medium">Type</th>
+                                    <th class="px-4 py-3 font-medium">Output Product</th>
+                                    <th class="px-4 py-3 font-medium">Quantity</th>
+                                    <th class="px-4 py-3 font-medium">Scheduled</th>
+                                    <th class="px-4 py-3 font-medium">Components</th>
+                                    <th class="px-4 py-3 font-medium">Status</th>
+                                    <th class="px-4 py-3 font-medium">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700/50">
+                                <tr class="table-row transition-colors">
+                                    <td class="px-4 py-4">
+                                        <div class="font-mono text-sm font-medium text-white">WO-2024-035</div>
+                                        <div class="text-xs text-slate-500">Created Dec 14</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="px-2 py-1 bg-purple-500/10 text-purple-400 text-xs rounded-full">Labeling</span>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 bg-purple-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-seedling text-purple-400 text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm text-white">Bud Booster 1L</div>
+                                                <div class="text-xs text-slate-400">BB1L</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm font-medium text-white">250 units</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">Dec 17</div>
+                                        <div class="text-xs text-slate-400">Tomorrow</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded-full">All Available</span>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="px-2.5 py-1 bg-amber-500/10 text-amber-400 text-xs font-medium rounded-full">Scheduled</span>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="flex items-center gap-1">
+                                            <button class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs rounded-lg">
+                                                Start
+                                            </button>
+                                            <button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg">
+                                                <i class="fas fa-edit text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="table-row transition-colors">
+                                    <td class="px-4 py-4">
+                                        <div class="font-mono text-sm font-medium text-white">WO-2024-036</div>
+                                        <div class="text-xs text-slate-500">Created Dec 15</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="px-2 py-1 bg-amber-500/10 text-amber-400 text-xs rounded-full">Assembly</span>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 bg-amber-500/20 rounded flex items-center justify-center">
+                                                <i class="fas fa-layer-group text-amber-400 text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-sm text-white">Pro Kit Bundle</div>
+                                                <div class="text-xs text-slate-400">PROKIT-01</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm font-medium text-white">24 units</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="text-sm text-white">Dec 19</div>
+                                        <div class="text-xs text-slate-400">In 3 days</div>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="px-2 py-1 bg-amber-500/10 text-amber-400 text-xs rounded-full">1 Low Stock</span>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <span class="px-2.5 py-1 bg-amber-500/10 text-amber-400 text-xs font-medium rounded-full">Scheduled</span>
+                                    </td>
+                                    <td class="px-4 py-4">
+                                        <div class="flex items-center gap-1">
+                                            <button class="px-3 py-1.5 bg-slate-700 text-slate-300 text-xs rounded-lg" disabled>
+                                                Start
+                                            </button>
+                                            <button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg">
+                                                <i class="fas fa-edit text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- BOM Templates -->
+                <div class="glass border border-slate-700/50 rounded-xl overflow-hidden">
+                    <div class="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                        <div>
+                            <h2 class="font-semibold text-white">Bill of Materials Templates</h2>
+                            <p class="text-xs text-slate-400">Saved recipes for quick work order creation</p>
+                        </div>
+                        <button class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm">
+                            <i class="fas fa-plus mr-1"></i>
+                            New BOM
+                        </button>
+                    </div>
+                    <div class="p-4 grid grid-cols-4 gap-4">
+                        <!-- BOM 1 - Starter Kit -->
+                        <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:border-cyan-500/30 transition-colors cursor-pointer">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                    <i class="fas fa-layer-group text-amber-400"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-white">Starter Kit</div>
+                                    <div class="text-xs text-slate-400">Assembly</div>
+                                </div>
+                            </div>
+                            <div class="text-xs text-slate-400 space-y-1">
+                                <div>• 1L Micro Classic × 1</div>
+                                <div>• Bud Booster 1L × 1</div>
+                                <div>• Cal-Mag Plus 500ml × 1</div>
+                                <div>• Bundle Box × 1</div>
+                            </div>
+                            <div class="mt-3 pt-3 border-t border-slate-700 flex justify-between items-center">
+                                <span class="text-xs text-slate-500">4 components</span>
+                                <button class="text-cyan-400 hover:text-cyan-300 text-sm">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- BOM 2 - Pro Kit -->
+                        <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:border-cyan-500/30 transition-colors cursor-pointer">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                    <i class="fas fa-layer-group text-purple-400"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-white">Pro Kit</div>
+                                    <div class="text-xs text-slate-400">Assembly</div>
+                                </div>
+                            </div>
+                            <div class="text-xs text-slate-400 space-y-1">
+                                <div>• 4L Micro Classic × 1</div>
+                                <div>• 4L Bud Booster × 1</div>
+                                <div>• Cal-Mag Plus 1L × 1</div>
+                                <div>• pH Up 500ml × 1</div>
+                                <div class="text-slate-500">+2 more</div>
+                            </div>
+                            <div class="mt-3 pt-3 border-t border-slate-700 flex justify-between items-center">
+                                <span class="text-xs text-slate-500">7 components</span>
+                                <button class="text-cyan-400 hover:text-cyan-300 text-sm">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- BOM 3 - 1L Labeling -->
+                        <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:border-cyan-500/30 transition-colors cursor-pointer">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                                    <i class="fas fa-tag text-emerald-400"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-white">1L Micro Labeling</div>
+                                    <div class="text-xs text-slate-400">Labeling</div>
+                                </div>
+                            </div>
+                            <div class="text-xs text-slate-400 space-y-1">
+                                <div>• 1L Bottle (Unlabeled) × 1</div>
+                                <div>• Front Label × 1</div>
+                                <div>• Back Label × 1</div>
+                            </div>
+                            <div class="mt-3 pt-3 border-t border-slate-700 flex justify-between items-center">
+                                <span class="text-xs text-slate-500">3 components</span>
+                                <button class="text-cyan-400 hover:text-cyan-300 text-sm">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- BOM 4 - 500ml Labeling -->
+                        <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 hover:border-cyan-500/30 transition-colors cursor-pointer">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                    <i class="fas fa-tag text-blue-400"></i>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-white">500ml Labeling</div>
+                                    <div class="text-xs text-slate-400">Labeling</div>
+                                </div>
+                            </div>
+                            <div class="text-xs text-slate-400 space-y-1">
+                                <div>• 500ml Bottle (Unlabeled) × 1</div>
+                                <div>• Front Label × 1</div>
+                                <div>• Back Label × 1</div>
+                            </div>
+                            <div class="mt-3 pt-3 border-t border-slate-700 flex justify-between items-center">
+                                <span class="text-xs text-slate-500">3 components</span>
+                                <button class="text-cyan-400 hover:text-cyan-300 text-sm">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Create Work Order Modal -->
+    <div id="createWOModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="hideCreateWOModal()"></div>
+        <div class="relative bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-auto m-4">
+            <div class="p-6 border-b border-slate-700 flex items-center justify-between sticky top-0 bg-slate-900 z-10">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Create Work Order</h2>
+                    <p class="text-sm text-slate-400">Schedule manufacturing or assembly</p>
+                </div>
+                <button onclick="hideCreateWOModal()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-6">
+                <!-- BOM Selection -->
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Select Bill of Materials</label>
+                    <select class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500">
+                        <option value="">Select BOM template...</option>
+                        <option value="starter-kit">Starter Kit (Assembly)</option>
+                        <option value="pro-kit">Pro Kit (Assembly)</option>
+                        <option value="1l-labeling">1L Micro Classic Labeling</option>
+                        <option value="500ml-labeling">500ml Labeling</option>
+                    </select>
+                </div>
+
+                <!-- Quantity -->
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Quantity to Produce</label>
+                    <input type="number" value="48" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500">
+                </div>
+
+                <!-- Component Requirements Preview -->
+                <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                    <div class="text-sm text-slate-400 mb-3">Component Requirements (for 48 units)</div>
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-slate-300">1L Micro Classic</span>
+                            <div class="flex items-center gap-3">
+                                <span class="text-white">Need: 48</span>
+                                <span class="text-emerald-400">Available: 124</span>
+                                <i class="fas fa-check-circle text-emerald-400"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-slate-300">Bud Booster 1L</span>
+                            <div class="flex items-center gap-3">
+                                <span class="text-white">Need: 48</span>
+                                <span class="text-emerald-400">Available: 342</span>
+                                <i class="fas fa-check-circle text-emerald-400"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-slate-300">Cal-Mag Plus 500ml</span>
+                            <div class="flex items-center gap-3">
+                                <span class="text-white">Need: 48</span>
+                                <span class="text-emerald-400">Available: 156</span>
+                                <i class="fas fa-check-circle text-emerald-400"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-slate-300">Bundle Box</span>
+                            <div class="flex items-center gap-3">
+                                <span class="text-white">Need: 48</span>
+                                <span class="text-emerald-400">Available: 200</span>
+                                <i class="fas fa-check-circle text-emerald-400"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Schedule -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-2">Scheduled Start</label>
+                        <input type="date" value="2024-12-17" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-2">Priority</label>
+                        <select class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500">
+                            <option>Normal</option>
+                            <option>High</option>
+                            <option>Urgent</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Notes -->
+                <div>
+                    <label class="block text-sm text-slate-400 mb-2">Notes (Optional)</label>
+                    <textarea rows="2" placeholder="Add any special instructions..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 resize-none"></textarea>
+                </div>
+
+                <div class="flex gap-3 pt-4">
+                    <button onclick="hideCreateWOModal()" class="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl">Cancel</button>
+                    <button onclick="hideCreateWOModal()" class="flex-1 px-4 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-medium">
+                        <i class="fas fa-plus mr-2"></i>Create Work Order
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Work Station Modal -->
+    <div id="workModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="hideWorkModal()"></div>
+        <div class="relative bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-auto m-4">
+            <div class="p-6 border-b border-slate-700 flex items-center justify-between sticky top-0 bg-slate-900 z-10">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Assembly Station - WO-2024-034</h2>
+                    <p class="text-sm text-slate-400">Starter Kit Bundle • 32 of 48 complete</p>
+                </div>
+                <button onclick="hideWorkModal()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <!-- Current Assembly -->
+                <div class="bg-cyan-500/10 border-2 border-cyan-500/50 rounded-xl p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-cyan-400 font-medium">ASSEMBLING UNIT 33 of 48</span>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+                            <i class="fas fa-check-circle text-emerald-400"></i>
+                            <span class="text-white flex-1">1L Micro Classic</span>
+                            <span class="text-emerald-400 text-sm">Scanned ✓</span>
+                        </div>
+                        <div class="flex items-center gap-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+                            <i class="fas fa-check-circle text-emerald-400"></i>
+                            <span class="text-white flex-1">Bud Booster 1L</span>
+                            <span class="text-emerald-400 text-sm">Scanned ✓</span>
+                        </div>
+                        <div class="flex items-center gap-3 p-3 bg-amber-500/10 border-2 border-amber-500/50 rounded-lg">
+                            <i class="fas fa-barcode text-amber-400"></i>
+                            <span class="text-white flex-1">Cal-Mag Plus 500ml</span>
+                            <span class="text-amber-400 text-sm">Scan to add</span>
+                        </div>
+                        <div class="flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700 rounded-lg opacity-60">
+                            <i class="fas fa-circle text-slate-500"></i>
+                            <span class="text-slate-400 flex-1">Bundle Box</span>
+                            <span class="text-slate-500 text-sm">Waiting</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <div class="relative">
+                            <i class="fas fa-barcode absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" placeholder="Scan component barcode..." class="w-full bg-slate-800 border-2 border-cyan-500/50 rounded-xl pl-12 pr-4 py-4 text-white text-lg placeholder-slate-500 focus:outline-none focus:border-cyan-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress -->
+                <div class="bg-slate-800/50 rounded-xl p-4">
+                    <div class="flex items-center justify-between text-sm mb-2">
+                        <span class="text-slate-400">Work Order Progress</span>
+                        <span class="text-white">32 / 48 units</span>
+                    </div>
+                    <div class="h-3 bg-slate-700 rounded-full overflow-hidden">
+                        <div class="h-full bg-cyan-500 rounded-full" style="width: 66.7%"></div>
+                    </div>
+                    <div class="mt-2 flex justify-between text-xs text-slate-500">
+                        <span>Started: 10:30 AM</span>
+                        <span>Est. completion: 2:15 PM</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <button class="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium">
+                        <i class="fas fa-check mr-2"></i>Complete Unit
+                    </button>
+                    <button class="px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl">
+                        <i class="fas fa-flag mr-2"></i>Report Issue
+                    </button>
+                    <button onclick="hideWorkModal()" class="px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl">
+                        <i class="fas fa-pause mr-2"></i>Pause
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showCreateWOModal() {
+            document.getElementById('createWOModal').classList.remove('hidden');
+            document.getElementById('createWOModal').classList.add('flex');
+        }
+
+        function hideCreateWOModal() {
+            document.getElementById('createWOModal').classList.add('hidden');
+            document.getElementById('createWOModal').classList.remove('flex');
+        }
+
+        function showWorkModal() {
+            document.getElementById('workModal').classList.remove('hidden');
+            document.getElementById('workModal').classList.add('flex');
+        }
+
+        function hideWorkModal() {
+            document.getElementById('workModal').classList.add('hidden');
+            document.getElementById('workModal').classList.remove('flex');
+        }
+    </script>
+</body>
+</html>
