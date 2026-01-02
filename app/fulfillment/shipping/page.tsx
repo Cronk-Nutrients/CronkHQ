@@ -7,10 +7,21 @@ import { useApp } from '@/context/AppContext';
 import { useToast } from '@/components/ui/Toast';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { ActiveFilters } from '@/components/ui/FilterBadge';
+import {
+  FAStatCard,
+  FulfillmentStatsGrid,
+} from '@/components/fulfillment';
+import {
+  DateRangeTabs,
+  CustomDateRange,
+  DateRangeType,
+} from '@/components/fulfillment';
+import {
+  CarrierBadge,
+  ShippingStatusBadge,
+  MarginBadge,
+} from '@/components/fulfillment';
 
-type DateRangeType = 'today' | 'wtd' | 'mtd' | 'ytd' | 'custom';
-
-// Loading fallback
 function ShippingPageLoading() {
   return (
     <div className="space-y-6">
@@ -33,6 +44,15 @@ export default function ShippingPage() {
   );
 }
 
+const SERVICE_COLORS = [
+  'from-blue-500 to-blue-400',
+  'from-amber-600 to-amber-500',
+  'from-purple-500 to-purple-400',
+  'from-emerald-500 to-emerald-400',
+  'from-cyan-500 to-cyan-400',
+  'from-slate-500 to-slate-400',
+];
+
 function ShippingPageContent() {
   const { state } = useApp();
   const { addToast } = useToast();
@@ -40,8 +60,8 @@ function ShippingPageContent() {
   const router = useRouter();
 
   const [dateRange, setDateRange] = useState<DateRangeType>('wtd');
-  const [customStart, setCustomStart] = useState<string>('');
-  const [customEnd, setCustomEnd] = useState<string>('');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
   const [carrierFilter, setCarrierFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -89,7 +109,6 @@ function ShippingPageContent() {
     return filters;
   }, [carrierFilter, statusFilter]);
 
-  // Handle filter removal
   const handleRemoveFilter = (key: string) => {
     if (key === 'carrier') {
       setCarrierFilter('all');
@@ -100,7 +119,6 @@ function ShippingPageContent() {
     }
   };
 
-  // Clear all filters
   const handleClearAllFilters = () => {
     setCarrierFilter('all');
     setStatusFilter('all');
@@ -120,15 +138,15 @@ function ShippingPageContent() {
         start = new Date(now);
         start.setHours(0, 0, 0, 0);
         break;
-      case 'wtd': // Week to date (Sunday start)
+      case 'wtd':
         start = new Date(now);
         start.setDate(now.getDate() - now.getDay());
         start.setHours(0, 0, 0, 0);
         break;
-      case 'mtd': // Month to date
+      case 'mtd':
         start = new Date(now.getFullYear(), now.getMonth(), 1);
         break;
-      case 'ytd': // Year to date
+      case 'ytd':
         start = new Date(now.getFullYear(), 0, 1);
         break;
       case 'custom':
@@ -143,7 +161,7 @@ function ShippingPageContent() {
     return { start, end };
   };
 
-  // Filter shipments by date range, carrier, status, and search
+  // Filter shipments
   const filteredShipments = useMemo(() => {
     const { start, end } = getDateRange();
 
@@ -161,7 +179,7 @@ function ShippingPageContent() {
     });
   }, [state.shipments, dateRange, carrierFilter, statusFilter, searchQuery, customStart, customEnd]);
 
-  // Calculate stats from filtered shipments
+  // Calculate stats
   const stats = useMemo(() => {
     const shipments = filteredShipments;
     const totalShipments = shipments.length;
@@ -175,15 +193,8 @@ function ShippingPageContent() {
     const avgWeightPerShipment = totalShipments > 0 ? totalWeight / totalShipments : 0;
 
     return {
-      totalShipments,
-      shippingRevenue,
-      shippingCost,
-      shippingProfit,
-      profitMargin,
-      totalWeight,
-      avgCostPerShipment,
-      avgRevenuePerShipment,
-      avgWeightPerShipment,
+      totalShipments, shippingRevenue, shippingCost, shippingProfit,
+      profitMargin, totalWeight, avgCostPerShipment, avgRevenuePerShipment, avgWeightPerShipment,
     };
   }, [filteredShipments]);
 
@@ -200,7 +211,6 @@ function ShippingPageContent() {
       byCarrier[s.carrier].cost += s.actualCost;
       byCarrier[s.carrier].profit += s.profit;
 
-      // Calculate delivery time for delivered shipments
       if (s.status === 'delivered' && s.deliveredAt) {
         const days = Math.ceil((new Date(s.deliveredAt).getTime() - new Date(s.shippedAt).getTime()) / (1000 * 60 * 60 * 24));
         byCarrier[s.carrier].totalTime += days;
@@ -235,7 +245,7 @@ function ShippingPageContent() {
       .slice(0, 6);
   }, [filteredShipments]);
 
-  // Export shipments to CSV
+  // Export to CSV
   const handleExport = () => {
     if (filteredShipments.length === 0) {
       addToast('warning', 'No shipments to export');
@@ -243,21 +253,12 @@ function ShippingPageContent() {
     }
 
     const headers = ['Date', 'Order #', 'Customer', 'City', 'State', 'Carrier', 'Service', 'Tracking', 'Customer Paid', 'Actual Cost', 'Profit', 'Weight', 'Status'];
-
     const rows = filteredShipments.map(s => [
       new Date(s.shippedAt).toLocaleDateString(),
-      s.orderNumber,
-      s.customerName,
-      s.customerCity,
-      s.customerState,
-      s.carrier.toUpperCase(),
-      s.service,
-      s.trackingNumber,
-      s.customerPaid.toFixed(2),
-      s.actualCost.toFixed(2),
-      s.profit.toFixed(2),
-      s.weight.toFixed(2),
-      s.status,
+      s.orderNumber, s.customerName, s.customerCity, s.customerState,
+      s.carrier.toUpperCase(), s.service, s.trackingNumber,
+      s.customerPaid.toFixed(2), s.actualCost.toFixed(2), s.profit.toFixed(2),
+      s.weight.toFixed(2), s.status,
     ]);
 
     const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
@@ -272,93 +273,19 @@ function ShippingPageContent() {
     addToast('success', `Exported ${filteredShipments.length} shipments`);
   };
 
-  // Get tracking URL by carrier
+  // Get tracking URL
   const getTrackingUrl = (carrier: string, trackingNumber: string) => {
-    switch (carrier) {
-      case 'usps':
-        return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${trackingNumber}`;
-      case 'ups':
-        return `https://www.ups.com/track?tracknum=${trackingNumber}`;
-      case 'fedex':
-        return `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`;
-      case 'dhl':
-        return `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`;
-      default:
-        return '#';
-    }
-  };
-
-  const getCarrierBadge = (carrier: string) => {
-    switch (carrier) {
-      case 'usps':
-        return { badge: 'USPS', color: 'bg-blue-600', textColor: 'bg-blue-500/20 text-blue-400' };
-      case 'ups':
-        return { badge: 'UPS', color: 'bg-amber-700', textColor: 'bg-amber-500/20 text-amber-400' };
-      case 'fedex':
-        return { badge: 'FDX', color: 'bg-purple-600', textColor: 'bg-purple-500/20 text-purple-400' };
-      case 'dhl':
-        return { badge: 'DHL', color: 'bg-orange-500', textColor: 'bg-orange-500/20 text-orange-400' };
-      default:
-        return { badge: carrier.toUpperCase(), color: 'bg-slate-600', textColor: 'bg-slate-500/20 text-slate-400' };
-    }
-  };
-
-  const getMarginBadgeColor = (margin: number) => {
-    if (margin >= 40) return 'bg-emerald-500/20 text-emerald-400';
-    if (margin >= 25) return 'bg-amber-500/20 text-amber-400';
-    return 'bg-red-500/20 text-red-400';
-  };
-
-  const getStatusDisplay = (status: string) => {
-    switch (status) {
-      case 'in_transit':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/15 text-blue-400 text-xs font-medium rounded-full border border-blue-500/30">
-            <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></span>
-            In Transit
-          </span>
-        );
-      case 'delivered':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/15 text-emerald-400 text-xs font-medium rounded-full border border-emerald-500/30">
-            <i className="fas fa-check text-[10px]"></i>
-            Delivered
-          </span>
-        );
-      case 'exception':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/15 text-amber-400 text-xs font-medium rounded-full border border-amber-500/30">
-            <i className="fas fa-exclamation-triangle text-[10px]"></i>
-            Exception
-          </span>
-        );
-      case 'label_created':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-500/15 text-slate-400 text-xs font-medium rounded-full border border-slate-500/30">
-            <i className="fas fa-tag text-[10px]"></i>
-            Label Created
-          </span>
-        );
-      default:
-        return null;
-    }
-  };
-
-  const getServiceColor = (index: number) => {
-    const colors = [
-      'from-blue-500 to-blue-400',
-      'from-amber-600 to-amber-500',
-      'from-purple-500 to-purple-400',
-      'from-emerald-500 to-emerald-400',
-      'from-cyan-500 to-cyan-400',
-      'from-slate-500 to-slate-400',
-    ];
-    return colors[index % colors.length];
+    const urls: Record<string, string> = {
+      usps: `https://tools.usps.com/go/TrackConfirmAction?tLabels=${trackingNumber}`,
+      ups: `https://www.ups.com/track?tracknum=${trackingNumber}`,
+      fedex: `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`,
+      dhl: `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`,
+    };
+    return urls[carrier] || '#';
   };
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
       <Breadcrumb items={[{ label: 'Fulfillment', href: '/fulfillment' }, { label: 'Shipping' }]} />
 
       {/* Header */}
@@ -368,30 +295,7 @@ function ShippingPageContent() {
           <p className="text-slate-400 text-sm">Track shipments, costs, and carrier performance</p>
         </div>
         <div className="flex items-center gap-4">
-          {/* Date Range Picker */}
-          <div className="flex items-center bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-lg p-1">
-            {(['today', 'wtd', 'mtd', 'ytd', 'custom'] as const).map((range) => (
-              <button
-                key={range}
-                onClick={() => setDateRange(range)}
-                className={`px-4 py-2 text-sm rounded-lg transition-all ${
-                  dateRange === range
-                    ? 'bg-purple-500/20 text-purple-300'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {range === 'custom' ? (
-                  <span className="flex items-center gap-2">
-                    <i className="fas fa-calendar"></i>
-                    Custom
-                  </span>
-                ) : (
-                  range.toUpperCase()
-                )}
-              </button>
-            ))}
-          </div>
-          {/* Export Button */}
+          <DateRangeTabs value={dateRange} onChange={setDateRange} />
           <button
             onClick={handleExport}
             className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/50 transition-all"
@@ -402,31 +306,15 @@ function ShippingPageContent() {
         </div>
       </div>
 
-      {/* Custom Date Range Inputs */}
       {dateRange === 'custom' && (
-        <div className="flex items-center gap-4 p-4 bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-lg">
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-slate-400">From:</label>
-            <input
-              type="date"
-              value={customStart}
-              onChange={(e) => setCustomStart(e.target.value)}
-              className="bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-slate-400">To:</label>
-            <input
-              type="date"
-              value={customEnd}
-              onChange={(e) => setCustomEnd(e.target.value)}
-              className="bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50"
-            />
-          </div>
-        </div>
+        <CustomDateRange
+          startDate={customStart}
+          endDate={customEnd}
+          onStartDateChange={setCustomStart}
+          onEndDateChange={setCustomEnd}
+        />
       )}
 
-      {/* Active Filters */}
       {activeFilters.length > 0 && (
         <ActiveFilters
           filters={activeFilters}
@@ -436,79 +324,57 @@ function ShippingPageContent() {
       )}
 
       {/* Stats Row */}
-      <div className="grid grid-cols-6 gap-4">
-        {/* Total Shipments */}
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-5" style={{ boxShadow: '0 0 20px rgba(168, 85, 247, 0.15)' }}>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-slate-400 text-sm">Total Shipments</span>
-            <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
-              <i className="fas fa-truck text-purple-400"></i>
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-white">{stats.totalShipments.toLocaleString()}</p>
-          <p className="text-xs text-slate-400 mt-1">In selected period</p>
-        </div>
-
-        {/* Shipping Revenue */}
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-slate-400 text-sm">Shipping Revenue</span>
-            <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-              <i className="fas fa-dollar-sign text-emerald-400"></i>
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-white">${stats.shippingRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-          <p className="text-xs text-slate-400 mt-1">What customers paid</p>
-        </div>
-
-        {/* Shipping Cost */}
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-slate-400 text-sm">Shipping Cost</span>
-            <div className="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center">
-              <i className="fas fa-receipt text-red-400"></i>
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-white">${stats.shippingCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-          <p className="text-xs text-slate-400 mt-1">Paid to carriers</p>
-        </div>
-
-        {/* Shipping Profit */}
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-slate-400 text-sm">Shipping Profit</span>
-            <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-              <i className="fas fa-chart-line text-emerald-400"></i>
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-emerald-400">${stats.shippingProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-          <p className="text-xs text-emerald-400 mt-1">{stats.profitMargin.toFixed(1)}% margin</p>
-        </div>
-
-        {/* Avg Cost per Shipment */}
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-slate-400 text-sm">Avg Cost/Shipment</span>
-            <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-              <i className="fas fa-calculator text-blue-400"></i>
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-white">${stats.avgCostPerShipment.toFixed(2)}</p>
-          <p className="text-xs text-slate-400 mt-1">Avg revenue: ${stats.avgRevenuePerShipment.toFixed(2)}</p>
-        </div>
-
-        {/* Avg Weight per Shipment */}
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-slate-400 text-sm">Avg Weight/Shipment</span>
-            <div className="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center">
-              <i className="fas fa-weight-hanging text-amber-400"></i>
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-white">{stats.avgWeightPerShipment.toFixed(2)} <span className="text-lg text-slate-400">lbs</span></p>
-          <p className="text-xs text-slate-400 mt-1">Total: {stats.totalWeight.toLocaleString()} lbs</p>
-        </div>
-      </div>
+      <FulfillmentStatsGrid columns={6}>
+        <FAStatCard
+          icon="fa-truck"
+          iconColor="purple"
+          value={stats.totalShipments}
+          label="Total Shipments"
+          subLabel="In selected period"
+          highlight
+        />
+        <FAStatCard
+          icon="fa-dollar-sign"
+          iconColor="emerald"
+          value={stats.shippingRevenue}
+          label="Shipping Revenue"
+          subLabel="What customers paid"
+          format="currency"
+        />
+        <FAStatCard
+          icon="fa-receipt"
+          iconColor="red"
+          value={stats.shippingCost}
+          label="Shipping Cost"
+          subLabel="Paid to carriers"
+          format="currency"
+        />
+        <FAStatCard
+          icon="fa-chart-line"
+          iconColor="emerald"
+          value={stats.shippingProfit}
+          label="Shipping Profit"
+          subLabel={`${stats.profitMargin.toFixed(1)}% margin`}
+          format="currency"
+          valueColor="text-emerald-400"
+        />
+        <FAStatCard
+          icon="fa-calculator"
+          iconColor="blue"
+          value={`$${stats.avgCostPerShipment.toFixed(2)}`}
+          label="Avg Cost/Shipment"
+          subLabel={`Avg revenue: $${stats.avgRevenuePerShipment.toFixed(2)}`}
+          format="raw"
+        />
+        <FAStatCard
+          icon="fa-weight-hanging"
+          iconColor="amber"
+          value={`${stats.avgWeightPerShipment.toFixed(2)}`}
+          label="Avg Weight/Shipment"
+          subLabel={`Total: ${stats.totalWeight.toLocaleString()} lbs`}
+          format="raw"
+        />
+      </FulfillmentStatsGrid>
 
       {/* Carrier Performance & Service Type Row */}
       <div className="grid grid-cols-3 gap-6">
@@ -517,12 +383,9 @@ function ShippingPageContent() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-white">Carrier Performance</h2>
             <div className="flex items-center gap-2 text-xs text-slate-400">
-              <span className="w-2 h-2 bg-emerald-400 rounded-full"></span>
-              Profitable
-              <span className="w-2 h-2 bg-amber-400 rounded-full ml-2"></span>
-              Break-even
-              <span className="w-2 h-2 bg-red-400 rounded-full ml-2"></span>
-              Loss
+              <span className="w-2 h-2 bg-emerald-400 rounded-full"></span>Profitable
+              <span className="w-2 h-2 bg-amber-400 rounded-full ml-2"></span>Break-even
+              <span className="w-2 h-2 bg-red-400 rounded-full ml-2"></span>Loss
             </div>
           </div>
           {carrierStats.length > 0 ? (
@@ -539,33 +402,22 @@ function ShippingPageContent() {
                 </tr>
               </thead>
               <tbody className="text-sm">
-                {carrierStats.map((carrier, index) => {
-                  const badge = getCarrierBadge(carrier.carrier);
-                  return (
-                    <tr key={carrier.carrier} className={`${index < carrierStats.length - 1 ? 'border-b border-slate-700/30' : ''} hover:bg-slate-700/30 transition-colors`}>
-                      <td className="py-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 ${badge.color} rounded-lg flex items-center justify-center`}>
-                            <span className="text-white font-bold text-xs">{badge.badge}</span>
-                          </div>
-                          <div>
-                            <p className="font-medium text-white">{carrier.carrier.toUpperCase()}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 text-right text-white">{carrier.shipments}</td>
-                      <td className="py-4 text-right text-white">${carrier.revenue.toFixed(2)}</td>
-                      <td className="py-4 text-right text-slate-300">${carrier.cost.toFixed(2)}</td>
-                      <td className="py-4 text-right text-emerald-400 font-medium">${carrier.profit.toFixed(2)}</td>
-                      <td className="py-4 text-right">
-                        <span className={`px-2 py-1 ${getMarginBadgeColor(carrier.margin)} rounded-full text-xs font-medium`}>
-                          {carrier.margin.toFixed(1)}%
-                        </span>
-                      </td>
-                      <td className="py-4 text-right text-slate-300">{carrier.avgTime} days</td>
-                    </tr>
-                  );
-                })}
+                {carrierStats.map((carrier, index) => (
+                  <tr key={carrier.carrier} className={`${index < carrierStats.length - 1 ? 'border-b border-slate-700/30' : ''} hover:bg-slate-700/30 transition-colors`}>
+                    <td className="py-4">
+                      <div className="flex items-center gap-3">
+                        <CarrierBadge carrier={carrier.carrier} variant="icon" />
+                        <p className="font-medium text-white">{carrier.carrier.toUpperCase()}</p>
+                      </div>
+                    </td>
+                    <td className="py-4 text-right text-white">{carrier.shipments}</td>
+                    <td className="py-4 text-right text-white">${carrier.revenue.toFixed(2)}</td>
+                    <td className="py-4 text-right text-slate-300">${carrier.cost.toFixed(2)}</td>
+                    <td className="py-4 text-right text-emerald-400 font-medium">${carrier.profit.toFixed(2)}</td>
+                    <td className="py-4 text-right"><MarginBadge margin={carrier.margin} /></td>
+                    <td className="py-4 text-right text-slate-300">{carrier.avgTime} days</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           ) : (
@@ -589,7 +441,7 @@ function ShippingPageContent() {
                   </div>
                   <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
                     <div
-                      className={`h-full bg-gradient-to-r ${getServiceColor(index)} rounded-full`}
+                      className={`h-full bg-gradient-to-r ${SERVICE_COLORS[index % SERVICE_COLORS.length]} rounded-full`}
                       style={{ width: `${service.percentage}%` }}
                     ></div>
                   </div>
@@ -602,7 +454,6 @@ function ShippingPageContent() {
             </div>
           )}
 
-          {/* Summary */}
           {carrierStats.length > 0 && (
             <div className="mt-6 pt-6 border-t border-slate-700/50">
               <div className="flex items-center justify-between mb-2">
@@ -614,7 +465,7 @@ function ShippingPageContent() {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-slate-400">Best Margin</span>
                 <span className="text-sm text-blue-400 font-medium">
-                  {carrierStats.sort((a, b) => b.margin - a.margin)[0]?.carrier.toUpperCase() || 'N/A'}
+                  {[...carrierStats].sort((a, b) => b.margin - a.margin)[0]?.carrier.toUpperCase() || 'N/A'}
                 </span>
               </div>
             </div>
@@ -627,7 +478,6 @@ function ShippingPageContent() {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-white">Shipments</h2>
           <div className="flex items-center gap-4">
-            {/* Search */}
             <div className="relative">
               <input
                 type="text"
@@ -638,13 +488,9 @@ function ShippingPageContent() {
               />
               <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
             </div>
-            {/* Carrier Filter */}
             <select
               value={carrierFilter}
-              onChange={(e) => {
-                setCarrierFilter(e.target.value);
-                updateUrlParams(e.target.value, statusFilter);
-              }}
+              onChange={(e) => { setCarrierFilter(e.target.value); updateUrlParams(e.target.value, statusFilter); }}
               className="bg-slate-800/50 border border-slate-600/50 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50"
             >
               <option value="all">All Carriers</option>
@@ -653,13 +499,9 @@ function ShippingPageContent() {
               <option value="fedex">FedEx</option>
               <option value="dhl">DHL</option>
             </select>
-            {/* Status Filter */}
             <select
               value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                updateUrlParams(carrierFilter, e.target.value);
-              }}
+              onChange={(e) => { setStatusFilter(e.target.value); updateUrlParams(carrierFilter, e.target.value); }}
               className="bg-slate-800/50 border border-slate-600/50 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50"
             >
               <option value="all">All Statuses</option>
@@ -688,48 +530,41 @@ function ShippingPageContent() {
               </tr>
             </thead>
             <tbody className="text-sm">
-              {filteredShipments.slice(0, 10).map((shipment, index) => {
-                const badge = getCarrierBadge(shipment.carrier);
-                return (
-                  <tr key={shipment.id} className={`${index < Math.min(filteredShipments.length, 10) - 1 ? 'border-b border-slate-700/30' : ''} hover:bg-slate-700/30 transition-colors`}>
-                    <td className="py-4">
-                      <p className="text-white">{new Date(shipment.shippedAt).toLocaleDateString()}</p>
-                      <p className="text-xs text-slate-400">{new Date(shipment.shippedAt).toLocaleTimeString()}</p>
-                    </td>
-                    <td className="py-4">
-                      <Link href={`/orders?search=${shipment.orderNumber}`} className="text-purple-400 hover:text-purple-300 transition-colors">
-                        {shipment.orderNumber}
-                      </Link>
-                    </td>
-                    <td className="py-4">
-                      <p className="text-white">{shipment.customerName}</p>
-                      <p className="text-xs text-slate-400">{shipment.customerCity}, {shipment.customerState}</p>
-                      <a
-                        href={getTrackingUrl(shipment.carrier, shipment.trackingNumber)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[10px] text-purple-400 hover:text-purple-300 font-mono mt-1 inline-flex items-center gap-1"
-                      >
-                        <i className="fas fa-external-link-alt text-[8px]"></i>
-                        {shipment.trackingNumber.slice(0, 16)}...
-                      </a>
-                    </td>
-                    <td className="py-4">
-                      <span className={`px-2 py-1 ${badge.textColor} rounded text-xs font-medium`}>
-                        {shipment.carrier.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="py-4 text-slate-300">{shipment.service}</td>
-                    <td className="py-4 text-right text-slate-300">{shipment.weight.toFixed(1)} lbs</td>
-                    <td className="py-4 text-right text-white">${shipment.customerPaid.toFixed(2)}</td>
-                    <td className="py-4 text-right text-slate-300">${shipment.actualCost.toFixed(2)}</td>
-                    <td className="py-4 text-right text-emerald-400 font-medium pr-10">${shipment.profit.toFixed(2)}</td>
-                    <td className="py-4 pl-6">
-                      {getStatusDisplay(shipment.status)}
-                    </td>
-                  </tr>
-                );
-              })}
+              {filteredShipments.slice(0, 10).map((shipment, index) => (
+                <tr key={shipment.id} className={`${index < Math.min(filteredShipments.length, 10) - 1 ? 'border-b border-slate-700/30' : ''} hover:bg-slate-700/30 transition-colors`}>
+                  <td className="py-4">
+                    <p className="text-white">{new Date(shipment.shippedAt).toLocaleDateString()}</p>
+                    <p className="text-xs text-slate-400">{new Date(shipment.shippedAt).toLocaleTimeString()}</p>
+                  </td>
+                  <td className="py-4">
+                    <Link href={`/orders?search=${shipment.orderNumber}`} className="text-purple-400 hover:text-purple-300 transition-colors">
+                      {shipment.orderNumber}
+                    </Link>
+                  </td>
+                  <td className="py-4">
+                    <p className="text-white">{shipment.customerName}</p>
+                    <p className="text-xs text-slate-400">{shipment.customerCity}, {shipment.customerState}</p>
+                    <a
+                      href={getTrackingUrl(shipment.carrier, shipment.trackingNumber)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-purple-400 hover:text-purple-300 font-mono mt-1 inline-flex items-center gap-1"
+                    >
+                      <i className="fas fa-external-link-alt text-[8px]"></i>
+                      {shipment.trackingNumber.slice(0, 16)}...
+                    </a>
+                  </td>
+                  <td className="py-4"><CarrierBadge carrier={shipment.carrier} /></td>
+                  <td className="py-4 text-slate-300">{shipment.service}</td>
+                  <td className="py-4 text-right text-slate-300">{shipment.weight.toFixed(1)} lbs</td>
+                  <td className="py-4 text-right text-white">${shipment.customerPaid.toFixed(2)}</td>
+                  <td className="py-4 text-right text-slate-300">${shipment.actualCost.toFixed(2)}</td>
+                  <td className="py-4 text-right text-emerald-400 font-medium pr-10">${shipment.profit.toFixed(2)}</td>
+                  <td className="py-4 pl-6">
+                    <ShippingStatusBadge status={shipment.status as 'label_created' | 'in_transit' | 'delivered' | 'exception'} />
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         ) : (
@@ -740,7 +575,6 @@ function ShippingPageContent() {
           </div>
         )}
 
-        {/* Pagination */}
         {filteredShipments.length > 0 && (
           <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-700/50">
             <p className="text-sm text-slate-400">Showing 1-{Math.min(10, filteredShipments.length)} of {filteredShipments.length} shipments</p>

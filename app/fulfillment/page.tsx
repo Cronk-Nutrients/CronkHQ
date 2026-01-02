@@ -7,6 +7,12 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import {
+  FulfillmentStatCard,
+  FulfillmentStatsGrid,
+  QuickActionCard,
+} from '@/components/fulfillment';
+import { QueueStatusBadge } from '@/components/fulfillment';
+import {
   Hand,
   Package,
   Box,
@@ -68,9 +74,14 @@ export default function FulfillmentOverviewPage() {
     { type: 'shipped', message: 'Order #1081 shipped via UPS Ground', time: '32 min ago' },
   ];
 
+  const activityIcons = {
+    picked: { icon: CheckCircle, bg: 'bg-emerald-500/20', text: 'text-emerald-400' },
+    packed: { icon: Box, bg: 'bg-blue-500/20', text: 'text-blue-400' },
+    shipped: { icon: Truck, bg: 'bg-purple-500/20', text: 'text-purple-400' },
+  };
+
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
       <Breadcrumb items={[{ label: 'Fulfillment' }]} />
 
       {/* Header */}
@@ -92,144 +103,75 @@ export default function FulfillmentOverviewPage() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-6 gap-4">
-        <Link
+      <FulfillmentStatsGrid columns={6}>
+        <FulfillmentStatCard
+          icon={Hand}
+          iconColor="amber"
+          value={stats.toPick}
+          label="To Pick"
           href="/fulfillment/pick"
-          className="bg-slate-800/50 backdrop-blur border border-amber-500/30 rounded-xl p-4 hover:border-amber-500/50 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
-              <Hand className="w-5 h-5 text-amber-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-white">{stats.toPick}</div>
-              <div className="text-xs text-slate-400">To Pick</div>
-            </div>
-          </div>
-        </Link>
-
-        <Link
+        />
+        <FulfillmentStatCard
+          icon={Loader2}
+          iconColor="blue"
+          value={stats.picking}
+          label="Picking"
           href="/fulfillment/pick?status=picking"
-          className="bg-slate-800/50 backdrop-blur border border-blue-500/30 rounded-xl p-4 hover:border-blue-500/50 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-              <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-white">{stats.picking}</div>
-              <div className="text-xs text-slate-400">Picking</div>
-            </div>
-          </div>
-        </Link>
-
-        <Link
+          animateIcon
+        />
+        <FulfillmentStatCard
+          icon={Box}
+          iconColor="purple"
+          value={stats.toPack}
+          label="To Pack"
           href="/fulfillment/pack"
-          className="bg-slate-800/50 backdrop-blur border border-purple-500/30 rounded-xl p-4 hover:border-purple-500/50 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-              <Box className="w-5 h-5 text-purple-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-white">{stats.toPack}</div>
-              <div className="text-xs text-slate-400">To Pack</div>
-            </div>
-          </div>
-        </Link>
-
-        <Link
+        />
+        <FulfillmentStatCard
+          icon={Package}
+          iconColor="cyan"
+          value={stats.packing}
+          label="Packing"
           href="/fulfillment/pack?status=packing"
-          className="bg-slate-800/50 backdrop-blur border border-cyan-500/30 rounded-xl p-4 hover:border-cyan-500/50 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-              <Package className="w-5 h-5 text-cyan-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-white">{stats.packing}</div>
-              <div className="text-xs text-slate-400">Packing</div>
-            </div>
-          </div>
-        </Link>
-
-        <Link
+        />
+        <FulfillmentStatCard
+          icon={Truck}
+          iconColor="emerald"
+          value={stats.readyToShip}
+          label="Ready to Ship"
           href="/fulfillment/pack?status=ready"
-          className="bg-slate-800/50 backdrop-blur border border-emerald-500/30 rounded-xl p-4 hover:border-emerald-500/50 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-              <Truck className="w-5 h-5 text-emerald-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-white">{stats.readyToShip}</div>
-              <div className="text-xs text-slate-400">Ready to Ship</div>
-            </div>
-          </div>
-        </Link>
-
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
-              <CheckCircle className="w-5 h-5 text-slate-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-white">{stats.shippedToday}</div>
-              <div className="text-xs text-slate-400">Shipped Today</div>
-            </div>
-          </div>
-        </div>
-      </div>
+        />
+        <FulfillmentStatCard
+          icon={CheckCircle}
+          iconColor="slate"
+          value={stats.shippedToday}
+          label="Shipped Today"
+        />
+      </FulfillmentStatsGrid>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-3 gap-4">
-        <Link
+        <QuickActionCard
           href="/fulfillment/pick"
-          className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl p-6 hover:border-emerald-500/50 transition-all group"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-emerald-500/20 rounded-xl flex items-center justify-center group-hover:bg-emerald-500/30 transition-colors">
-              <Hand className="w-7 h-7 text-emerald-400" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-white">Start Picking</h3>
-              <p className="text-sm text-slate-400">{stats.toPick + stats.picking} orders ready to pick</p>
-            </div>
-            <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-emerald-400 transition-colors" />
-          </div>
-        </Link>
-
-        <Link
+          icon={Hand}
+          iconColor="emerald"
+          title="Start Picking"
+          description={`${stats.toPick + stats.picking} orders ready to pick`}
+        />
+        <QuickActionCard
           href="/fulfillment/pack"
-          className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl p-6 hover:border-blue-500/50 transition-all group"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-blue-500/20 rounded-xl flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
-              <Box className="w-7 h-7 text-blue-400" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-white">Start Packing</h3>
-              <p className="text-sm text-slate-400">{stats.toPack + stats.packing} orders ready to pack</p>
-            </div>
-            <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-blue-400 transition-colors" />
-          </div>
-        </Link>
-
-        <Link
+          icon={Box}
+          iconColor="blue"
+          title="Start Packing"
+          description={`${stats.toPack + stats.packing} orders ready to pack`}
+        />
+        <QuickActionCard
           href="/fulfillment/fba"
-          className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl p-6 hover:border-orange-500/50 transition-all group"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-orange-500/20 rounded-xl flex items-center justify-center group-hover:bg-orange-500/30 transition-colors">
-              <i className="fab fa-amazon text-orange-400 text-2xl"></i>
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-white">FBA Prep</h3>
-              <p className="text-sm text-slate-400">Prepare shipments for Amazon</p>
-            </div>
-            <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-orange-400 transition-colors" />
-          </div>
-        </Link>
+          icon="fab fa-amazon"
+          iconColor="orange"
+          title="FBA Prep"
+          description="Prepare shipments for Amazon"
+          isFontAwesome
+        />
       </div>
 
       {/* Two Column Layout - Queues */}
@@ -262,15 +204,7 @@ export default function FulfillmentOverviewPage() {
                         {order.items.length} items &bull; {order.customer.name}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 text-xs rounded-full ${
-                        order.status === 'to_pick'
-                          ? 'bg-amber-500/20 text-amber-400'
-                          : 'bg-blue-500/20 text-blue-400'
-                      }`}>
-                        {order.status === 'to_pick' ? 'To Pick' : 'Picking'}
-                      </span>
-                    </div>
+                    <QueueStatusBadge status={order.status} />
                   </div>
                 </div>
               ))
@@ -306,15 +240,7 @@ export default function FulfillmentOverviewPage() {
                         {order.items.length} items &bull; {order.carrier || 'No carrier'} {order.service || ''}
                       </div>
                     </div>
-                    <span className={`px-2 py-0.5 text-xs rounded-full ${
-                      order.status === 'to_pack'
-                        ? 'bg-purple-500/20 text-purple-400'
-                        : order.status === 'packing'
-                        ? 'bg-cyan-500/20 text-cyan-400'
-                        : 'bg-emerald-500/20 text-emerald-400'
-                    }`}>
-                      {order.status === 'to_pack' ? 'To Pack' : order.status === 'packing' ? 'Packing' : 'Ready'}
-                    </span>
+                    <QueueStatusBadge status={order.status} />
                   </div>
                 </div>
               ))
@@ -328,27 +254,25 @@ export default function FulfillmentOverviewPage() {
         <h3 className="font-semibold text-white mb-4">Today&apos;s Activity</h3>
 
         <div className="space-y-4">
-          {recentActivity.map((activity, idx) => (
-            <div key={idx} className="flex items-start gap-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                activity.type === 'picked' ? 'bg-emerald-500/20 text-emerald-400' :
-                activity.type === 'packed' ? 'bg-blue-500/20 text-blue-400' :
-                activity.type === 'shipped' ? 'bg-purple-500/20 text-purple-400' :
-                'bg-slate-700 text-slate-400'
-              }`}>
-                {activity.type === 'picked' && <CheckCircle className="w-4 h-4" />}
-                {activity.type === 'packed' && <Box className="w-4 h-4" />}
-                {activity.type === 'shipped' && <Truck className="w-4 h-4" />}
-              </div>
-              <div className="flex-1">
-                <div className="text-sm text-white">{activity.message}</div>
-                <div className="text-xs text-slate-500 flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {activity.time}
+          {recentActivity.map((activity, idx) => {
+            const iconConfig = activityIcons[activity.type as keyof typeof activityIcons] || activityIcons.picked;
+            const IconComponent = iconConfig.icon;
+
+            return (
+              <div key={idx} className="flex items-start gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${iconConfig.bg} ${iconConfig.text}`}>
+                  <IconComponent className="w-4 h-4" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm text-white">{activity.message}</div>
+                  <div className="text-xs text-slate-500 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {activity.time}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Card>
     </div>

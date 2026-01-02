@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo, Suspense, useCallback } from 'react';
-import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useApp, Order, ShippingBox, Shipment } from '@/context/AppContext';
 import { Card } from '@/components/ui/Card';
@@ -10,6 +9,8 @@ import { useToast } from '@/components/ui/Toast';
 import { formatNumber, formatCurrency } from '@/lib/formatting';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { ActiveFilters } from '@/components/ui/FilterBadge';
+import { ChannelBadge } from '@/components/fulfillment';
+import { StatusFilterTabs } from '@/components/fulfillment';
 import {
   ScanLine,
   Package,
@@ -18,7 +19,6 @@ import {
   Check,
   X,
   Search,
-  ShoppingBag,
   Printer,
   Tag,
   Scale,
@@ -27,7 +27,6 @@ import {
   Sparkles,
   MapPin,
   AlertCircle,
-  ChevronRight,
 } from 'lucide-react';
 
 // Carrier configurations
@@ -37,33 +36,20 @@ const CARRIERS = [
   { id: 'fedex', name: 'FedEx', services: ['Ground', 'Express Saver', '2Day', 'Overnight', 'Home Delivery'] },
 ];
 
-// Generate tracking number
 const generateTrackingNumber = (carrier: string) => {
   const prefix = carrier === 'usps' ? '9400' : carrier === 'ups' ? '1Z' : '7489';
-  const random = Math.random().toString().slice(2, 14);
-  return prefix + random;
+  return prefix + Math.random().toString().slice(2, 14);
 };
 
-// Estimate shipping cost (mock)
 const estimateShippingCost = (carrier: string, service: string) => {
   const baseCosts: Record<string, number> = {
-    'Priority Mail': 8.95,
-    'First Class': 4.50,
-    'Priority Express': 26.95,
-    'Ground Advantage': 5.45,
-    'Ground': 9.25,
-    '2-Day Air': 18.75,
-    'Next Day Air': 45.00,
-    '3-Day Select': 14.50,
-    'Express Saver': 15.95,
-    '2Day': 22.50,
-    'Overnight': 55.00,
-    'Home Delivery': 10.50,
+    'Priority Mail': 8.95, 'First Class': 4.50, 'Priority Express': 26.95, 'Ground Advantage': 5.45,
+    'Ground': 9.25, '2-Day Air': 18.75, 'Next Day Air': 45.00, '3-Day Select': 14.50,
+    'Express Saver': 15.95, '2Day': 22.50, 'Overnight': 55.00, 'Home Delivery': 10.50,
   };
   return baseCosts[service] || 10.00;
 };
 
-// Loading fallback
 function PackPageLoading() {
   return (
     <div className="space-y-6">
@@ -85,6 +71,12 @@ export default function PackPage() {
   );
 }
 
+const statusFilterOptions = [
+  { value: 'all', label: 'All' },
+  { value: 'to_pack', label: 'To Pack' },
+  { value: 'packing', label: 'Packing' },
+];
+
 function PackPageContent() {
   const { state, dispatch } = useApp();
   const { success, error, warning, info } = useToast();
@@ -101,7 +93,7 @@ function PackPageContent() {
   const [urlInitialized, setUrlInitialized] = useState(false);
   const scanInputRef = useRef<HTMLInputElement>(null);
 
-  // Get packable orders (to_pack or packing) with optional filter
+  // Get packable orders with optional filter
   const packableOrders = useMemo(() => {
     const orders = state.orders.filter(o => o.status === 'to_pack' || o.status === 'packing');
     if (statusFilter === 'all') return orders;
@@ -118,11 +110,8 @@ function PackPageContent() {
         setStatusFilter(statusParam);
       }
 
-      // Auto-select order if specified in URL
       if (orderParam) {
-        const order = state.orders.find(o =>
-          o.orderNumber === orderParam || o.id === orderParam
-        );
+        const order = state.orders.find(o => o.orderNumber === orderParam || o.id === orderParam);
         if (order && (order.status === 'to_pack' || order.status === 'packing')) {
           handleSelectOrder(order);
         }
@@ -133,7 +122,7 @@ function PackPageContent() {
   }, [searchParams, urlInitialized, state.orders]);
 
   // Update URL when filter changes
-  const updateUrlParams = useCallback((newStatus: 'all' | 'to_pack' | 'packing') => {
+  const updateUrlParams = useCallback((newStatus: string) => {
     const params = new URLSearchParams();
     if (newStatus !== 'all') params.set('status', newStatus);
     const url = params.toString() ? `/fulfillment/pack?${params.toString()}` : '/fulfillment/pack';
@@ -149,7 +138,6 @@ function PackPageContent() {
     return filters;
   }, [statusFilter]);
 
-  // Handle filter removal
   const handleRemoveFilter = (key: string) => {
     if (key === 'status') {
       setStatusFilter('all');
@@ -157,7 +145,6 @@ function PackPageContent() {
     }
   };
 
-  // Clear all filters
   const handleClearAllFilters = () => {
     setStatusFilter('all');
     router.replace('/fulfillment/pack', { scroll: false });
@@ -172,7 +159,7 @@ function PackPageContent() {
         const volume = product.dimensions.length * product.dimensions.width * product.dimensions.height;
         return sum + (volume * item.quantity);
       }
-      return sum + (50 * item.quantity); // Default volume
+      return sum + (50 * item.quantity);
     }, 0);
   };
 
@@ -180,7 +167,7 @@ function PackPageContent() {
     if (!order) return 0;
     return order.items.reduce((sum, item) => {
       const product = state.products.find(p => p.id === item.productId);
-      return sum + ((product?.weight.value || 1) * item.quantity * 16); // Convert lbs to oz
+      return sum + ((product?.weight.value || 1) * item.quantity * 16);
     }, 0);
   };
 
@@ -190,9 +177,8 @@ function PackPageContent() {
 
     const orderVolume = calculateOrderVolume(selectedOrder);
     const orderWeight = calculateOrderWeight(selectedOrder);
-    const bufferMultiplier = 1.1; // 10% buffer
+    const bufferMultiplier = 1.1;
 
-    // Find smallest eligible box that fits
     return state.boxes
       .filter(box => box.smartBoxEligible)
       .filter(box => {
@@ -246,7 +232,7 @@ function PackPageContent() {
         }
       }
 
-      // Find order by order number or ID
+      // Find order
       const order = state.orders.find(o =>
         o.orderNumber.toLowerCase() === searchTerm ||
         o.id === searchTerm ||
@@ -273,12 +259,10 @@ function PackPageContent() {
     setSelectedOrder(order);
     setVerifiedItems({});
 
-    // Auto-select suggested box
     if (suggestedBox) {
       setSelectedBox(suggestedBox);
     }
 
-    // If not already packing, update status
     if (order.status === 'to_pack') {
       dispatch({
         type: 'UPDATE_ORDER_STATUS',
@@ -287,7 +271,7 @@ function PackPageContent() {
     }
   };
 
-  // Handle verify scan (optional item verification)
+  // Handle verify scan
   const handleVerifyScan = (sku: string) => {
     const item = selectedOrder?.items.find(i => i.sku === sku);
     if (!item) {
@@ -301,11 +285,7 @@ function PackPageContent() {
       return;
     }
 
-    setVerifiedItems(prev => ({
-      ...prev,
-      [sku]: (prev[sku] || 0) + 1,
-    }));
-
+    setVerifiedItems(prev => ({ ...prev, [sku]: (prev[sku] || 0) + 1 }));
     success(`Verified ${sku} (${currentVerified + 1}/${item.quantity})`);
   };
 
@@ -325,7 +305,7 @@ function PackPageContent() {
     setVerifiedItems({});
   };
 
-  // Get product by ID to look up SKU for gripper
+  // Get product by SKU
   const getProductIdBySku = (sku: string) => {
     const product = state.products.find(p => p.sku === sku);
     return product?.id || '';
@@ -344,11 +324,9 @@ function PackPageContent() {
       return;
     }
 
-    // Generate tracking number
     const trackingNumber = generateTrackingNumber(carrier);
     const shippingCost = estimateShippingCost(carrier, service);
 
-    // Create shipment record
     const shipment: Shipment = {
       id: crypto.randomUUID(),
       orderId: selectedOrder.id,
@@ -369,7 +347,6 @@ function PackPageContent() {
 
     dispatch({ type: 'ADD_SHIPMENT', payload: shipment });
 
-    // Update order status
     const updatedOrder: Order = {
       ...selectedOrder,
       status: 'shipped',
@@ -391,47 +368,13 @@ function PackPageContent() {
 
         dispatch({
           type: 'ADJUST_STOCK',
-          payload: {
-            productId: gripperProductId,
-            locationId,
-            adjustment: -bottleCount,
-          },
+          payload: { productId: gripperProductId, locationId, adjustment: -bottleCount },
         });
       }
     }
 
     success(`Order ${selectedOrder.orderNumber} shipped! Tracking: ${trackingNumber}`);
-
-    // Clear selection
     handleClearSelection();
-  };
-
-  // Handle photo capture placeholder
-  const handleCapturePhoto = () => {
-    info('Photo capture coming in a future update');
-  };
-
-  // Get channel badge
-  const getChannelBadge = (channel: Order['channel']) => {
-    const styles = {
-      shopify: 'bg-green-500/20 text-green-400',
-      amazon_fbm: 'bg-orange-500/20 text-orange-400',
-      amazon_fba: 'bg-amber-500/20 text-amber-400',
-      manual: 'bg-slate-500/20 text-slate-400',
-    };
-
-    const labels = {
-      shopify: 'Shopify',
-      amazon_fbm: 'Amazon FBM',
-      amazon_fba: 'Amazon FBA',
-      manual: 'Manual',
-    };
-
-    return (
-      <span className={`px-2 py-0.5 rounded text-xs ${styles[channel]}`}>
-        {labels[channel]}
-      </span>
-    );
   };
 
   const orderVolume = calculateOrderVolume(selectedOrder);
@@ -439,43 +382,25 @@ function PackPageContent() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
       <Breadcrumb items={[{ label: 'Fulfillment', href: '/fulfillment' }, { label: 'Pack Station' }]} />
 
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Pack Station</h1>
-          <p className="text-slate-400">
-            {packableOrders.length} orders ready to pack
-          </p>
+          <p className="text-slate-400">{packableOrders.length} orders ready to pack</p>
         </div>
-        {/* Status Filter Tabs */}
-        <div className="flex items-center bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-lg p-1">
-          {[
-            { value: 'all', label: 'All' },
-            { value: 'to_pack', label: 'To Pack' },
-            { value: 'packing', label: 'Packing' },
-          ].map((option) => (
-            <button
-              key={option.value}
-              onClick={() => {
-                setStatusFilter(option.value as 'all' | 'to_pack' | 'packing');
-                updateUrlParams(option.value as 'all' | 'to_pack' | 'packing');
-              }}
-              className={`px-4 py-2 text-sm rounded-lg transition-all ${
-                statusFilter === option.value
-                  ? 'bg-purple-500/20 text-purple-300'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <StatusFilterTabs
+          options={statusFilterOptions}
+          value={statusFilter}
+          onChange={(v) => {
+            setStatusFilter(v as 'all' | 'to_pack' | 'packing');
+            updateUrlParams(v);
+          }}
+          accentColor="purple"
+        />
       </div>
 
-      {/* Active Filters */}
       {activeFilters.length > 0 && (
         <ActiveFilters
           filters={activeFilters}
@@ -504,13 +429,7 @@ function PackPageContent() {
                 autoFocus
               />
             </div>
-            <Button
-              onClick={() => {
-                if (scanInput.trim()) {
-                  handleScan({ key: 'Enter' } as React.KeyboardEvent);
-                }
-              }}
-            >
+            <Button onClick={() => scanInput.trim() && handleScan({ key: 'Enter' } as React.KeyboardEvent)}>
               {selectedOrder ? 'Verify' : 'Load Order'}
             </Button>
           </div>
@@ -526,14 +445,10 @@ function PackPageContent() {
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h2 className="text-lg font-semibold text-white">
-                      Order #{selectedOrder.orderNumber}
-                    </h2>
+                    <h2 className="text-lg font-semibold text-white">Order #{selectedOrder.orderNumber}</h2>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-sm text-slate-400">
-                        {selectedOrder.customer.name}
-                      </span>
-                      {getChannelBadge(selectedOrder.channel)}
+                      <span className="text-sm text-slate-400">{selectedOrder.customer.name}</span>
+                      <ChannelBadge channel={selectedOrder.channel} />
                     </div>
                   </div>
                   <button
@@ -575,9 +490,7 @@ function PackPageContent() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-medium text-white">
-                            {verified} / {item.quantity}
-                          </p>
+                          <p className="text-sm font-medium text-white">{verified} / {item.quantity}</p>
                           <p className="text-xs text-slate-400">verified</p>
                         </div>
                       </div>
@@ -625,7 +538,7 @@ function PackPageContent() {
                   Pack Photo
                 </h3>
                 <button
-                  onClick={handleCapturePhoto}
+                  onClick={() => info('Photo capture coming in a future update')}
                   className="w-full p-8 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-slate-500 hover:text-slate-300 transition-colors"
                 >
                   <Camera className="w-8 h-8 mx-auto mb-2" />
@@ -665,9 +578,7 @@ function PackPageContent() {
                   {suggestedBox && (
                     <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-600/30">
                       <Sparkles className="h-4 w-4 text-emerald-400" />
-                      <span className="text-xs text-emerald-400">
-                        Suggested: {suggestedBox.name}
-                      </span>
+                      <span className="text-xs text-emerald-400">Suggested: {suggestedBox.name}</span>
                     </div>
                   )}
                 </div>
@@ -703,9 +614,7 @@ function PackPageContent() {
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-medium text-white">{box.name}</p>
                               {isSuggested && (
-                                <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs text-emerald-400">
-                                  Best Fit
-                                </span>
+                                <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs text-emerald-400">Best Fit</span>
                               )}
                             </div>
                             <p className="text-xs text-slate-400">
@@ -713,14 +622,8 @@ function PackPageContent() {
                             </p>
                           </div>
                           <div className="text-right">
-                            {box.cost && (
-                              <p className="text-sm text-slate-300">{formatCurrency(box.cost)}</p>
-                            )}
-                            {!fits && (
-                              <p className="text-xs text-red-400">
-                                {!fitsVolume ? 'Too small' : 'Too heavy'}
-                              </p>
-                            )}
+                            {box.cost && <p className="text-sm text-slate-300">{formatCurrency(box.cost)}</p>}
+                            {!fits && <p className="text-xs text-red-400">{!fitsVolume ? 'Too small' : 'Too heavy'}</p>}
                           </div>
                         </button>
                       );
@@ -772,22 +675,16 @@ function PackPageContent() {
                     <div className="rounded-lg bg-slate-700/30 p-3">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-slate-400">Estimated Cost:</span>
-                        <span className="text-white font-medium">
-                          {formatCurrency(estimateShippingCost(carrier, service))}
-                        </span>
+                        <span className="text-white font-medium">{formatCurrency(estimateShippingCost(carrier, service))}</span>
                       </div>
                       <div className="flex items-center justify-between text-sm mt-1">
                         <span className="text-slate-400">Customer Paid:</span>
-                        <span className="text-white">
-                          {formatCurrency(selectedOrder.shipping)}
-                        </span>
+                        <span className="text-white">{formatCurrency(selectedOrder.shipping)}</span>
                       </div>
                       <div className="flex items-center justify-between text-sm mt-1 pt-1 border-t border-slate-600/30">
                         <span className="text-slate-400">Profit:</span>
                         <span className={`font-medium ${
-                          selectedOrder.shipping - estimateShippingCost(carrier, service) >= 0
-                            ? 'text-emerald-400'
-                            : 'text-red-400'
+                          selectedOrder.shipping - estimateShippingCost(carrier, service) >= 0 ? 'text-emerald-400' : 'text-red-400'
                         }`}>
                           {formatCurrency(selectedOrder.shipping - estimateShippingCost(carrier, service))}
                         </span>
@@ -835,13 +732,10 @@ function PackPageContent() {
           </div>
         </div>
       ) : (
-        /* No Order Selected */
         <Card>
           <div className="p-12 text-center">
             <Package className="mx-auto h-16 w-16 text-slate-600" />
-            <h3 className="mt-4 text-lg font-medium text-white">
-              No Order Selected
-            </h3>
+            <h3 className="mt-4 text-lg font-medium text-white">No Order Selected</h3>
             <p className="mt-2 text-sm text-slate-400">
               Scan an order barcode or select an order to begin packing
             </p>

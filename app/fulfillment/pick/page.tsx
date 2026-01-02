@@ -1,22 +1,22 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo, Suspense, useCallback } from 'react';
-import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useApp, Order } from '@/context/AppContext';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
-import { formatNumber, formatDate } from '@/lib/formatting';
+import { formatNumber } from '@/lib/formatting';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { ActiveFilters } from '@/components/ui/FilterBadge';
+import { ChannelBadge, PickStatusBadge } from '@/components/fulfillment';
+import { StatusFilterTabs } from '@/components/fulfillment';
+import { ProgressBar } from '@/components/fulfillment';
 import {
   ScanLine,
   Package,
   Check,
-  Clock,
   MapPin,
-  ChevronRight,
   X,
   Search,
   ShoppingBag,
@@ -55,6 +55,12 @@ export default function PickPage() {
   );
 }
 
+const statusFilterOptions = [
+  { value: 'all', label: 'All' },
+  { value: 'to_pick', label: 'To Pick' },
+  { value: 'picking', label: 'Picking' },
+];
+
 function PickPageContent() {
   const { state, dispatch } = useApp();
   const { success, error, warning } = useToast();
@@ -68,7 +74,7 @@ function PickPageContent() {
   const [urlInitialized, setUrlInitialized] = useState(false);
   const scanInputRef = useRef<HTMLInputElement>(null);
 
-  // Get pickable orders (to_pick or picking) with optional filter
+  // Get pickable orders with optional filter
   const pickableOrders = useMemo(() => {
     const orders = state.orders.filter(o => o.status === 'to_pick' || o.status === 'picking');
     if (statusFilter === 'all') return orders;
@@ -85,7 +91,6 @@ function PickPageContent() {
         setStatusFilter(statusParam);
       }
 
-      // Auto-select order if specified in URL
       if (orderParam) {
         const order = state.orders.find(o =>
           o.orderNumber === orderParam || o.id === orderParam
@@ -100,7 +105,7 @@ function PickPageContent() {
   }, [searchParams, urlInitialized, state.orders]);
 
   // Update URL when filter changes
-  const updateUrlParams = useCallback((newStatus: 'all' | 'to_pick' | 'picking') => {
+  const updateUrlParams = useCallback((newStatus: string) => {
     const params = new URLSearchParams();
     if (newStatus !== 'all') params.set('status', newStatus);
     const url = params.toString() ? `/fulfillment/pick?${params.toString()}` : '/fulfillment/pick';
@@ -116,7 +121,6 @@ function PickPageContent() {
     return filters;
   }, [statusFilter]);
 
-  // Handle filter removal
   const handleRemoveFilter = (key: string) => {
     if (key === 'status') {
       setStatusFilter('all');
@@ -124,7 +128,6 @@ function PickPageContent() {
     }
   };
 
-  // Clear all filters
   const handleClearAllFilters = () => {
     setStatusFilter('all');
     router.replace('/fulfillment/pick', { scroll: false });
@@ -162,7 +165,6 @@ function PickPageContent() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Focus scan input on any letter/number key (if not already focused on input)
       if (/^[a-zA-Z0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey) {
         const activeElement = document.activeElement;
         if (activeElement?.tagName !== 'INPUT' && activeElement?.tagName !== 'TEXTAREA') {
@@ -170,7 +172,6 @@ function PickPageContent() {
         }
       }
 
-      // Escape to clear selection
       if (e.key === 'Escape') {
         setSelectedOrder(null);
       }
@@ -185,7 +186,6 @@ function PickPageContent() {
     if (e.key === 'Enter' && scanInput.trim()) {
       const searchTerm = scanInput.toLowerCase().trim();
 
-      // Find order by order number or ID
       const order = state.orders.find(o =>
         o.orderNumber.toLowerCase() === searchTerm ||
         o.id === searchTerm ||
@@ -211,7 +211,6 @@ function PickPageContent() {
   const handleSelectOrder = (order: Order) => {
     setSelectedOrder(order);
 
-    // If not already picking, update status
     if (order.status === 'to_pick') {
       dispatch({
         type: 'UPDATE_ORDER_STATUS',
@@ -227,12 +226,10 @@ function PickPageContent() {
     ));
   };
 
-  // Pick all items
   const handlePickAll = () => {
     setPickItems(prev => prev.map(item => ({ ...item, picked: true })));
   };
 
-  // Complete pick
   const handleCompletePick = () => {
     if (!selectedOrder) return;
 
@@ -242,7 +239,6 @@ function PickPageContent() {
       return;
     }
 
-    // Update order with picked items and status
     const updatedOrder: Order = {
       ...selectedOrder,
       status: 'to_pack',
@@ -260,7 +256,6 @@ function PickPageContent() {
     setPickItems([]);
   };
 
-  // Cancel pick (return to queue)
   const handleCancelPick = () => {
     if (!selectedOrder) return;
 
@@ -278,71 +273,29 @@ function PickPageContent() {
   // Calculate progress
   const pickedCount = pickItems.filter(i => i.picked).length;
   const totalCount = pickItems.length;
-  const progress = totalCount > 0 ? (pickedCount / totalCount) * 100 : 0;
   const allPicked = pickItems.every(item => item.picked);
-
-  // Get channel badge
-  const getChannelBadge = (channel: Order['channel']) => {
-    const styles = {
-      shopify: 'bg-green-500/20 text-green-400',
-      amazon_fbm: 'bg-orange-500/20 text-orange-400',
-      amazon_fba: 'bg-amber-500/20 text-amber-400',
-      manual: 'bg-slate-500/20 text-slate-400',
-    };
-
-    const labels = {
-      shopify: 'Shopify',
-      amazon_fbm: 'Amazon FBM',
-      amazon_fba: 'Amazon FBA',
-      manual: 'Manual',
-    };
-
-    return (
-      <span className={`px-2 py-0.5 rounded text-xs ${styles[channel]}`}>
-        {labels[channel]}
-      </span>
-    );
-  };
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
       <Breadcrumb items={[{ label: 'Fulfillment', href: '/fulfillment' }, { label: 'Pick Station' }]} />
 
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Pick Station</h1>
-          <p className="text-slate-400">
-            {pickableOrders.length} orders ready to pick
-          </p>
+          <p className="text-slate-400">{pickableOrders.length} orders ready to pick</p>
         </div>
-        {/* Status Filter Tabs */}
-        <div className="flex items-center bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-lg p-1">
-          {[
-            { value: 'all', label: 'All' },
-            { value: 'to_pick', label: 'To Pick' },
-            { value: 'picking', label: 'Picking' },
-          ].map((option) => (
-            <button
-              key={option.value}
-              onClick={() => {
-                setStatusFilter(option.value as 'all' | 'to_pick' | 'picking');
-                updateUrlParams(option.value as 'all' | 'to_pick' | 'picking');
-              }}
-              className={`px-4 py-2 text-sm rounded-lg transition-all ${
-                statusFilter === option.value
-                  ? 'bg-blue-500/20 text-blue-300'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <StatusFilterTabs
+          options={statusFilterOptions}
+          value={statusFilter}
+          onChange={(v) => {
+            setStatusFilter(v as 'all' | 'to_pick' | 'picking');
+            updateUrlParams(v);
+          }}
+          accentColor="blue"
+        />
       </div>
 
-      {/* Active Filters */}
       {activeFilters.length > 0 && (
         <ActiveFilters
           filters={activeFilters}
@@ -371,13 +324,7 @@ function PickPageContent() {
                 autoFocus
               />
             </div>
-            <Button
-              onClick={() => {
-                if (scanInput.trim()) {
-                  handleScan({ key: 'Enter' } as React.KeyboardEvent);
-                }
-              }}
-            >
+            <Button onClick={() => scanInput.trim() && handleScan({ key: 'Enter' } as React.KeyboardEvent)}>
               Load Order
             </Button>
           </div>
@@ -411,26 +358,18 @@ function PickPageContent() {
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-white">
-                      #{order.orderNumber}
-                    </span>
+                    <span className="text-sm font-medium text-white">#{order.orderNumber}</span>
                     {order.status === 'picking' ? (
-                      <span className="px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-400">
-                        Picking
-                      </span>
+                      <PickStatusBadge status="picking" />
                     ) : (
-                      <span className="px-2 py-0.5 rounded-full text-xs bg-slate-700/50 text-slate-400">
-                        Queued
-                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-slate-700/50 text-slate-400">Queued</span>
                     )}
                   </div>
                   <div className="flex items-center justify-between text-xs text-slate-400">
                     <span>{order.items.length} items</span>
-                    {getChannelBadge(order.channel)}
+                    <ChannelBadge channel={order.channel} />
                   </div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    {order.customer.name}
-                  </div>
+                  <div className="text-xs text-slate-500 mt-1">{order.customer.name}</div>
                 </button>
               ))}
             </div>
@@ -450,10 +389,8 @@ function PickPageContent() {
                         Order #{selectedOrder.orderNumber}
                       </h2>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-sm text-slate-400">
-                          {selectedOrder.customer.name}
-                        </span>
-                        {getChannelBadge(selectedOrder.channel)}
+                        <span className="text-sm text-slate-400">{selectedOrder.customer.name}</span>
+                        <ChannelBadge channel={selectedOrder.channel} />
                       </div>
                     </div>
                     <button
@@ -471,14 +408,11 @@ function PickPageContent() {
                       <span className="text-slate-400">Progress</span>
                       <span className="text-white">{pickedCount} / {totalCount}</span>
                     </div>
-                    <div className="w-full bg-slate-700 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all ${
-                          allPicked ? 'bg-emerald-500' : 'bg-blue-500'
-                        }`}
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
+                    <ProgressBar
+                      current={pickedCount}
+                      total={totalCount}
+                      colorClass={allPicked ? 'bg-emerald-500' : 'bg-blue-500'}
+                    />
                   </div>
 
                   {/* Ship To */}
@@ -515,31 +449,25 @@ function PickPageContent() {
                       return (
                         <div
                           key={index}
-                          className={`
-                            flex items-center gap-4 p-4 rounded-lg border transition-all cursor-pointer
-                            ${item.picked
+                          className={`flex items-center gap-4 p-4 rounded-lg border transition-all cursor-pointer ${
+                            item.picked
                               ? 'bg-emerald-500/10 border-emerald-500/30'
                               : hasStock
                                 ? 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
                                 : 'bg-red-500/10 border-red-500/30'
-                            }
-                          `}
+                          }`}
                           onClick={() => handleTogglePicked(index)}
                         >
-                          {/* Checkbox */}
                           <button
-                            className={`
-                              w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors
-                              ${item.picked
+                            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                              item.picked
                                 ? 'bg-emerald-500 border-emerald-500 text-white'
                                 : 'border-slate-600 hover:border-slate-500'
-                              }
-                            `}
+                            }`}
                           >
                             {item.picked && <Check className="w-4 h-4" />}
                           </button>
 
-                          {/* Item Details */}
                           <div className="flex-1 min-w-0">
                             <div className={`font-medium ${item.picked ? 'text-emerald-400 line-through' : 'text-white'}`}>
                               {item.productName}
@@ -548,22 +476,17 @@ function PickPageContent() {
                             {item.binLocation && (
                               <div className="flex items-center gap-1 mt-1">
                                 <MapPin className="w-3 h-3 text-blue-400" />
-                                <span className="text-sm text-blue-400 font-mono">
-                                  Bin: {item.binLocation}
-                                </span>
+                                <span className="text-sm text-blue-400 font-mono">Bin: {item.binLocation}</span>
                               </div>
                             )}
                             {!hasStock && !item.picked && (
                               <div className="flex items-center gap-1 mt-1 text-red-400">
                                 <AlertCircle className="w-3 h-3" />
-                                <span className="text-xs">
-                                  Only {formatNumber(stock)} in stock
-                                </span>
+                                <span className="text-xs">Only {formatNumber(stock)} in stock</span>
                               </div>
                             )}
                           </div>
 
-                          {/* Quantity */}
                           <div className="text-right">
                             <div className={`text-2xl font-bold ${item.picked ? 'text-emerald-400' : 'text-white'}`}>
                               x {item.quantity}
@@ -576,11 +499,7 @@ function PickPageContent() {
 
                   {/* Complete Button */}
                   <div className="mt-6">
-                    <Button
-                      onClick={handleCompletePick}
-                      disabled={!allPicked}
-                      className="w-full"
-                    >
+                    <Button onClick={handleCompletePick} disabled={!allPicked} className="w-full">
                       <Check className="w-4 h-4" />
                       {allPicked ? 'Complete Pick' : `Pick remaining ${totalCount - pickedCount} items`}
                       <ArrowRight className="w-4 h-4 ml-auto" />
@@ -598,9 +517,7 @@ function PickPageContent() {
             <Card>
               <div className="p-12 text-center">
                 <Package className="mx-auto h-16 w-16 text-slate-600" />
-                <h3 className="mt-4 text-lg font-medium text-white">
-                  Select an Order
-                </h3>
+                <h3 className="mt-4 text-lg font-medium text-white">Select an Order</h3>
                 <p className="mt-2 text-sm text-slate-400">
                   Scan an order barcode or select from the queue to start picking
                 </p>
