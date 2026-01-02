@@ -3,68 +3,25 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  type: 'retail' | 'wholesale';
-}
-
-interface Product {
-  id: string;
-  name: string;
-  sku: string;
-  price: number;
-  wholesalePrice: number;
-  cost: number;
-  weight: number; // in oz
-  inStock: number;
-}
-
-interface OrderItem {
-  productId: string;
-  quantity: number;
-  customPrice: number | null; // null means use default price
-}
-
-// Mock customers
-const mockCustomers: Customer[] = [
-  { id: 'cust-1', name: 'Sarah Johnson', email: 'sarah@email.com', phone: '713-555-0123', address: '123 Main Street', city: 'Houston', state: 'TX', zip: '77001', country: 'US', type: 'retail' },
-  { id: 'cust-2', name: 'Michael Chen', email: 'mchen@gmail.com', phone: '512-555-0456', address: '456 Oak Avenue', city: 'Austin', state: 'TX', zip: '78701', country: 'US', type: 'retail' },
-  { id: 'cust-3', name: 'Wholesale Gardens Inc', email: 'orders@wholesalegardens.com', phone: '713-555-0789', address: '1000 Industrial Blvd', city: 'Houston', state: 'TX', zip: '77002', country: 'US', type: 'wholesale' },
-  { id: 'cust-4', name: 'Green Thumb Supplies', email: 'purchasing@greenthumb.com', phone: '214-555-0321', address: '500 Commerce St', city: 'Dallas', state: 'TX', zip: '75201', country: 'US', type: 'wholesale' },
-  { id: 'cust-5', name: 'Emily Rodriguez', email: 'emily.r@outlook.com', phone: '469-555-0654', address: '789 Pine Road', city: 'Plano', state: 'TX', zip: '75024', country: 'US', type: 'retail' },
-];
-
-// Mock products
-const mockProducts: Product[] = [
-  { id: 'prod-1', name: '1L Micro Classic', sku: 'CLM1L', price: 24.99, wholesalePrice: 14.99, cost: 6.56, weight: 44.8, inStock: 124 },
-  { id: 'prod-2', name: '1L Bloom Classic', sku: 'CLB1L', price: 24.99, wholesalePrice: 14.99, cost: 6.78, weight: 46.4, inStock: 342 },
-  { id: 'prod-3', name: '1L Grow Classic', sku: 'CLG1L', price: 24.99, wholesalePrice: 14.99, cost: 6.34, weight: 44.8, inStock: 18 },
-  { id: 'prod-4', name: '500ml CalMag Plus', sku: 'CALMAG500', price: 18.99, wholesalePrice: 11.99, cost: 4.23, weight: 22.4, inStock: 156 },
-  { id: 'prod-5', name: 'pH Down 1L', sku: 'PHD1L', price: 14.99, wholesalePrice: 8.99, cost: 3.45, weight: 38.4, inStock: 0 },
-  { id: 'prod-6', name: 'pH Up 1L', sku: 'PHU1L', price: 14.99, wholesalePrice: 8.99, cost: 3.55, weight: 38.4, inStock: 67 },
-  { id: 'prod-7', name: 'Root Booster 500ml', sku: 'RB500', price: 21.99, wholesalePrice: 13.99, cost: 5.12, weight: 20.8, inStock: 89 },
-  { id: 'prod-8', name: 'Starter Bundle Classic', sku: 'SBTCLASSIC', price: 64.99, wholesalePrice: 44.99, cost: 18.90, weight: 136, inStock: 45 },
-];
-
-// Shipping options
-const shippingOptions = [
-  { id: 'free', name: 'Free Shipping', price: 0, minWeight: 0, maxWeight: 9999, description: 'Standard ground (5-7 days)' },
-  { id: 'standard', name: 'Standard Shipping', price: 5.99, minWeight: 0, maxWeight: 80, description: 'USPS Priority (3-5 days)' },
-  { id: 'express', name: 'Express Shipping', price: 12.99, minWeight: 0, maxWeight: 160, description: 'UPS 2-Day' },
-  { id: 'overnight', name: 'Overnight Shipping', price: 24.99, minWeight: 0, maxWeight: 160, description: 'UPS Next Day Air' },
-  { id: 'freight', name: 'Freight / LTL', price: 0, minWeight: 160, maxWeight: 9999, description: 'For large wholesale orders' },
-  { id: 'pickup', name: 'Local Pickup', price: 0, minWeight: 0, maxWeight: 9999, description: 'Pick up at warehouse' },
-  { id: 'custom', name: 'Custom Amount', price: 0, minWeight: 0, maxWeight: 9999, description: 'Enter custom shipping cost' },
-];
+import {
+  FormSection,
+  ToggleGroup,
+  PricingBadge,
+  CustomerTypeBadge,
+  SelectableCard,
+  SummaryRow,
+  QuantityStepper,
+  SearchInput,
+  InfoBox,
+} from '@/components/orders';
+import {
+  OrderItem,
+  mockCustomers,
+  mockProducts,
+  shippingOptions,
+  getProductPrice,
+  calculateOrderTotals,
+} from '@/components/orders/OrderFormData';
 
 export default function NewOrderPage() {
   const router = useRouter();
@@ -119,8 +76,8 @@ export default function NewOrderPage() {
   );
 
   // Get price for a product based on customer type
-  const getProductPrice = (product: Product) => {
-    return isWholesale ? product.wholesalePrice : product.price;
+  const getPrice = (product: typeof mockProducts[0]) => {
+    return getProductPrice(product, isWholesale);
   };
 
   // Add product to order
@@ -159,64 +116,17 @@ export default function NewOrderPage() {
     ));
   };
 
-  // Calculate totals
+  // Calculate totals using shared function
   const calculations = useMemo(() => {
-    let subtotal = 0;
-    let totalCost = 0;
-    let totalWeight = 0;
-    let itemCount = 0;
-
-    orderItems.forEach(item => {
-      const product = mockProducts.find(p => p.id === item.productId);
-      if (product) {
-        const price = item.customPrice ?? getProductPrice(product);
-        subtotal += price * item.quantity;
-        totalCost += product.cost * item.quantity;
-        totalWeight += product.weight * item.quantity;
-        itemCount += item.quantity;
-      }
-    });
-
-    // Calculate discount
-    let discount = 0;
-    if (discountType === 'percent') {
-      discount = subtotal * (discountValue / 100);
-    } else {
-      discount = discountValue;
-    }
-
-    // Get shipping cost
-    let shipping = 0;
-    if (selectedShipping === 'custom') {
-      shipping = customShippingCost;
-    } else {
-      const shippingOption = shippingOptions.find(s => s.id === selectedShipping);
-      shipping = shippingOption?.price || 0;
-    }
-
-    // Calculate tax
-    const taxableAmount = subtotal - discount;
-    const tax = taxableAmount * (taxRate / 100);
-
-    // Calculate total
-    const total = subtotal - discount + shipping + tax;
-
-    // Calculate profit
-    const profit = total - totalCost - shipping;
-    const margin = total > 0 ? (profit / total) * 100 : 0;
-
-    return {
-      subtotal,
-      discount,
-      shipping,
-      tax,
-      total,
-      totalCost,
-      profit,
-      margin,
-      totalWeight,
-      itemCount,
-    };
+    return calculateOrderTotals(
+      orderItems,
+      isWholesale,
+      discountType,
+      discountValue,
+      selectedShipping,
+      customShippingCost,
+      taxRate
+    );
   }, [orderItems, discountType, discountValue, selectedShipping, customShippingCost, taxRate, isWholesale]);
 
   // Format currency
@@ -260,11 +170,7 @@ export default function NewOrderPage() {
             <p className="text-sm text-slate-400">Create a new order for a customer</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${isWholesale ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
-            {isWholesale ? 'Wholesale Pricing' : 'Retail Pricing'}
-          </span>
-        </div>
+        <PricingBadge isWholesale={isWholesale} />
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-3 gap-6">
@@ -325,9 +231,7 @@ export default function NewOrderPage() {
                             <div className="text-xs text-slate-500">{customer.city}, {customer.state} {customer.zip}</div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 text-xs rounded-full ${customer.type === 'wholesale' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                              {customer.type === 'wholesale' ? 'Wholesale' : 'Retail'}
-                            </span>
+                            <CustomerTypeBadge type={customer.type} />
                             {selectedCustomerId === customer.id && (
                               <i className="fas fa-check text-emerald-400"></i>
                             )}
@@ -502,7 +406,7 @@ export default function NewOrderPage() {
                             <div className="text-xs text-slate-400">SKU: {product.sku}</div>
                           </div>
                           <div className="text-right">
-                            <div className="text-white font-medium">{formatCurrency(getProductPrice(product))}</div>
+                            <div className="text-white font-medium">{formatCurrency(getPrice(product))}</div>
                             <div className={`text-xs ${product.inStock > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                               {product.inStock > 0 ? `${product.inStock} in stock` : 'Out of stock'}
                             </div>
@@ -523,7 +427,7 @@ export default function NewOrderPage() {
                   {orderItems.map((item) => {
                     const product = mockProducts.find(p => p.id === item.productId);
                     if (!product) return null;
-                    const defaultPrice = getProductPrice(product);
+                    const defaultPrice = getPrice(product);
                     const effectivePrice = item.customPrice ?? defaultPrice;
                     const isCustomPriced = item.customPrice !== null;
 
@@ -846,19 +750,11 @@ export default function NewOrderPage() {
           </div>
 
           {/* Help */}
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
-            <div className="flex items-start gap-3">
-              <i className="fas fa-info-circle text-blue-400 mt-0.5"></i>
-              <div className="text-sm">
-                <div className="text-blue-400 font-medium mb-1">Pricing Info</div>
-                <p className="text-slate-400">
-                  {isWholesale
-                    ? 'Wholesale pricing is automatically applied. You can still customize individual item prices.'
-                    : 'Retail pricing is applied. Select a wholesale customer for discounted rates.'}
-                </p>
-              </div>
-            </div>
-          </div>
+          <InfoBox title="Pricing Info">
+            {isWholesale
+              ? 'Wholesale pricing is automatically applied. You can still customize individual item prices.'
+              : 'Retail pricing is applied. Select a wholesale customer for discounted rates.'}
+          </InfoBox>
         </div>
       </form>
     </div>
