@@ -217,7 +217,11 @@ export function DateRangeProvider({ children }: { children: ReactNode }) {
   // Check if a date is in the current range
   const isInRange = useCallback((date: Date | string): boolean => {
     const checkDate = typeof date === 'string' ? new Date(date) : date
-    return checkDate >= dateRange.startDate && checkDate <= dateRange.endDate
+    // Compare timestamps to avoid any date object comparison issues
+    const checkTime = checkDate.getTime()
+    const startTime = dateRange.startDate.getTime()
+    const endTime = dateRange.endDate.getTime()
+    return checkTime >= startTime && checkTime <= endTime
   }, [dateRange])
 
   // Get comparison period (same length, previous period)

@@ -838,11 +838,16 @@ export function suggestBox(totalVolume: number, totalWeight: number, buffer: num
   return null; // No box fits
 }
 
-// Helper function to get dates relative to today
+// Helper function to get dates relative to today (preserves local timezone)
 function getRelativeDate(daysAgo: number, hoursAgo: number = 0): string {
   const date = new Date();
   date.setDate(date.getDate() - daysAgo);
-  date.setHours(date.getHours() - hoursAgo);
+  // Set to a specific hour to ensure consistent behavior across timezones
+  // Use noon (12:00) minus hoursAgo to keep orders within the day
+  const hour = Math.max(8, Math.min(20, 12 - hoursAgo));
+  date.setHours(hour, 0, 0, 0);
+  // Return ISO string - the Date comparison in DateRangeContext will handle this correctly
+  // because both the order date and the range dates are created in local time context
   return date.toISOString();
 }
 
