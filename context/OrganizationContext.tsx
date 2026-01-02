@@ -326,11 +326,12 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       const orgRef = await addDoc(collection(db, 'organizations'), orgData)
 
       // Create owner membership
+      const displayName = userProfile?.displayName || user.displayName || null
       const memberData = {
         organizationId: orgRef.id,
         userId: user.uid,
         email: user.email || '',
-        displayName: userProfile?.displayName || user.displayName || undefined,
+        ...(displayName && { displayName }),
         role: 'owner' as MemberRole,
         joinedAt: serverTimestamp(),
       }
@@ -352,6 +353,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       const newMember: OrganizationMember = {
         ...memberData,
         id: 'temp-id',
+        displayName: displayName || '',
         joinedAt: new Date(),
       }
 
@@ -487,12 +489,13 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       }
 
       // Create invite
+      const invitedByName = userProfile?.displayName || user.displayName || null
       const inviteData = {
         organizationId: organization.id,
         email: email.toLowerCase(),
         role,
         invitedBy: user.uid,
-        invitedByName: userProfile?.displayName || user.displayName || undefined,
+        ...(invitedByName && { invitedByName }),
         organizationName: organization.name,
         status: 'pending' as const,
         token: generateInviteToken(),
@@ -636,11 +639,12 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       if (invite.expiresAt.toDate() < new Date()) throw new Error('Invite has expired')
 
       // Create membership
+      const displayName = userProfile?.displayName || user.displayName || null
       const memberData = {
         organizationId: invite.organizationId,
         userId: user.uid,
         email: user.email,
-        displayName: userProfile?.displayName || user.displayName,
+        ...(displayName && { displayName }),
         role: invite.role,
         invitedBy: invite.invitedBy,
         joinedAt: serverTimestamp(),
@@ -666,6 +670,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         setMembership({
           ...memberData,
           id: 'new-member',
+          displayName: displayName || '',
           joinedAt: new Date(),
         } as OrganizationMember)
       }

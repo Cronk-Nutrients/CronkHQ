@@ -43,6 +43,8 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>
   updateUserProfile: (data: Partial<UserProfile>) => Promise<void>
   clearError: () => void
+  /** For demo mode: switch between different roles to test permissions */
+  setDemoRole: (role: 'admin' | 'warehouse' | 'viewer') => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -304,6 +306,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Clear error
   const clearError = () => setError(null)
 
+  // Set demo role (for testing permissions)
+  const setDemoRole = (role: 'admin' | 'warehouse' | 'viewer') => {
+    if (isDemo && userProfile) {
+      setUserProfile({ ...userProfile, role })
+    }
+  }
+
   const value = {
     user,
     userProfile,
@@ -316,6 +325,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resetPassword,
     updateUserProfile,
     clearError,
+    setDemoRole,
   }
 
   return (
