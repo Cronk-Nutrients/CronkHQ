@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface NavItem {
   href?: string;
@@ -18,6 +19,7 @@ interface NavItem {
 export default function Sidebar() {
   const pathname = usePathname();
   const { state } = useApp();
+  const { userProfile, logout } = useAuth();
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
 
   // Calculate badges from state
@@ -307,13 +309,25 @@ export default function Sidebar() {
       <div className="p-4 border-t border-slate-700/50">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
-            <span className="text-white font-medium text-sm">JC</span>
+            <span className="text-white font-medium text-sm">
+              {userProfile?.displayName
+                ? userProfile.displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                : userProfile?.email?.slice(0, 2).toUpperCase() || 'U'}
+            </span>
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-white truncate">John Cronk</div>
-            <div className="text-xs text-slate-400 truncate">Admin</div>
+            <div className="text-sm font-medium text-white truncate">
+              {userProfile?.displayName || userProfile?.email || 'User'}
+            </div>
+            <div className="text-xs text-slate-400 truncate capitalize">
+              {userProfile?.role || 'User'}
+            </div>
           </div>
-          <button className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg">
+          <button
+            onClick={() => logout()}
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+            title="Sign out"
+          >
             <i className="fas fa-sign-out-alt"></i>
           </button>
         </div>

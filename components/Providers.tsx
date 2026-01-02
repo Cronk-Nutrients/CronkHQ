@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
+import { AuthProvider } from '@/context/AuthContext';
 import { AppProvider } from '@/context/AppContext';
 import { ToastProvider } from '@/components/ui/Toast';
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
@@ -11,13 +12,15 @@ interface ProvidersProps {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <AppProvider>
-      <ToastProvider>
-        <ConfirmProvider>
-          {children}
-        </ConfirmProvider>
-      </ToastProvider>
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <ToastProvider>
+          <ConfirmProvider>
+            {children}
+          </ConfirmProvider>
+        </ToastProvider>
+      </AppProvider>
+    </AuthProvider>
   );
 }
 
