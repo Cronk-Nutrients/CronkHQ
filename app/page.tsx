@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatCurrency } from '@/data/mockData';
+import { ChannelBadge, QueueStatusBadge } from '@/components/fulfillment/FulfillmentBadges';
+import { ChannelCard, QuickActionCard } from '@/components/dashboard';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -471,65 +473,32 @@ export default function Dashboard() {
             <p className="text-xs text-slate-400">Today</p>
           </div>
           <div className="p-5 space-y-4">
-            {/* Shopify */}
-            <Link href="/orders?channel=shopify" className="block p-4 bg-slate-900/50 rounded-lg hover:bg-slate-800/70 transition-colors group">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-green-600/20 flex items-center justify-center">
-                    <i className="fab fa-shopify text-green-400"></i>
-                  </div>
-                  <span className="font-medium text-white group-hover:text-green-400 transition-colors">Shopify</span>
-                </div>
-                <span className="text-xs text-slate-400">{channelPerformance.shopify.pct}%</span>
-              </div>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div>
-                  <div className="text-lg font-bold text-white">{channelPerformance.shopify.orders}</div>
-                  <div className="text-xs text-slate-500">Orders</div>
-                </div>
-                <div>
-                  <div className="text-lg font-bold text-white">{formatCurrency(channelPerformance.shopify.revenue)}</div>
-                  <div className="text-xs text-slate-500">Revenue</div>
-                </div>
-                <div>
-                  <div className="text-lg font-bold text-emerald-400">{formatCurrency(channelPerformance.shopify.profit)}</div>
-                  <div className="text-xs text-slate-500">Profit</div>
-                </div>
-              </div>
-              <div className="mt-3 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-green-500 rounded-full" style={{ width: `${channelPerformance.shopify.pct}%` }}></div>
-              </div>
-            </Link>
-
-            {/* Amazon */}
-            <Link href="/orders?channel=amazon" className="block p-4 bg-slate-900/50 rounded-lg hover:bg-slate-800/70 transition-colors group">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center">
-                    <i className="fab fa-amazon text-orange-400"></i>
-                  </div>
-                  <span className="font-medium text-white group-hover:text-orange-400 transition-colors">Amazon</span>
-                </div>
-                <span className="text-xs text-slate-400">{channelPerformance.amazon.pct}%</span>
-              </div>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div>
-                  <div className="text-lg font-bold text-white">{channelPerformance.amazon.orders}</div>
-                  <div className="text-xs text-slate-500">Orders</div>
-                </div>
-                <div>
-                  <div className="text-lg font-bold text-white">{formatCurrency(channelPerformance.amazon.revenue)}</div>
-                  <div className="text-xs text-slate-500">Revenue</div>
-                </div>
-                <div>
-                  <div className="text-lg font-bold text-emerald-400">{formatCurrency(channelPerformance.amazon.profit)}</div>
-                  <div className="text-xs text-slate-500">Profit</div>
-                </div>
-              </div>
-              <div className="mt-3 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-orange-500 rounded-full" style={{ width: `${channelPerformance.amazon.pct}%` }}></div>
-              </div>
-            </Link>
+            <ChannelCard
+              href="/orders?channel=shopify"
+              icon="fab fa-shopify"
+              iconBgColor="bg-green-600/20"
+              iconTextColor="text-green-400"
+              name="Shopify"
+              orders={channelPerformance.shopify.orders}
+              revenue={channelPerformance.shopify.revenue}
+              profit={channelPerformance.shopify.profit}
+              percentage={channelPerformance.shopify.pct}
+              progressColor="bg-green-500"
+              formatCurrency={formatCurrency}
+            />
+            <ChannelCard
+              href="/orders?channel=amazon"
+              icon="fab fa-amazon"
+              iconBgColor="bg-orange-500/20"
+              iconTextColor="text-orange-400"
+              name="Amazon"
+              orders={channelPerformance.amazon.orders}
+              revenue={channelPerformance.amazon.revenue}
+              profit={channelPerformance.amazon.profit}
+              percentage={channelPerformance.amazon.pct}
+              progressColor="bg-orange-500"
+              formatCurrency={formatCurrency}
+            />
           </div>
         </div>
 
@@ -570,14 +539,7 @@ export default function Dashboard() {
                       <div className="text-xs text-slate-400">{order.customer.address.city}, {order.customer.address.state}</div>
                     </td>
                     <td className="px-5 py-3">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${
-                        order.channel === 'shopify'
-                          ? 'bg-green-500/10 text-green-400 border-green-500/20'
-                          : 'bg-orange-500/10 text-orange-400 border-orange-500/20'
-                      }`}>
-                        <i className={order.channel === 'shopify' ? 'fab fa-shopify' : 'fab fa-amazon'}></i>
-                        {order.channel === 'shopify' ? 'Shopify' : 'Amazon'}
-                      </span>
+                      <ChannelBadge channel={order.channel} />
                     </td>
                     <td className="px-5 py-3 text-sm text-slate-300">
                       {order.items.reduce((sum, item) => sum + item.quantity, 0)} items
@@ -589,23 +551,7 @@ export default function Dashboard() {
                       {formatCurrencyPrecise(order.profit)}
                     </td>
                     <td className="px-5 py-3">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        order.status === 'to_pick' ? 'bg-amber-500/10 text-amber-400' :
-                        order.status === 'picking' ? 'bg-amber-500/10 text-amber-400' :
-                        order.status === 'to_pack' ? 'bg-blue-500/10 text-blue-400' :
-                        order.status === 'packing' ? 'bg-blue-500/10 text-blue-400' :
-                        order.status === 'ready' ? 'bg-purple-500/10 text-purple-400' :
-                        order.status === 'shipped' ? 'bg-emerald-500/10 text-emerald-400' :
-                        'bg-slate-500/10 text-slate-400'
-                      }`}>
-                        {order.status === 'to_pick' ? 'To Pick' :
-                         order.status === 'picking' ? 'Picking' :
-                         order.status === 'to_pack' ? 'To Pack' :
-                         order.status === 'packing' ? 'Packing' :
-                         order.status === 'ready' ? 'Ready' :
-                         order.status === 'shipped' ? 'Shipped' :
-                         order.status}
-                      </span>
+                      <QueueStatusBadge status={order.status} />
                     </td>
                   </tr>
                 ))}
@@ -840,60 +786,12 @@ export default function Dashboard() {
       <div className="rounded-xl bg-slate-800/50 backdrop-blur border border-slate-700/50 p-5">
         <h2 className="font-semibold text-white mb-4">Quick Actions</h2>
         <div className="grid grid-cols-6 gap-3">
-          <Link
-            href="/orders/new"
-            className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-emerald-500/30 rounded-xl transition-all group"
-          >
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/20 group-hover:bg-emerald-500/30 flex items-center justify-center transition-colors">
-              <Plus className="h-5 w-5 text-emerald-400" />
-            </div>
-            <span className="text-sm text-slate-300 group-hover:text-white">New Order</span>
-          </Link>
-          <Link
-            href="/operations/work-orders"
-            className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-blue-500/30 rounded-xl transition-all group"
-          >
-            <div className="w-10 h-10 rounded-lg bg-blue-500/20 group-hover:bg-blue-500/30 flex items-center justify-center transition-colors">
-              <Factory className="h-5 w-5 text-blue-400" />
-            </div>
-            <span className="text-sm text-slate-300 group-hover:text-white">Work Order</span>
-          </Link>
-          <Link
-            href="/inventory"
-            className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-purple-500/30 rounded-xl transition-all group"
-          >
-            <div className="w-10 h-10 rounded-lg bg-purple-500/20 group-hover:bg-purple-500/30 flex items-center justify-center transition-colors">
-              <Layers className="h-5 w-5 text-purple-400" />
-            </div>
-            <span className="text-sm text-slate-300 group-hover:text-white">Adjust Stock</span>
-          </Link>
-          <Link
-            href="/operations/purchase-orders"
-            className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-amber-500/30 rounded-xl transition-all group"
-          >
-            <div className="w-10 h-10 rounded-lg bg-amber-500/20 group-hover:bg-amber-500/30 flex items-center justify-center transition-colors">
-              <FileText className="h-5 w-5 text-amber-400" />
-            </div>
-            <span className="text-sm text-slate-300 group-hover:text-white">Create PO</span>
-          </Link>
-          <Link
-            href="/fulfillment/pick"
-            className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-cyan-500/30 rounded-xl transition-all group"
-          >
-            <div className="w-10 h-10 rounded-lg bg-cyan-500/20 group-hover:bg-cyan-500/30 flex items-center justify-center transition-colors">
-              <Hand className="h-5 w-5 text-cyan-400" />
-            </div>
-            <span className="text-sm text-slate-300 group-hover:text-white">Pick Orders</span>
-          </Link>
-          <Link
-            href="/fulfillment/pack"
-            className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-pink-500/30 rounded-xl transition-all group"
-          >
-            <div className="w-10 h-10 rounded-lg bg-pink-500/20 group-hover:bg-pink-500/30 flex items-center justify-center transition-colors">
-              <Box className="h-5 w-5 text-pink-400" />
-            </div>
-            <span className="text-sm text-slate-300 group-hover:text-white">Pack Orders</span>
-          </Link>
+          <QuickActionCard href="/orders/new" icon={Plus} iconColor="text-emerald-400" hoverBorderColor="hover:border-emerald-500/30" label="New Order" />
+          <QuickActionCard href="/operations/work-orders" icon={Factory} iconColor="text-blue-400" hoverBorderColor="hover:border-blue-500/30" label="Work Order" />
+          <QuickActionCard href="/inventory" icon={Layers} iconColor="text-purple-400" hoverBorderColor="hover:border-purple-500/30" label="Adjust Stock" />
+          <QuickActionCard href="/operations/purchase-orders" icon={FileText} iconColor="text-amber-400" hoverBorderColor="hover:border-amber-500/30" label="Create PO" />
+          <QuickActionCard href="/fulfillment/pick" icon={Hand} iconColor="text-cyan-400" hoverBorderColor="hover:border-cyan-500/30" label="Pick Orders" />
+          <QuickActionCard href="/fulfillment/pack" icon={Box} iconColor="text-pink-400" hoverBorderColor="hover:border-pink-500/30" label="Pack Orders" />
         </div>
       </div>
     </div>
