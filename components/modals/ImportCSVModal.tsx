@@ -3,9 +3,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { useOrganization } from '@/context/OrganizationContext';
-import { useLocations, useSuppliers, useProducts } from '@/hooks/useFirestore';
-import { FirestoreService, isDemoOrganization } from '@/lib/firestore';
+import { useLocations, useSuppliers, useProducts, useInventory } from '@/hooks/useFirestore';
 import { Product, Supplier, InventoryItem } from '@/types';
 import { useToast } from '@/components/ui/Toast';
 
@@ -67,10 +65,10 @@ const FIELD_GROUPS = {
 };
 
 export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
-  const { organization } = useOrganization();
   const { locations } = useLocations();
-  const { suppliers: existingSuppliers } = useSuppliers();
-  const { products: existingProducts } = useProducts();
+  const { suppliers: existingSuppliers, service: supplierService, isDemo } = useSuppliers();
+  const { products: existingProducts, service: productService } = useProducts();
+  const { service: inventoryService } = useInventory();
   const { success, error, warning } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -84,8 +82,6 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [createInventoryRecords, setCreateInventoryRecords] = useState(true);
   const [createSuppliers, setCreateSuppliers] = useState(true);
-
-  const isDemo = organization?.id ? isDemoOrganization(organization.id) : false;
 
   // Set default location when locations load
   const defaultLocation = locations.find(l => l.type === 'warehouse') || locations[0];
@@ -331,7 +327,7 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
   };
 
   const handleImport = async () => {
-    if (!isValidMapping() || !organization) return;
+    if (!isValidMapping() || !productService) return;
 
     if (isDemo) {
       error('Import is not available in demo mode');
@@ -341,11 +337,6 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
     setIsImporting(true);
 
     try {
-      const orgId = organization.id;
-      const productService = new FirestoreService<Product>(orgId, 'products');
-      const inventoryService = new FirestoreService<InventoryItem>(orgId, 'inventory');
-      const supplierService = new FirestoreService<Supplier>(orgId, 'suppliers');
-
       const existingSkus = new Set(existingProducts.map(p => p.sku.toLowerCase()));
       const supplierMap = new Map(existingSuppliers.map(s => [s.name.toLowerCase(), s]));
 
@@ -430,7 +421,7 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
         }
 
         // Handle supplier
-        if (createSuppliers && supplierName) {
+        if (createSuppliers && supplierName && supplierService) {
           const existingSupplier = supplierMap.get(supplierName.toLowerCase());
 
           if (!existingSupplier && !newSupplierIds.has(supplierName.toLowerCase())) {
@@ -445,7 +436,7 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
       }
 
       // Batch create suppliers first
-      if (suppliersToCreate.length > 0) {
+      if (suppliersToCreate.length > 0 && supplierService) {
         await supplierService.batchCreate(suppliersToCreate);
       }
 
@@ -453,7 +444,7 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
       const productIds = await productService.batchCreate(productsToCreate);
 
       // Create inventory records with actual product IDs
-      if (productInventoryMap.length > 0) {
+      if (productInventoryMap.length > 0 && inventoryService) {
         for (const item of productInventoryMap) {
           const productId = productIds[item.productIndex];
           inventoryToCreate.push({

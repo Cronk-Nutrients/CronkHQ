@@ -3,9 +3,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { useOrganization } from '@/context/OrganizationContext';
-import { useLocations, useSuppliers, useProducts } from '@/hooks/useFirestore';
-import { FirestoreService, isDemoOrganization } from '@/lib/firestore';
+import { useLocations, useSuppliers, useProducts, useInventory } from '@/hooks/useFirestore';
 import { Product, Supplier, InventoryItem } from '@/types';
 import { useToast } from '@/components/ui/Toast';
 
@@ -96,10 +94,10 @@ interface ParsedProduct {
 }
 
 export function ImportInflowModal({ isOpen, onClose }: ImportInflowModalProps) {
-  const { organization } = useOrganization();
   const { locations } = useLocations();
-  const { suppliers: existingSuppliers } = useSuppliers();
-  const { products: existingProducts } = useProducts();
+  const { suppliers: existingSuppliers, service: supplierService, isDemo } = useSuppliers();
+  const { products: existingProducts, service: productService } = useProducts();
+  const { service: inventoryService } = useInventory();
   const { success, error, warning } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -111,8 +109,6 @@ export function ImportInflowModal({ isOpen, onClose }: ImportInflowModalProps) {
   const [createVendors, setCreateVendors] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
-
-  const isDemo = organization?.id ? isDemoOrganization(organization.id) : false;
 
   // Set default location when locations load
   const defaultLocation = locations.find(l => l.type === 'warehouse') || locations[0];
@@ -268,7 +264,7 @@ export function ImportInflowModal({ isOpen, onClose }: ImportInflowModalProps) {
   };
 
   const handleImport = async () => {
-    if (!organization) return;
+    if (!productService) return;
 
     if (isDemo) {
       error('Import is not available in demo mode');
@@ -279,11 +275,6 @@ export function ImportInflowModal({ isOpen, onClose }: ImportInflowModalProps) {
     setImportProgress(0);
 
     try {
-      const orgId = organization.id;
-      const productService = new FirestoreService<Product>(orgId, 'products');
-      const inventoryService = new FirestoreService<InventoryItem>(orgId, 'inventory');
-      const supplierService = new FirestoreService<Supplier>(orgId, 'suppliers');
-
       const existingSkus = new Set(existingProducts.map(p => p.sku.toLowerCase()));
       const supplierMap = new Map(existingSuppliers.map(s => [s.name.toLowerCase(), s]));
       const newVendorIds = new Map<string, string>();
@@ -360,7 +351,7 @@ export function ImportInflowModal({ isOpen, onClose }: ImportInflowModalProps) {
         }
 
         // Handle vendor/supplier
-        if (createVendors && product.vendor) {
+        if (createVendors && product.vendor && supplierService) {
           const existingVendor = supplierMap.get(product.vendor.toLowerCase());
 
           if (!existingVendor && !newVendorIds.has(product.vendor.toLowerCase())) {
@@ -377,7 +368,7 @@ export function ImportInflowModal({ isOpen, onClose }: ImportInflowModalProps) {
       setImportProgress(60);
 
       // Batch create suppliers first
-      if (suppliersToCreate.length > 0) {
+      if (suppliersToCreate.length > 0 && supplierService) {
         await supplierService.batchCreate(suppliersToCreate);
       }
 
@@ -389,7 +380,7 @@ export function ImportInflowModal({ isOpen, onClose }: ImportInflowModalProps) {
       setImportProgress(85);
 
       // Create inventory records with actual product IDs
-      if (productInventoryMap.length > 0) {
+      if (productInventoryMap.length > 0 && inventoryService) {
         const inventoryToCreate: Omit<InventoryItem, 'id'>[] = [];
         for (const item of productInventoryMap) {
           const productId = productIds[item.productIndex];
