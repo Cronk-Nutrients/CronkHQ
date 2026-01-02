@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import Link from 'next/link';
 import {
   ClipboardList,
   Settings,
@@ -18,11 +17,16 @@ import {
   Play,
   Search,
   Trash2,
-  ChevronRight,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useToast } from '@/components/ui/Toast';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import {
+  FulfillmentStatCard,
+  FulfillmentStatsGrid,
+  ProgressBar,
+} from '@/components/fulfillment';
+import { FBAStatusBadge, AmazonDestinationBadge } from '@/components/fulfillment';
 
 interface FBAShipmentItem {
   productId: string;
@@ -130,14 +134,12 @@ export default function FBAPrepPage() {
     ).slice(0, 5);
   }, [state.products, productSearch]);
 
-  // Get total stock for a product
   const getTotalStock = (productId: string) => {
     return state.inventory
       .filter(inv => inv.productId === productId && inv.locationId === 'loc-1')
       .reduce((sum, inv) => sum + inv.quantity, 0);
   };
 
-  // Handle create shipment
   const handleCreateShipment = () => {
     if (!newShipmentName || selectedProducts.length === 0) {
       addToast('error', 'Please provide a name and add products');
@@ -150,13 +152,13 @@ export default function FBAPrepPage() {
       name: shipmentNumber,
       destination: newDestination,
       destinationCode: newDestinationCode || 'TBD',
-      destinationCity: newDestination === 'amazon_usa' ? 'Amazon USA FC' : 'Amazon Canada FC',
+      destinationCity: newDestinationCode ? 'Assigned' : 'Auto-assign',
       status: 'prep',
       items: selectedProducts.map(sp => {
         const product = state.products.find(p => p.id === sp.productId);
         return {
           productId: sp.productId,
-          productName: product?.name || 'Unknown',
+          productName: product?.name || '',
           sku: product?.sku || '',
           quantity: sp.quantity,
           prepped: 0,
@@ -170,74 +172,44 @@ export default function FBAPrepPage() {
 
     setFbaShipments(prev => [...prev, newShipment]);
     addToast('success', `FBA Shipment "${shipmentNumber}" created`);
-
-    // Reset form
+    setShowCreateModal(false);
     setNewShipmentName('');
     setSelectedProducts([]);
     setNewDestinationCode('');
-    setShowCreateModal(false);
   };
 
-  // Handle prep task toggle
   const handleTogglePrepTask = (shipmentId: string, task: keyof FBAShipment['prepTasks']) => {
     setFbaShipments(prev => prev.map(s => {
-      if (s.id === shipmentId) {
-        const updatedTasks = { ...s.prepTasks, [task]: !s.prepTasks[task] };
-        // Check if all tasks complete
-        const allComplete = updatedTasks.stickers && updatedTasks.fnsku && updatedTasks.casePacked && updatedTasks.palletized;
-        return {
-          ...s,
-          prepTasks: updatedTasks,
-          status: allComplete ? 'ready' : 'prep',
-        };
-      }
-      return s;
+      if (s.id !== shipmentId) return s;
+      const newTasks = { ...s.prepTasks, [task]: !s.prepTasks[task] };
+      const allDone = newTasks.stickers && newTasks.fnsku && newTasks.casePacked && newTasks.palletized;
+      return { ...s, prepTasks: newTasks, status: allDone ? 'ready' : 'prep' };
     }));
   };
 
-  // Handle mark as shipped
   const handleMarkShipped = () => {
     if (!selectedShipment || !shipTracking) {
       addToast('error', 'Please provide tracking information');
       return;
     }
 
-    // Deduct inventory from warehouse
     selectedShipment.items.forEach(item => {
       dispatch({
         type: 'ADJUST_STOCK',
-        payload: {
-          productId: item.productId,
-          locationId: 'loc-1', // Cronk Warehouse
-          adjustment: -item.quantity,
-        },
+        payload: { productId: item.productId, locationId: 'loc-1', adjustment: -item.quantity },
       });
-
-      // Add to Amazon location
       const amazonLocationId = selectedShipment.destination === 'amazon_usa' ? 'loc-2' : 'loc-3';
       dispatch({
         type: 'ADJUST_STOCK',
-        payload: {
-          productId: item.productId,
-          locationId: amazonLocationId,
-          adjustment: item.quantity,
-        },
+        payload: { productId: item.productId, locationId: amazonLocationId, adjustment: item.quantity },
       });
     });
 
-    setFbaShipments(prev => prev.map(s => {
-      if (s.id === selectedShipment.id) {
-        return {
-          ...s,
-          status: 'shipped',
-          shippedAt: new Date(),
-          carrier: shipCarrier,
-          trackingNumber: shipTracking,
-          shippingCost: parseFloat(shipCost) || 0,
-        };
-      }
-      return s;
-    }));
+    setFbaShipments(prev => prev.map(s =>
+      s.id === selectedShipment.id
+        ? { ...s, status: 'shipped', shippedAt: new Date(), carrier: shipCarrier, trackingNumber: shipTracking, shippingCost: parseFloat(shipCost) || 0 }
+        : s
+    ));
 
     addToast('success', `FBA Shipment "${selectedShipment.name}" marked as shipped`);
     setShowShipModal(false);
@@ -246,29 +218,24 @@ export default function FBAPrepPage() {
     setShipCost('');
   };
 
-  // Add product to selection
   const handleAddProduct = (productId: string) => {
     if (selectedProducts.find(p => p.productId === productId)) return;
     setSelectedProducts(prev => [...prev, { productId, quantity: 144 }]);
     setProductSearch('');
   };
 
-  // Remove product from selection
   const handleRemoveProduct = (productId: string) => {
     setSelectedProducts(prev => prev.filter(p => p.productId !== productId));
   };
 
-  // Update product quantity
   const handleUpdateQuantity = (productId: string, quantity: number) => {
     setSelectedProducts(prev => prev.map(p => p.productId === productId ? { ...p, quantity } : p));
   };
 
-  // Format date
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  // Calculate totals for create modal
   const createModalTotals = useMemo(() => {
     const totalUnits = selectedProducts.reduce((sum, p) => sum + p.quantity, 0);
     const totalCases = Math.ceil(totalUnits / 12);
@@ -279,7 +246,6 @@ export default function FBAPrepPage() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
       <Breadcrumb items={[{ label: 'Fulfillment', href: '/fulfillment' }, { label: 'FBA Prep' }]} />
 
       {/* Header */}
@@ -307,74 +273,14 @@ export default function FBAPrepPage() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-6 gap-4">
-        <div className="bg-slate-800/50 backdrop-blur border border-orange-500/30 rounded-xl p-4 shadow-lg shadow-orange-500/5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
-              <ClipboardList className="w-5 h-5 text-orange-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-orange-400">{stats.activeShipments}</div>
-              <div className="text-xs text-slate-400">Active Shipments</div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-slate-800/50 backdrop-blur border border-amber-500/30 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
-              <Settings className="w-5 h-5 text-amber-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-amber-400">{stats.preppingCount}</div>
-              <div className="text-xs text-slate-400">Prepping</div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-slate-800/50 backdrop-blur border border-blue-500/30 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-              <Truck className="w-5 h-5 text-blue-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-blue-400">{stats.readyCount}</div>
-              <div className="text-xs text-slate-400">Ready to Ship</div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
-              <Box className="w-5 h-5 text-slate-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-white">{stats.unitsInPrep}</div>
-              <div className="text-xs text-slate-400">Units in Prep</div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
-              <Package className="w-5 h-5 text-slate-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-white">{stats.casesPacked}</div>
-              <div className="text-xs text-slate-400">Cases Packed</div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-slate-800/50 backdrop-blur border border-emerald-500/30 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-              <Layers className="w-5 h-5 text-emerald-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-emerald-400">{stats.palletsReady}</div>
-              <div className="text-xs text-slate-400">Pallets Ready</div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <FulfillmentStatsGrid columns={6}>
+        <FulfillmentStatCard icon={ClipboardList} iconColor="orange" value={stats.activeShipments} label="Active Shipments" />
+        <FulfillmentStatCard icon={Settings} iconColor="amber" value={stats.preppingCount} label="Prepping" />
+        <FulfillmentStatCard icon={Truck} iconColor="blue" value={stats.readyCount} label="Ready to Ship" />
+        <FulfillmentStatCard icon={Box} iconColor="slate" value={stats.unitsInPrep} label="Units in Prep" />
+        <FulfillmentStatCard icon={Package} iconColor="slate" value={stats.casesPacked} label="Cases Packed" />
+        <FulfillmentStatCard icon={Layers} iconColor="emerald" value={stats.palletsReady} label="Pallets Ready" />
+      </FulfillmentStatsGrid>
 
       {/* Active Shipments */}
       <div className="grid grid-cols-2 gap-6">
@@ -383,7 +289,6 @@ export default function FBAPrepPage() {
           const totalPrepped = shipment.items.reduce((sum, i) => sum + i.prepped, 0);
           const totalCases = shipment.items.reduce((sum, i) => sum + i.casePacked, 0);
           const expectedCases = Math.ceil(totalUnits / 12);
-          const progress = totalUnits > 0 ? Math.round((totalPrepped / totalUnits) * 100) : 0;
           const prepCost = totalUnits * 0.44;
 
           return (
@@ -403,25 +308,12 @@ export default function FBAPrepPage() {
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-bold text-white">{shipment.name}</h3>
-                      <span className={`px-2 py-0.5 text-xs rounded-full flex items-center gap-1 ${
-                        shipment.status === 'ready'
-                          ? 'bg-blue-500/20 text-blue-400'
-                          : 'bg-amber-500/20 text-amber-400'
-                      }`}>
-                        {shipment.status === 'ready' ? (
-                          <>
-                            <Check className="w-3 h-3" />
-                            Ready to Ship
-                          </>
-                        ) : (
-                          <>
-                            <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
-                            Prepping
-                          </>
-                        )}
-                      </span>
+                      <FBAStatusBadge status={shipment.status} />
                     </div>
-                    <p className="text-xs text-slate-400">{shipment.destinationCode} - {shipment.destinationCity}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <AmazonDestinationBadge destination={shipment.destination} code={shipment.destinationCode} />
+                      <span className="text-xs text-slate-400">{shipment.destinationCity}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">
@@ -460,110 +352,57 @@ export default function FBAPrepPage() {
                       {totalPrepped} / {totalUnits} units
                     </span>
                   </div>
-                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${shipment.status === 'ready' ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
+                  <ProgressBar current={totalPrepped} total={totalUnits} colorClass={shipment.status === 'ready' ? 'bg-emerald-500' : 'bg-amber-500'} />
                 </div>
 
                 {/* Prep Tasks */}
                 <div>
                   <div className="text-xs text-slate-400 mb-2">PREP TASKS</div>
                   <div className="space-y-2">
-                    <button
-                      onClick={() => handleTogglePrepTask(shipment.id, 'stickers')}
-                      className={`w-full flex items-center justify-between text-sm p-2 rounded-lg transition-colors ${
-                        shipment.prepTasks.stickers ? 'bg-emerald-500/10' : 'bg-slate-800/50 hover:bg-slate-700/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {shipment.prepTasks.stickers ? (
-                          <Check className="w-4 h-4 text-emerald-400" />
-                        ) : (
-                          <div className="w-4 h-4 rounded-full border-2 border-slate-500" />
-                        )}
-                        <span className={shipment.prepTasks.stickers ? 'text-slate-300' : 'text-slate-400'}>
-                          Apply Gripper Stickers
-                        </span>
-                      </div>
-                      <span className={shipment.prepTasks.stickers ? 'text-emerald-400' : 'text-slate-500'}>
-                        {totalUnits} / {totalUnits}
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => handleTogglePrepTask(shipment.id, 'fnsku')}
-                      className={`w-full flex items-center justify-between text-sm p-2 rounded-lg transition-colors ${
-                        shipment.prepTasks.fnsku ? 'bg-emerald-500/10' : 'bg-slate-800/50 hover:bg-slate-700/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {shipment.prepTasks.fnsku ? (
-                          <Check className="w-4 h-4 text-emerald-400" />
-                        ) : (
-                          <div className="w-4 h-4 rounded-full border-2 border-slate-500" />
-                        )}
-                        <span className={shipment.prepTasks.fnsku ? 'text-slate-300' : 'text-slate-400'}>
-                          Apply FNSKU Labels
-                        </span>
-                      </div>
-                      <span className={shipment.prepTasks.fnsku ? 'text-emerald-400' : 'text-slate-500'}>
-                        {totalUnits} / {totalUnits}
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => handleTogglePrepTask(shipment.id, 'casePacked')}
-                      className={`w-full flex items-center justify-between text-sm p-2 rounded-lg transition-colors ${
-                        shipment.prepTasks.casePacked
-                          ? 'bg-emerald-500/10'
-                          : !shipment.prepTasks.fnsku
-                          ? 'bg-slate-800/30 opacity-50 cursor-not-allowed'
-                          : 'bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20'
-                      }`}
-                      disabled={!shipment.prepTasks.fnsku}
-                    >
-                      <div className="flex items-center gap-2">
-                        {shipment.prepTasks.casePacked ? (
-                          <Check className="w-4 h-4 text-emerald-400" />
-                        ) : shipment.prepTasks.fnsku ? (
-                          <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                        ) : (
-                          <div className="w-4 h-4 rounded-full border-2 border-slate-500" />
-                        )}
-                        <span className={shipment.prepTasks.casePacked ? 'text-slate-300' : shipment.prepTasks.fnsku ? 'text-white' : 'text-slate-400'}>
-                          Pack into Cases
-                        </span>
-                      </div>
-                      <span className={shipment.prepTasks.casePacked ? 'text-emerald-400' : 'text-slate-500'}>
-                        {totalCases} / {expectedCases} cases
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => handleTogglePrepTask(shipment.id, 'palletized')}
-                      className={`w-full flex items-center justify-between text-sm p-2 rounded-lg transition-colors ${
-                        shipment.prepTasks.palletized
-                          ? 'bg-emerald-500/10'
-                          : !shipment.prepTasks.casePacked
-                          ? 'bg-slate-800/30 opacity-50 cursor-not-allowed'
-                          : 'bg-slate-800/50 hover:bg-slate-700/50'
-                      }`}
-                      disabled={!shipment.prepTasks.casePacked}
-                    >
-                      <div className="flex items-center gap-2">
-                        {shipment.prepTasks.palletized ? (
-                          <Check className="w-4 h-4 text-emerald-400" />
-                        ) : (
-                          <div className="w-4 h-4 rounded-full border-2 border-slate-500" />
-                        )}
-                        <span className={shipment.prepTasks.palletized ? 'text-slate-300' : 'text-slate-400'}>
-                          Palletize
-                        </span>
-                      </div>
-                      <span className={shipment.prepTasks.palletized ? 'text-emerald-400' : 'text-slate-500'}>
-                        {shipment.prepTasks.palletized ? 1 : 0} / 1 pallet
-                      </span>
-                    </button>
+                    {(['stickers', 'fnsku', 'casePacked', 'palletized'] as const).map((task) => {
+                      const labels = {
+                        stickers: 'Apply Gripper Stickers',
+                        fnsku: 'Apply FNSKU Labels',
+                        casePacked: 'Pack into Cases',
+                        palletized: 'Palletize',
+                      };
+                      const isComplete = shipment.prepTasks[task];
+                      const isDisabled = (task === 'casePacked' && !shipment.prepTasks.fnsku) ||
+                                        (task === 'palletized' && !shipment.prepTasks.casePacked);
+                      const isActive = task === 'casePacked' && shipment.prepTasks.fnsku && !isComplete;
+
+                      return (
+                        <button
+                          key={task}
+                          onClick={() => handleTogglePrepTask(shipment.id, task)}
+                          disabled={isDisabled}
+                          className={`w-full flex items-center justify-between text-sm p-2 rounded-lg transition-colors ${
+                            isComplete ? 'bg-emerald-500/10' :
+                            isDisabled ? 'bg-slate-800/30 opacity-50 cursor-not-allowed' :
+                            isActive ? 'bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20' :
+                            'bg-slate-800/50 hover:bg-slate-700/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {isComplete ? (
+                              <Check className="w-4 h-4 text-emerald-400" />
+                            ) : isActive ? (
+                              <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                            ) : (
+                              <div className="w-4 h-4 rounded-full border-2 border-slate-500" />
+                            )}
+                            <span className={isComplete ? 'text-slate-300' : isActive ? 'text-white' : 'text-slate-400'}>
+                              {labels[task]}
+                            </span>
+                          </div>
+                          <span className={isComplete ? 'text-emerald-400' : 'text-slate-500'}>
+                            {task === 'casePacked' ? `${totalCases} / ${expectedCases} cases` :
+                             task === 'palletized' ? `${isComplete ? 1 : 0} / 1 pallet` :
+                             `${totalUnits} / ${totalUnits}`}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -598,10 +437,7 @@ export default function FBAPrepPage() {
                       Print Labels
                     </button>
                     <button
-                      onClick={() => {
-                        setSelectedShipment(shipment);
-                        setShowShipModal(true);
-                      }}
+                      onClick={() => { setSelectedShipment(shipment); setShowShipModal(true); }}
                       className="px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                     >
                       <Truck className="w-4 h-4" />
@@ -610,10 +446,7 @@ export default function FBAPrepPage() {
                   </div>
                 ) : (
                   <button
-                    onClick={() => {
-                      setSelectedShipment(shipment);
-                      setShowPrepModal(true);
-                    }}
+                    onClick={() => { setSelectedShipment(shipment); setShowPrepModal(true); }}
                     className="w-full px-4 py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                   >
                     <Play className="w-4 h-4" />
@@ -626,16 +459,13 @@ export default function FBAPrepPage() {
         })}
       </div>
 
-      {/* Show empty state if no active shipments */}
+      {/* Empty state */}
       {fbaShipments.filter(s => s.status !== 'shipped').length === 0 && (
         <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-12 text-center">
           <i className="fab fa-amazon text-6xl text-orange-400/30 mb-4"></i>
           <h3 className="text-xl font-semibold text-white mb-2">No Active FBA Shipments</h3>
           <p className="text-slate-400 mb-6">Create a new shipment to start prepping inventory for Amazon</p>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition-colors inline-flex items-center gap-2"
-          >
+          <button onClick={() => setShowCreateModal(true)} className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition-colors inline-flex items-center gap-2">
             <Plus className="w-5 h-5" />
             New FBA Shipment
           </button>
@@ -649,35 +479,23 @@ export default function FBAPrepPage() {
             <h2 className="font-semibold text-white">Case Pack Configuration</h2>
             <p className="text-xs text-slate-400">Standard case quantities for FBA shipments</p>
           </div>
-          <button className="text-sm text-orange-400 hover:text-orange-300">
-            Edit Configuration
-          </button>
+          <button className="text-sm text-orange-400 hover:text-orange-300">Edit Configuration</button>
         </div>
         <div className="p-4 grid grid-cols-4 gap-4">
-          <div className="bg-slate-800/50 rounded-lg p-4 text-center">
-            <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
-              <span className="text-blue-400 font-bold">500ml</span>
+          {[
+            { size: '500ml', color: 'blue', units: 12, weight: '~15 lbs/case' },
+            { size: '1L', color: 'emerald', units: 12, weight: '~18 lbs/case' },
+            { size: '4L', color: 'purple', units: 4, weight: '~20 lbs/case' },
+          ].map(cfg => (
+            <div key={cfg.size} className="bg-slate-800/50 rounded-lg p-4 text-center">
+              <div className={`w-12 h-12 bg-${cfg.color}-500/20 rounded-lg flex items-center justify-center mx-auto mb-2`}>
+                <span className={`text-${cfg.color}-400 font-bold`}>{cfg.size}</span>
+              </div>
+              <div className="text-2xl font-bold text-white">{cfg.units}</div>
+              <div className="text-xs text-slate-400">units/case</div>
+              <div className="text-xs text-slate-500 mt-1">{cfg.weight}</div>
             </div>
-            <div className="text-2xl font-bold text-white">12</div>
-            <div className="text-xs text-slate-400">units/case</div>
-            <div className="text-xs text-slate-500 mt-1">~15 lbs/case</div>
-          </div>
-          <div className="bg-slate-800/50 rounded-lg p-4 text-center">
-            <div className="w-12 h-12 bg-emerald-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
-              <span className="text-emerald-400 font-bold">1L</span>
-            </div>
-            <div className="text-2xl font-bold text-white">12</div>
-            <div className="text-xs text-slate-400">units/case</div>
-            <div className="text-xs text-slate-500 mt-1">~18 lbs/case</div>
-          </div>
-          <div className="bg-slate-800/50 rounded-lg p-4 text-center">
-            <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
-              <span className="text-purple-400 font-bold">4L</span>
-            </div>
-            <div className="text-2xl font-bold text-white">4</div>
-            <div className="text-xs text-slate-400">units/case</div>
-            <div className="text-xs text-slate-500 mt-1">~20 lbs/case</div>
-          </div>
+          ))}
           <div className="bg-slate-800/50 rounded-lg p-4 text-center">
             <div className="w-12 h-12 bg-amber-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
               <Layers className="w-5 h-5 text-amber-400" />
@@ -719,26 +537,18 @@ export default function FBAPrepPage() {
                 return (
                   <tr key={shipment.id} className="hover:bg-slate-700/30 transition-colors">
                     <td className="px-4 py-3 font-mono text-sm text-white">{shipment.name}</td>
-                    <td className="px-4 py-3 text-sm text-white">{shipment.destinationCode} - {shipment.destinationCity}</td>
+                    <td className="px-4 py-3"><AmazonDestinationBadge destination={shipment.destination} code={shipment.destinationCode} /></td>
                     <td className="px-4 py-3 text-sm text-white">{totalUnits}</td>
                     <td className="px-4 py-3 text-sm text-white">{totalCases}</td>
                     <td className="px-4 py-3 text-sm text-white">${(totalUnits * 0.44).toFixed(2)}</td>
                     <td className="px-4 py-3 text-sm text-white">${shipment.shippingCost?.toFixed(2) || '0.00'}</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded-full">Shipped</span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-400">
-                      {shipment.shippedAt ? formatDate(shipment.shippedAt) : '-'}
-                    </td>
+                    <td className="px-4 py-3"><FBAStatusBadge status="shipped" /></td>
+                    <td className="px-4 py-3 text-sm text-slate-400">{shipment.shippedAt ? formatDate(shipment.shippedAt) : '-'}</td>
                   </tr>
                 );
               })}
               {fbaShipments.filter(s => s.status === 'shipped').length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
-                    No shipped shipments yet
-                  </td>
-                </tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">No shipped shipments yet</td></tr>
               )}
             </tbody>
           </table>
@@ -763,21 +573,11 @@ export default function FBAPrepPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-slate-400 mb-2">Shipment Name</label>
-                  <input
-                    type="text"
-                    value={newShipmentName}
-                    onChange={(e) => setNewShipmentName(e.target.value)}
-                    placeholder="e.g., January Restock"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
-                  />
+                  <input type="text" value={newShipmentName} onChange={(e) => setNewShipmentName(e.target.value)} placeholder="e.g., January Restock" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500" />
                 </div>
                 <div>
                   <label className="block text-sm text-slate-400 mb-2">Destination</label>
-                  <select
-                    value={newDestination}
-                    onChange={(e) => setNewDestination(e.target.value as 'amazon_usa' | 'amazon_canada')}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
-                  >
+                  <select value={newDestination} onChange={(e) => setNewDestination(e.target.value as 'amazon_usa' | 'amazon_canada')} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500">
                     <option value="amazon_usa">Amazon USA</option>
                     <option value="amazon_canada">Amazon Canada</option>
                   </select>
@@ -786,11 +586,7 @@ export default function FBAPrepPage() {
 
               <div>
                 <label className="block text-sm text-slate-400 mb-2">Fulfillment Center (Optional)</label>
-                <select
-                  value={newDestinationCode}
-                  onChange={(e) => setNewDestinationCode(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
-                >
+                <select value={newDestinationCode} onChange={(e) => setNewDestinationCode(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500">
                   <option value="">Auto-assign by Amazon</option>
                   <option value="PHX5">PHX5 - Phoenix, AZ</option>
                   <option value="DFW7">DFW7 - Dallas, TX</option>
@@ -802,22 +598,12 @@ export default function FBAPrepPage() {
                 <label className="block text-sm text-slate-400 mb-2">Add Products</label>
                 <div className="relative mb-3">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={productSearch}
-                    onChange={(e) => setProductSearch(e.target.value)}
-                    placeholder="Search products..."
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
-                  />
+                  <input type="text" value={productSearch} onChange={(e) => setProductSearch(e.target.value)} placeholder="Search products..." className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500" />
                 </div>
                 {productSearch && (
                   <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden mb-3">
                     {filteredProducts.map(product => (
-                      <button
-                        key={product.id}
-                        onClick={() => handleAddProduct(product.id)}
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-700/50 transition-colors text-left"
-                      >
+                      <button key={product.id} onClick={() => handleAddProduct(product.id)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-700/50 transition-colors text-left">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-emerald-500/20 rounded flex items-center justify-center">
                             <Package className="w-4 h-4 text-emerald-400" />
@@ -833,7 +619,6 @@ export default function FBAPrepPage() {
                   </div>
                 )}
 
-                {/* Selected Products */}
                 <div className="space-y-3">
                   {selectedProducts.map(sp => {
                     const product = state.products.find(p => p.id === sp.productId);
@@ -848,17 +633,9 @@ export default function FBAPrepPage() {
                           <div className="text-xs text-slate-400">Stock: {getTotalStock(product.id)}</div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            value={sp.quantity}
-                            onChange={(e) => handleUpdateQuantity(sp.productId, parseInt(e.target.value) || 0)}
-                            className="w-20 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-center text-sm"
-                          />
+                          <input type="number" value={sp.quantity} onChange={(e) => handleUpdateQuantity(sp.productId, parseInt(e.target.value) || 0)} className="w-20 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-center text-sm" />
                           <span className="text-slate-400 text-sm">= {Math.ceil(sp.quantity / 12)} cases</span>
-                          <button
-                            onClick={() => handleRemoveProduct(sp.productId)}
-                            className="p-2 text-slate-400 hover:text-red-400 transition-colors"
-                          >
+                          <button onClick={() => handleRemoveProduct(sp.productId)} className="p-2 text-slate-400 hover:text-red-400 transition-colors">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -872,37 +649,17 @@ export default function FBAPrepPage() {
                 <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
                   <div className="text-sm text-slate-400 mb-3">Shipment Summary</div>
                   <div className="grid grid-cols-4 gap-4 text-center">
-                    <div>
-                      <div className="text-2xl font-bold text-white">{createModalTotals.totalUnits}</div>
-                      <div className="text-xs text-slate-500">Total Units</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-white">{createModalTotals.totalCases}</div>
-                      <div className="text-xs text-slate-500">Total Cases</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-white">~{createModalTotals.totalPallets}</div>
-                      <div className="text-xs text-slate-500">Est. Pallets</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-orange-400">${createModalTotals.prepCost.toFixed(2)}</div>
-                      <div className="text-xs text-slate-500">Est. Prep Cost</div>
-                    </div>
+                    <div><div className="text-2xl font-bold text-white">{createModalTotals.totalUnits}</div><div className="text-xs text-slate-500">Total Units</div></div>
+                    <div><div className="text-2xl font-bold text-white">{createModalTotals.totalCases}</div><div className="text-xs text-slate-500">Total Cases</div></div>
+                    <div><div className="text-2xl font-bold text-white">~{createModalTotals.totalPallets}</div><div className="text-xs text-slate-500">Est. Pallets</div></div>
+                    <div><div className="text-2xl font-bold text-orange-400">${createModalTotals.prepCost.toFixed(2)}</div><div className="text-xs text-slate-500">Est. Prep Cost</div></div>
                   </div>
                 </div>
               )}
 
               <div className="flex gap-3 pt-4">
-                <button onClick={() => setShowCreateModal(false)} className="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl">
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateShipment}
-                  disabled={selectedProducts.length === 0}
-                  className="flex-1 px-4 py-3 bg-orange-600 hover:bg-orange-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-xl font-medium"
-                >
-                  Create Shipment
-                </button>
+                <button onClick={() => setShowCreateModal(false)} className="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl">Cancel</button>
+                <button onClick={handleCreateShipment} disabled={selectedProducts.length === 0} className="flex-1 px-4 py-3 bg-orange-600 hover:bg-orange-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-xl font-medium">Create Shipment</button>
               </div>
             </div>
           </div>
@@ -942,12 +699,7 @@ export default function FBAPrepPage() {
                   </div>
                 </div>
                 <div className="mt-4 flex gap-3">
-                  <button
-                    onClick={() => {
-                      addToast('success', 'Case marked complete!');
-                    }}
-                    className="flex-1 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium flex items-center justify-center gap-2"
-                  >
+                  <button onClick={() => addToast('success', 'Case marked complete!')} className="flex-1 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium flex items-center justify-center gap-2">
                     <Check className="w-5 h-5" />
                     Case Complete
                   </button>
@@ -965,14 +717,11 @@ export default function FBAPrepPage() {
                     {selectedShipment.items.reduce((sum, i) => sum + i.casePacked, 0)} / {Math.ceil(selectedShipment.items.reduce((sum, i) => sum + i.quantity, 0) / 12)} cases packed
                   </span>
                 </div>
-                <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-amber-500 rounded-full"
-                    style={{
-                      width: `${(selectedShipment.items.reduce((sum, i) => sum + i.casePacked, 0) / Math.ceil(selectedShipment.items.reduce((sum, i) => sum + i.quantity, 0) / 12)) * 100}%`
-                    }}
-                  />
-                </div>
+                <ProgressBar
+                  current={selectedShipment.items.reduce((sum, i) => sum + i.casePacked, 0)}
+                  total={Math.ceil(selectedShipment.items.reduce((sum, i) => sum + i.quantity, 0) / 12)}
+                  colorClass="bg-amber-500"
+                />
               </div>
             </div>
           </div>
@@ -991,11 +740,7 @@ export default function FBAPrepPage() {
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm text-slate-400 mb-2">Carrier</label>
-                <select
-                  value={shipCarrier}
-                  onChange={(e) => setShipCarrier(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500"
-                >
+                <select value={shipCarrier} onChange={(e) => setShipCarrier(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500">
                   <option>UPS Freight</option>
                   <option>FedEx Freight</option>
                   <option>Amazon Partnered Carrier</option>
@@ -1003,36 +748,19 @@ export default function FBAPrepPage() {
               </div>
               <div>
                 <label className="block text-sm text-slate-400 mb-2">Tracking / PRO Number</label>
-                <input
-                  type="text"
-                  value={shipTracking}
-                  onChange={(e) => setShipTracking(e.target.value)}
-                  placeholder="Enter tracking number..."
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
-                />
+                <input type="text" value={shipTracking} onChange={(e) => setShipTracking(e.target.value)} placeholder="Enter tracking number..." className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500" />
               </div>
               <div>
                 <label className="block text-sm text-slate-400 mb-2">Shipping Cost</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                  <input
-                    type="number"
-                    value={shipCost}
-                    onChange={(e) => setShipCost(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-8 pr-4 py-3 text-white focus:outline-none focus:border-orange-500"
-                  />
+                  <input type="number" value={shipCost} onChange={(e) => setShipCost(e.target.value)} placeholder="0.00" className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-8 pr-4 py-3 text-white focus:outline-none focus:border-orange-500" />
                 </div>
               </div>
 
               <div className="flex gap-3 pt-4">
-                <button onClick={() => setShowShipModal(false)} className="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl">
-                  Cancel
-                </button>
-                <button
-                  onClick={handleMarkShipped}
-                  className="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium flex items-center justify-center gap-2"
-                >
+                <button onClick={() => setShowShipModal(false)} className="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl">Cancel</button>
+                <button onClick={handleMarkShipped} className="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium flex items-center justify-center gap-2">
                   <Truck className="w-4 h-4" />
                   Confirm Shipped
                 </button>

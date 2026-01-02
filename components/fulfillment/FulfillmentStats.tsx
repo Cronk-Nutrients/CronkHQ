@@ -37,6 +37,7 @@ export function FulfillmentStatCard({
     emerald: { border: 'border-emerald-500/30', bg: 'bg-emerald-500/20', hover: 'hover:border-emerald-500/50', iconBg: 'bg-emerald-500/20' },
     slate: { border: 'border-slate-700/50', bg: 'bg-slate-700/30', hover: 'hover:border-slate-600', iconBg: 'bg-slate-700/50' },
     red: { border: 'border-red-500/30', bg: 'bg-red-500/20', hover: 'hover:border-red-500/50', iconBg: 'bg-red-500/20' },
+    orange: { border: 'border-orange-500/30', bg: 'bg-orange-500/20', hover: 'hover:border-orange-500/50', iconBg: 'bg-orange-500/20' },
   };
 
   const textColorMap: Record<string, string> = {
@@ -47,6 +48,7 @@ export function FulfillmentStatCard({
     emerald: 'text-emerald-400',
     slate: 'text-slate-400',
     red: 'text-red-400',
+    orange: 'text-orange-400',
   };
 
   const colors = colorMap[iconColor] || colorMap.slate;

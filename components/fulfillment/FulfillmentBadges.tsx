@@ -185,3 +185,45 @@ export function QueueStatusBadge({ status }: QueueStatusBadgeProps) {
   }
   return null;
 }
+
+// FBA Shipment status badge
+export type FBAStatus = 'prep' | 'ready' | 'shipped';
+
+const fbaStatusConfig: Record<FBAStatus, { bg: string; text: string; border: string; label: string }> = {
+  prep: { bg: 'bg-amber-500/15', text: 'text-amber-400', border: 'border-amber-500/30', label: 'Prepping' },
+  ready: { bg: 'bg-blue-500/15', text: 'text-blue-400', border: 'border-blue-500/30', label: 'Ready to Ship' },
+  shipped: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', label: 'Shipped' },
+};
+
+interface FBAStatusBadgeProps {
+  status: FBAStatus;
+}
+
+export function FBAStatusBadge({ status }: FBAStatusBadgeProps) {
+  const config = fbaStatusConfig[status];
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${config.bg} ${config.text} text-xs font-medium rounded-full border ${config.border}`}>
+      {status === 'prep' && <i className="fas fa-cog animate-spin text-[10px]"></i>}
+      {status === 'ready' && <i className="fas fa-check text-[10px]"></i>}
+      {status === 'shipped' && <i className="fas fa-truck text-[10px]"></i>}
+      {config.label}
+    </span>
+  );
+}
+
+// Amazon destination badge
+interface AmazonDestinationBadgeProps {
+  destination: 'amazon_usa' | 'amazon_canada';
+  code?: string;
+}
+
+export function AmazonDestinationBadge({ destination, code }: AmazonDestinationBadgeProps) {
+  const isUSA = destination === 'amazon_usa';
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2 py-1 ${isUSA ? 'bg-orange-500/20 text-orange-400' : 'bg-red-500/20 text-red-400'} text-xs font-medium rounded`}>
+      <i className="fab fa-amazon"></i>
+      {isUSA ? 'USA' : 'CA'}
+      {code && <span className="font-mono ml-1">{code}</span>}
+    </span>
+  );
+}
