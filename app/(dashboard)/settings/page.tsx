@@ -117,6 +117,20 @@ export default function SettingsPage() {
           {/* Additional Links */}
           <div className="mt-6 pt-4 border-t border-slate-700/50">
             <Link
+              href="/settings/products"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors"
+            >
+              <i className="fas fa-box w-4"></i>
+              Products
+            </Link>
+            <Link
+              href="/settings/categories"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors"
+            >
+              <i className="fas fa-folder w-4"></i>
+              Categories
+            </Link>
+            <Link
               href="/settings/automations"
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors"
             >

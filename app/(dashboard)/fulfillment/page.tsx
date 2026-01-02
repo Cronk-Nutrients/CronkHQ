@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/Breadcrumb';
@@ -27,6 +28,7 @@ import {
 
 export default function FulfillmentOverviewPage() {
   const { state } = useApp();
+  const { isDemo } = useAuth();
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -65,14 +67,14 @@ export default function FulfillmentOverviewPage() {
       .slice(0, 5);
   }, [state.orders]);
 
-  // Recent activity (mock for now)
-  const recentActivity = [
+  // Recent activity - only show mock data in demo mode
+  const recentActivity = isDemo ? [
     { type: 'shipped', message: 'Order #1085 shipped via USPS Priority', time: '5 min ago' },
     { type: 'packed', message: 'Order #1084 packed and ready to ship', time: '12 min ago' },
     { type: 'picked', message: 'Order #1083 picking completed', time: '18 min ago' },
     { type: 'picked', message: 'Order #1082 picking completed', time: '25 min ago' },
     { type: 'shipped', message: 'Order #1081 shipped via UPS Ground', time: '32 min ago' },
-  ];
+  ] : [];
 
   const activityIcons = {
     picked: { icon: CheckCircle, bg: 'bg-emerald-500/20', text: 'text-emerald-400' },
@@ -254,25 +256,32 @@ export default function FulfillmentOverviewPage() {
         <h3 className="font-semibold text-white mb-4">Today&apos;s Activity</h3>
 
         <div className="space-y-4">
-          {recentActivity.map((activity, idx) => {
-            const iconConfig = activityIcons[activity.type as keyof typeof activityIcons] || activityIcons.picked;
-            const IconComponent = iconConfig.icon;
+          {recentActivity.length === 0 ? (
+            <div className="p-8 text-center text-slate-400">
+              <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p>No activity yet today</p>
+            </div>
+          ) : (
+            recentActivity.map((activity, idx) => {
+              const iconConfig = activityIcons[activity.type as keyof typeof activityIcons] || activityIcons.picked;
+              const IconComponent = iconConfig.icon;
 
-            return (
-              <div key={idx} className="flex items-start gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${iconConfig.bg} ${iconConfig.text}`}>
-                  <IconComponent className="w-4 h-4" />
-                </div>
-                <div className="flex-1">
-                  <div className="text-sm text-white">{activity.message}</div>
-                  <div className="text-xs text-slate-500 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {activity.time}
+              return (
+                <div key={idx} className="flex items-start gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${iconConfig.bg} ${iconConfig.text}`}>
+                    <IconComponent className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm text-white">{activity.message}</div>
+                    <div className="text-xs text-slate-500 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {activity.time}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </Card>
     </div>

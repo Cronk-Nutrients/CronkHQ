@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { useDateRange, DateRangePreset } from '@/context/DateRangeContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface DateRangeOption {
   value: DateRangePreset;
@@ -32,7 +33,8 @@ const dateRangeOptions: DateRangeOption[] = [
   { value: 'custom', label: 'Custom Range', divider: true },
 ];
 
-const mockNotifications = [
+// Demo-only mock notifications
+const demoNotifications = [
   {
     id: 1,
     type: 'warning',
@@ -58,6 +60,7 @@ const mockNotifications = [
 
 export default function Header() {
   const { dateRange, preset, setPreset, setCustomRange } = useDateRange();
+  const { isDemo } = useAuth();
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const [showCustomPicker, setShowCustomPicker] = useState(false);
   const [customStartDate, setCustomStartDate] = useState('');
@@ -65,6 +68,9 @@ export default function Header() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState('2 min ago');
+
+  // Only show mock notifications in demo mode
+  const notifications = isDemo ? demoNotifications : [];
 
   const handleSync = () => {
     setIsSyncing(true);
@@ -196,9 +202,11 @@ export default function Header() {
                 className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800/50 border border-slate-700/50 hover:bg-slate-700/50 transition-colors"
               >
                 <Bell className="h-5 w-5 text-slate-400" />
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white">
-                  {mockNotifications.length}
-                </span>
+                {notifications.length > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white">
+                    {notifications.length}
+                  </span>
+                )}
               </button>
 
               {showNotifications && (
@@ -214,27 +222,34 @@ export default function Header() {
                       </h3>
                     </div>
                     <div className="max-h-80 overflow-y-auto">
-                      {mockNotifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          className="flex gap-3 px-4 py-3 hover:bg-slate-700/30 transition-colors border-b border-slate-700/30 last:border-0"
-                        >
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700/50">
-                            {getNotificationIcon(notification.type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white">
-                              {notification.title}
-                            </p>
-                            <p className="text-xs text-slate-400 truncate">
-                              {notification.message}
-                            </p>
-                            <p className="text-xs text-slate-500 mt-1">
-                              {notification.time}
-                            </p>
-                          </div>
+                      {notifications.length === 0 ? (
+                        <div className="px-4 py-8 text-center text-slate-400">
+                          <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No notifications</p>
                         </div>
-                      ))}
+                      ) : (
+                        notifications.map((notification) => (
+                          <div
+                            key={notification.id}
+                            className="flex gap-3 px-4 py-3 hover:bg-slate-700/30 transition-colors border-b border-slate-700/30 last:border-0"
+                          >
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700/50">
+                              {getNotificationIcon(notification.type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-white">
+                                {notification.title}
+                              </p>
+                              <p className="text-xs text-slate-400 truncate">
+                                {notification.message}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-1">
+                                {notification.time}
+                              </p>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                     <div className="border-t border-slate-700/50 px-4 py-2">
                       <button className="w-full text-center text-sm text-emerald-400 hover:text-emerald-300 transition-colors">

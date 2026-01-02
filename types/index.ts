@@ -623,3 +623,266 @@ export interface InventoryLevel extends BaseDocument {
   expirationDate?: Date | Timestamp | string;
   lastCountedAt?: Date | Timestamp | string;
 }
+
+// Custom Pricing Types
+export type CustomPriceCurrency = 'USD' | 'CAD' | 'EUR' | 'GBP' | 'MXN' | 'AUD';
+
+export interface CustomPriceField {
+  id: string;
+  name: string;
+  key: string;
+  currency: CustomPriceCurrency;
+  isActive: boolean;
+  createdAt: Date | Timestamp | string;
+}
+
+export interface CustomPriceValue {
+  value: number;
+  currency: CustomPriceCurrency;
+}
+
+// Product Image
+export interface ProductImage {
+  id: string;
+  url: string;
+  thumbnailUrl: string;
+  filename: string;
+  size: number;
+  isPrimary: boolean;
+  uploadedAt: Date | Timestamp | string;
+  uploadedBy: string;
+}
+
+// Category
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  parentId: string | null;
+  color: string;
+  productCount: number;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: Date | Timestamp | string;
+  updatedAt: Date | Timestamp | string;
+}
+
+// Extended Product interface with custom pricing support
+export interface ProductExtended {
+  id: string;
+
+  // Basic Info
+  name: string;
+  sku: string;
+  category: string;
+  itemType?: string;
+  description?: string;
+  barcode?: string | null;
+  notes?: string | null;
+  status: 'active' | 'inactive' | 'draft';
+
+  // Images
+  images?: string[];
+  thumbnail?: string | null;
+
+  // Standard Pricing
+  cost: number;
+  retailPrice: number;
+
+  // Custom Pricing (dynamic)
+  customPrices?: Record<string, CustomPriceValue>;
+
+  // Dimensions
+  dimensions?: {
+    length: number;
+    width: number;
+    height: number;
+    unit: 'in' | 'cm';
+  };
+  weight?: number;
+  weightUnit?: 'lb' | 'kg' | 'oz' | 'g';
+
+  // Units of Measure
+  uom?: string | null;
+  salesUom?: string | null;
+  purchasingUom?: string | null;
+  casePackQty?: number | null;
+
+  // Supplier
+  supplierName?: string | null;
+  supplierSku?: string | null;
+  supplierPrice?: number | null;
+
+  // Customs & Compliance
+  hsCode?: string | null;
+  countryOfOrigin?: string | null;
+
+  // Inventory
+  totalStock?: number;
+  availableStock?: number;
+  reservedStock?: number;
+  lowStockThreshold?: number;
+
+  // Integrations
+  shopifyId?: string | null;
+  amazonAsin?: string | null;
+
+  // Timestamps
+  createdAt: Date | Timestamp | string;
+  updatedAt: Date | Timestamp | string;
+  createdBy?: string | null;
+}
+
+// Location Types
+export type LocationType = 'warehouse' | 'fba' | 'retail' | '3pl' | 'dropship' | 'other';
+
+export interface LocationAddress {
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+
+export interface LocationContact {
+  name: string;
+  email: string;
+  phone: string;
+}
+
+export interface LocationExtended {
+  id: string;
+  name: string;
+  code: string;
+  type: LocationType;
+
+  address: LocationAddress | null;
+  contact: LocationContact | null;
+
+  isDefault: boolean;
+  isActive: boolean;
+  trackSublocations: boolean;
+
+  fbaDetails?: {
+    marketplaceId: string;
+    fulfillmentCenterId: string;
+  };
+
+  notes: string | null;
+
+  totalProducts: number;
+  totalUnits: number;
+
+  createdAt: Date | Timestamp | string;
+  updatedAt: Date | Timestamp | string;
+  createdBy: string;
+}
+
+export interface Sublocation {
+  id: string;
+  name: string;
+  code: string;
+  zone?: string;
+  aisle?: string;
+  rack?: string;
+  shelf?: string;
+  bin?: string;
+  isActive: boolean;
+  totalProducts: number;
+  totalUnits: number;
+  createdAt: Date | Timestamp | string;
+  updatedAt: Date | Timestamp | string;
+}
+
+// Shopify Integration Types
+export interface ShopifySyncSettings {
+  productSyncMode: 'read' | 'write' | 'bidirectional';
+  autoSyncProducts: boolean;
+  pushProductChanges: boolean;
+  orderSyncMode: 'read';
+  autoSyncOrders: boolean;
+  inventorySyncMode: 'read' | 'write' | 'bidirectional';
+  pushInventoryLevels: boolean;
+  syncIntervalMinutes: number;
+}
+
+export interface ShopifyConnection {
+  isConnected: boolean;
+  storeName: string;
+  storeUrl: string;
+  accessToken: string;
+  lastSyncProducts: Date | Timestamp | null;
+  lastSyncOrders: Date | Timestamp | null;
+  syncSettings: ShopifySyncSettings;
+  connectedAt: Date | Timestamp | null;
+  connectedBy: string | null;
+}
+
+export interface ShopifyCustomer {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+}
+
+export interface ShopifyShippingAddress {
+  firstName: string;
+  lastName: string;
+  company: string | null;
+  address1: string;
+  address2: string | null;
+  city: string;
+  province: string;
+  provinceCode: string;
+  country: string;
+  countryCode: string;
+  zip: string;
+  phone: string | null;
+}
+
+export interface ShopifyOrderLineItem {
+  id: string;
+  shopifyLineItemId: string;
+  productId: string | null;
+  shopifyProductId: string | null;
+  shopifyVariantId: string | null;
+  sku: string;
+  name: string;
+  variantTitle: string | null;
+  quantity: number;
+  price: number;
+  totalDiscount: number;
+  requiresShipping: boolean;
+  fulfillableQuantity: number;
+  fulfillmentStatus: 'unfulfilled' | 'fulfilled';
+}
+
+export interface ShopifyOrder {
+  id: string;
+  shopifyId: string;
+  shopifyOrderNumber: string;
+  shopifyOrderName: string;
+  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  fulfillmentStatus: 'unfulfilled' | 'partial' | 'fulfilled';
+  paymentStatus: 'pending' | 'paid' | 'refunded' | 'partially_refunded';
+  customer: ShopifyCustomer;
+  shippingAddress: ShopifyShippingAddress;
+  lineItems: ShopifyOrderLineItem[];
+  subtotal: number;
+  shippingTotal: number;
+  taxTotal: number;
+  discountTotal: number;
+  total: number;
+  currency: string;
+  shippingMethod: string | null;
+  requestedShippingService: string | null;
+  note: string | null;
+  tags: string[];
+  shopifyCreatedAt: Date | Timestamp;
+  createdAt: Date | Timestamp;
+  updatedAt: Date | Timestamp;
+  source: 'shopify' | 'manual';
+}

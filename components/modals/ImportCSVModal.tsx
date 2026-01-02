@@ -162,10 +162,14 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
   };
 
   const parseCSV = (text: string): { headers: string[]; data: ParsedRow[] } => {
-    const lines = text.split(/\r?\n/).filter(line => line.trim());
+    // Remove BOM if present (handles UTF-8 BOM from Excel/inFlow)
+    const cleanText = text.replace(/^\uFEFF/, '').replace(/^\xEF\xBB\xBF/, '');
+
+    const lines = cleanText.split(/\r?\n/).filter(line => line.trim());
     if (lines.length === 0) return { headers: [], data: [] };
 
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    // Parse header row and strip quotes from header names
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, '').trim());
 
     const data: ParsedRow[] = [];
     for (let i = 1; i < lines.length; i++) {
@@ -174,20 +178,22 @@ export function ImportCSVModal({ isOpen, onClose }: ImportCSVModalProps) {
       let inQuotes = false;
 
       for (const char of lines[i]) {
-        if (char === '"') {
+        if (char === '"' || char === "'") {
           inQuotes = !inQuotes;
         } else if (char === ',' && !inQuotes) {
-          values.push(current.trim().replace(/^"|"$/g, ''));
+          values.push(current.trim().replace(/^["']|["']$/g, ''));
           current = '';
         } else {
           current += char;
         }
       }
-      values.push(current.trim().replace(/^"|"$/g, ''));
+      values.push(current.trim().replace(/^["']|["']$/g, ''));
 
       const row: ParsedRow = {};
       headers.forEach((header, index) => {
-        row[header] = values[index] || '';
+        // Strip quotes from values too
+        const value = (values[index] || '').replace(/^["']|["']$/g, '').trim();
+        row[header] = value;
       });
       data.push(row);
     }

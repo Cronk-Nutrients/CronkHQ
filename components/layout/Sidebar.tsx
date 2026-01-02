@@ -54,6 +54,7 @@ export default function Sidebar() {
       permission: 'inventory.view',
       children: [
         { href: '/inventory', icon: 'fa-box', label: 'Products', permission: 'inventory.view' },
+        { href: '/locations', icon: 'fa-warehouse', label: 'Locations', permission: 'inventory.view' },
         { href: '/inventory/counts', icon: 'fa-clipboard-check', label: 'Stock Counts', permission: 'stock.cycle_count' },
         { href: '/inventory/transfers', icon: 'fa-exchange-alt', label: 'Transfers', badge: pendingTransfersCount, permission: 'stock.transfer' },
         { href: '/inventory/suppliers', icon: 'fa-truck-loading', label: 'Suppliers', permission: 'suppliers.view' },
