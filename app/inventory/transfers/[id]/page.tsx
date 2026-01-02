@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useApp, StockTransfer, TransferItem } from '@/context/AppContext';
 import { useToast } from '@/components/ui/Toast';
+import { StatusBadge, transferStatusConfig } from '@/components/inventory/StatusBadge';
+import { formatDateTime } from '@/lib/formatting';
 
 type TransferStatus = StockTransfer['status'];
 
@@ -181,21 +183,7 @@ export default function TransferDetailPage() {
     return statusSteps.findIndex(s => s.key === status);
   };
 
-  const getStatusBadge = (status: TransferStatus) => {
-    const badges: Record<TransferStatus, { bg: string; text: string; label: string }> = {
-      draft: { bg: 'bg-slate-500/20', text: 'text-slate-400', label: 'Draft' },
-      pending: { bg: 'bg-amber-500/20', text: 'text-amber-400', label: 'Pending' },
-      in_transit: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'In Transit' },
-      received: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: 'Received' },
-      cancelled: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'Cancelled' },
-    };
-    const badge = badges[status];
-    return (
-      <span className={`px-3 py-1 ${badge.bg} ${badge.text} rounded-full text-sm font-medium`}>
-        {badge.label}
-      </span>
-    );
-  };
+  // Use shared StatusBadge component with transferStatusConfig
 
   const getItemStatusBadge = (status: TransferItem['status']) => {
     const badges: Record<TransferItem['status'], { bg: string; text: string; label: string }> = {
@@ -212,16 +200,7 @@ export default function TransferDetailPage() {
     );
   };
 
-  const formatDate = (date: Date | undefined) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  // Using shared formatDateTime from lib/formatting
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -270,10 +249,10 @@ export default function TransferDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-white">{transfer.transferNumber}</h1>
-              {getStatusBadge(transfer.status)}
+              <StatusBadge status={transfer.status} config={transferStatusConfig} />
             </div>
             <p className="text-sm text-slate-400 mt-1">
-              Created {formatDate(transfer.createdAt)}
+              Created {transfer.createdAt ? formatDateTime(transfer.createdAt) : '-'}
             </p>
           </div>
         </div>
@@ -348,17 +327,17 @@ export default function TransferDetailPage() {
                     </span>
                     {step.key === 'pending' && transfer.createdAt && (
                       <span className="text-xs text-slate-500 mt-1">
-                        {formatDate(transfer.createdAt)}
+                        {transfer.createdAt ? formatDateTime(transfer.createdAt) : '-'}
                       </span>
                     )}
                     {step.key === 'in_transit' && transfer.shippedAt && (
                       <span className="text-xs text-slate-500 mt-1">
-                        {formatDate(transfer.shippedAt)}
+                        {transfer.shippedAt ? formatDateTime(transfer.shippedAt) : '-'}
                       </span>
                     )}
                     {step.key === 'received' && transfer.receivedAt && (
                       <span className="text-xs text-slate-500 mt-1">
-                        {formatDate(transfer.receivedAt)}
+                        {transfer.receivedAt ? formatDateTime(transfer.receivedAt) : '-'}
                       </span>
                     )}
                   </div>
