@@ -1,7 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import {
+  ReportPageHeader,
+  MetricCard,
+  MetricCardGrid,
+  ReportTabs,
+  DataTable,
+  StatusBadge,
+  DateRangePicker,
+  ExportActions,
+} from '@/components/reports';
+import { formatCurrency } from '@/lib/formatters';
 
 const shippingMetrics = {
   totalShipments: 1245,
@@ -41,143 +51,88 @@ const recentIssues = [
   { tracking: '784644954892', carrier: 'FedEx', issue: 'Package Damaged', status: 'Claim Filed', date: '2024-12-27' },
 ];
 
+const tabs = [
+  { id: 'overview', label: 'Overview', icon: 'fa-chart-pie' },
+  { id: 'carrier', label: 'By Carrier', icon: 'fa-building' },
+  { id: 'service', label: 'By Service', icon: 'fa-layer-group' },
+  { id: 'delivery', label: 'Delivery Times', icon: 'fa-clock' },
+  { id: 'issues', label: 'Issues', icon: 'fa-exclamation-triangle' },
+];
+
+type ShippingTab = 'overview' | 'carrier' | 'service' | 'delivery' | 'issues';
+
 export default function ShippingReportsPage() {
   const [dateRange, setDateRange] = useState('30d');
-  const [activeTab, setActiveTab] = useState<'overview' | 'carrier' | 'service' | 'delivery' | 'issues'>('overview');
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-  };
+  const [activeTab, setActiveTab] = useState<ShippingTab>('overview');
 
   const handleExport = (format: 'csv' | 'xlsx' | 'pdf') => {
     alert(`Exporting Shipping Report as ${format.toUpperCase()}`);
   };
 
+  const getCarrierColor = (carrier: string) => {
+    switch (carrier) {
+      case 'USPS': return 'bg-blue-500/20 text-blue-400';
+      case 'UPS': return 'bg-amber-500/20 text-amber-400';
+      case 'FedEx': return 'bg-purple-500/20 text-purple-400';
+      default: return 'bg-red-500/20 text-red-400';
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <div className="flex items-center gap-2 text-sm text-slate-400 mb-2">
-          <Link href="/reports" className="hover:text-white">Reports</Link>
-          <i className="fas fa-chevron-right text-xs"></i>
-          <span className="text-white">Shipping Reports</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
-              <i className="fas fa-truck-fast text-purple-400 text-xl"></i>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">Shipping Reports</h1>
-              <p className="text-slate-400">Fulfillment metrics, carrier performance, and costs</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white text-sm"
-            >
-              <option value="7d">Last 7 Days</option>
-              <option value="30d">Last 30 Days</option>
-              <option value="90d">Last 90 Days</option>
-              <option value="ytd">Year to Date</option>
-            </select>
-            <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-lg p-1">
-              <button onClick={() => handleExport('csv')} className="px-3 py-1.5 hover:bg-slate-700 text-slate-300 rounded text-sm">CSV</button>
-              <button onClick={() => handleExport('xlsx')} className="px-3 py-1.5 hover:bg-slate-700 text-slate-300 rounded text-sm">Excel</button>
-              <button onClick={() => handleExport('pdf')} className="px-3 py-1.5 hover:bg-slate-700 text-slate-300 rounded text-sm">PDF</button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ReportPageHeader
+        title="Shipping Reports"
+        description="Fulfillment metrics, carrier performance, and costs"
+        icon="fa-truck-fast"
+        iconColor="purple"
+        breadcrumbs={[
+          { label: 'Reports', href: '/reports' },
+          { label: 'Shipping Reports' },
+        ]}
+        actions={
+          <>
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
+            <ExportActions onExport={handleExport} />
+          </>
+        }
+      />
 
-      {/* Report Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-700 pb-4">
-        {[
-          { id: 'overview', label: 'Overview', icon: 'fa-chart-pie' },
-          { id: 'carrier', label: 'By Carrier', icon: 'fa-building' },
-          { id: 'service', label: 'By Service', icon: 'fa-layer-group' },
-          { id: 'delivery', label: 'Delivery Times', icon: 'fa-clock' },
-          { id: 'issues', label: 'Issues', icon: 'fa-exclamation-triangle' },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as typeof activeTab)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${
-              activeTab === tab.id
-                ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
-            }`}
-          >
-            <i className={`fas ${tab.icon}`}></i>
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <ReportTabs
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={(id) => setActiveTab(id as ShippingTab)}
+        accentColor="purple"
+      />
 
-      {/* Overview Tab */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* Key Metrics */}
-          <div className="grid grid-cols-4 gap-4">
-            <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-5">
-              <div className="text-sm text-slate-400 mb-1">Total Shipments</div>
-              <div className="text-2xl font-bold text-white">{shippingMetrics.totalShipments.toLocaleString()}</div>
-              <div className="text-xs text-emerald-400 mt-1">
-                <i className="fas fa-arrow-up mr-1"></i>8.3% vs last period
-              </div>
-            </div>
-            <div className="bg-emerald-500/10 backdrop-blur border border-emerald-500/30 rounded-xl p-5">
-              <div className="text-sm text-slate-400 mb-1">On-Time Delivery</div>
-              <div className="text-2xl font-bold text-emerald-400">{shippingMetrics.onTimeDelivery}%</div>
-              <div className="text-xs text-slate-400 mt-1">Target: 95%</div>
-            </div>
-            <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-5">
-              <div className="text-sm text-slate-400 mb-1">Avg Delivery Time</div>
-              <div className="text-2xl font-bold text-white">{shippingMetrics.avgDeliveryDays} days</div>
-              <div className="text-xs text-slate-400 mt-1">Door to door</div>
-            </div>
-            <div className="bg-purple-500/10 backdrop-blur border border-purple-500/30 rounded-xl p-5">
-              <div className="text-sm text-slate-400 mb-1">Shipping Profit</div>
-              <div className="text-2xl font-bold text-purple-400">{formatCurrency(shippingMetrics.shippingProfit)}</div>
-              <div className="text-xs text-slate-400 mt-1">
-                {((shippingMetrics.shippingProfit / shippingMetrics.totalShippingRevenue) * 100).toFixed(1)}% margin
-              </div>
-            </div>
-          </div>
+          <MetricCardGrid columns={4}>
+            <MetricCard label="Total Shipments" value={shippingMetrics.totalShipments.toLocaleString()} trend={{ value: 8.3, direction: 'up' }} />
+            <MetricCard label="On-Time Delivery" value={`${shippingMetrics.onTimeDelivery}%`} subtext="Target: 95%" variant="success" />
+            <MetricCard label="Avg Delivery Time" value={`${shippingMetrics.avgDeliveryDays} days`} subtext="Door to door" />
+            <MetricCard
+              label="Shipping Profit"
+              value={formatCurrency(shippingMetrics.shippingProfit)}
+              subtext={`${((shippingMetrics.shippingProfit / shippingMetrics.totalShippingRevenue) * 100).toFixed(1)}% margin`}
+              variant="info"
+            />
+          </MetricCardGrid>
 
-          {/* Cost Breakdown */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
-              <div className="text-sm text-slate-400 mb-1">Shipping Revenue</div>
-              <div className="text-xl font-bold text-white">{formatCurrency(shippingMetrics.totalShippingRevenue)}</div>
-            </div>
-            <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
-              <div className="text-sm text-slate-400 mb-1">Shipping Cost</div>
-              <div className="text-xl font-bold text-red-400">{formatCurrency(shippingMetrics.totalShippingCost)}</div>
-            </div>
-            <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
-              <div className="text-sm text-slate-400 mb-1">Avg Cost/Shipment</div>
-              <div className="text-xl font-bold text-white">{formatCurrency(shippingMetrics.avgCostPerShipment)}</div>
-            </div>
-          </div>
+          <MetricCardGrid columns={3}>
+            <MetricCard label="Shipping Revenue" value={formatCurrency(shippingMetrics.totalShippingRevenue)} />
+            <MetricCard label="Shipping Cost" value={formatCurrency(shippingMetrics.totalShippingCost)} variant="error" />
+            <MetricCard label="Avg Cost/Shipment" value={formatCurrency(shippingMetrics.avgCostPerShipment)} />
+          </MetricCardGrid>
         </div>
       )}
 
-      {/* Carrier Tab */}
       {activeTab === 'carrier' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-4 gap-4">
+          <MetricCardGrid columns={4}>
             {carrierPerformance.map(carrier => (
               <div key={carrier.carrier} className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-5">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    carrier.carrier === 'USPS' ? 'bg-blue-500/20 text-blue-400' :
-                    carrier.carrier === 'UPS' ? 'bg-amber-500/20 text-amber-400' :
-                    carrier.carrier === 'FedEx' ? 'bg-purple-500/20 text-purple-400' :
-                    'bg-red-500/20 text-red-400'
-                  }`}>
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getCarrierColor(carrier.carrier)}`}>
                     <i className="fas fa-truck"></i>
                   </div>
                   <div className="text-white font-medium">{carrier.carrier}</div>
@@ -202,178 +157,102 @@ export default function ShippingReportsPage() {
                 </div>
               </div>
             ))}
-          </div>
+          </MetricCardGrid>
 
-          <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-700 text-left">
-                  <th className="p-4 text-slate-400 font-medium">Carrier</th>
-                  <th className="p-4 text-slate-400 font-medium text-right">Shipments</th>
-                  <th className="p-4 text-slate-400 font-medium text-right">On-Time %</th>
-                  <th className="p-4 text-slate-400 font-medium text-right">Avg Days</th>
-                  <th className="p-4 text-slate-400 font-medium text-right">Cost</th>
-                  <th className="p-4 text-slate-400 font-medium text-right">Revenue</th>
-                  <th className="p-4 text-slate-400 font-medium text-right">Profit</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700/50">
-                {carrierPerformance.map(carrier => (
-                  <tr key={carrier.carrier} className="hover:bg-slate-800/30">
-                    <td className="p-4 text-white font-medium">{carrier.carrier}</td>
-                    <td className="p-4 text-right text-white">{carrier.shipments}</td>
-                    <td className="p-4 text-right">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        carrier.onTime >= 96 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
-                      }`}>
-                        {carrier.onTime}%
-                      </span>
-                    </td>
-                    <td className="p-4 text-right text-slate-300">{carrier.avgDays} days</td>
-                    <td className="p-4 text-right text-slate-300">{formatCurrency(carrier.cost)}</td>
-                    <td className="p-4 text-right text-white">{formatCurrency(carrier.revenue)}</td>
-                    <td className="p-4 text-right text-emerald-400">{formatCurrency(carrier.profit)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={[
+              { key: 'carrier', header: 'Carrier', render: (v) => <span className="text-white font-medium">{v as string}</span> },
+              { key: 'shipments', header: 'Shipments', align: 'right', render: (v) => <span className="text-white">{v as number}</span> },
+              {
+                key: 'onTime',
+                header: 'On-Time %',
+                align: 'right',
+                render: (v) => <StatusBadge status={`${v}%`} variant={(v as number) >= 96 ? 'success' : 'warning'} />
+              },
+              { key: 'avgDays', header: 'Avg Days', align: 'right', render: (v) => <span className="text-slate-300">{v as number} days</span> },
+              { key: 'cost', header: 'Cost', align: 'right', render: (v) => <span className="text-slate-300">{formatCurrency(v as number)}</span> },
+              { key: 'revenue', header: 'Revenue', align: 'right', render: (v) => <span className="text-white">{formatCurrency(v as number)}</span> },
+              { key: 'profit', header: 'Profit', align: 'right', render: (v) => <span className="text-emerald-400">{formatCurrency(v as number)}</span> },
+            ]}
+            data={carrierPerformance}
+            getRowKey={(row) => (row as typeof carrierPerformance[0]).carrier}
+          />
         </div>
       )}
 
-      {/* Service Tab */}
       {activeTab === 'service' && (
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-slate-700">
-            <h3 className="text-white font-semibold">Service Level Breakdown</h3>
-          </div>
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-700 text-left">
-                <th className="p-4 text-slate-400 font-medium">Service Level</th>
-                <th className="p-4 text-slate-400 font-medium text-right">Shipments</th>
-                <th className="p-4 text-slate-400 font-medium text-right">Avg Delivery</th>
-                <th className="p-4 text-slate-400 font-medium text-right">Total Cost</th>
-                <th className="p-4 text-slate-400 font-medium text-right">% of Total</th>
-                <th className="p-4 text-slate-400 font-medium">Distribution</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700/50">
-              {serviceBreakdown.map(service => (
-                <tr key={service.service} className="hover:bg-slate-800/30">
-                  <td className="p-4 text-white font-medium">{service.service}</td>
-                  <td className="p-4 text-right text-white">{service.shipments}</td>
-                  <td className="p-4 text-right text-slate-300">{service.avgDays} days</td>
-                  <td className="p-4 text-right text-white">{formatCurrency(service.cost)}</td>
-                  <td className="p-4 text-right text-slate-300">{service.percentage}%</td>
-                  <td className="p-4 w-48">
-                    <div className="w-full bg-slate-700 rounded-full h-2">
-                      <div
-                        className="h-2 rounded-full bg-purple-500"
-                        style={{ width: `${service.percentage}%` }}
-                      ></div>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          title="Service Level Breakdown"
+          columns={[
+            { key: 'service', header: 'Service Level', render: (v) => <span className="text-white font-medium">{v as string}</span> },
+            { key: 'shipments', header: 'Shipments', align: 'right', render: (v) => <span className="text-white">{v as number}</span> },
+            { key: 'avgDays', header: 'Avg Delivery', align: 'right', render: (v) => <span className="text-slate-300">{v as number} days</span> },
+            { key: 'cost', header: 'Total Cost', align: 'right', render: (v) => <span className="text-white">{formatCurrency(v as number)}</span> },
+            { key: 'percentage', header: '% of Total', align: 'right', render: (v) => <span className="text-slate-300">{v as number}%</span> },
+            {
+              key: 'distribution',
+              header: 'Distribution',
+              render: (_, row) => (
+                <div className="w-full bg-slate-700 rounded-full h-2">
+                  <div className="h-2 rounded-full bg-purple-500" style={{ width: `${(row as typeof serviceBreakdown[0]).percentage}%` }}></div>
+                </div>
+              )
+            },
+          ]}
+          data={serviceBreakdown}
+          getRowKey={(row) => (row as typeof serviceBreakdown[0]).service}
+        />
       )}
 
-      {/* Delivery Tab */}
       {activeTab === 'delivery' && (
-        <div className="space-y-6">
-          <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl overflow-hidden">
-            <div className="p-4 border-b border-slate-700">
-              <h3 className="text-white font-semibold">Delivery Time Distribution</h3>
-            </div>
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-700 text-left">
-                  <th className="p-4 text-slate-400 font-medium">Delivery Time</th>
-                  <th className="p-4 text-slate-400 font-medium text-right">Shipments</th>
-                  <th className="p-4 text-slate-400 font-medium text-right">Percentage</th>
-                  <th className="p-4 text-slate-400 font-medium">Distribution</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700/50">
-                {deliveryTimes.map(time => (
-                  <tr key={time.range} className="hover:bg-slate-800/30">
-                    <td className="p-4 text-white font-medium">{time.range}</td>
-                    <td className="p-4 text-right text-white">{time.count}</td>
-                    <td className="p-4 text-right text-slate-300">{time.percentage}%</td>
-                    <td className="p-4 w-64">
-                      <div className="w-full bg-slate-700 rounded-full h-3">
-                        <div
-                          className={`h-3 rounded-full ${
-                            time.range === '1 day' ? 'bg-emerald-500' :
-                            time.range === '2 days' ? 'bg-blue-500' :
-                            time.range === '3 days' ? 'bg-purple-500' :
-                            time.range === '4 days' ? 'bg-amber-500' :
-                            'bg-red-500'
-                          }`}
-                          style={{ width: `${time.percentage}%` }}
-                        ></div>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataTable
+          title="Delivery Time Distribution"
+          columns={[
+            { key: 'range', header: 'Delivery Time', render: (v) => <span className="text-white font-medium">{v as string}</span> },
+            { key: 'count', header: 'Shipments', align: 'right', render: (v) => <span className="text-white">{v as number}</span> },
+            { key: 'percentage', header: 'Percentage', align: 'right', render: (v) => <span className="text-slate-300">{v as number}%</span> },
+            {
+              key: 'distribution',
+              header: 'Distribution',
+              render: (_, row) => {
+                const r = row as typeof deliveryTimes[0];
+                const color = r.range === '1 day' ? 'bg-emerald-500' :
+                  r.range === '2 days' ? 'bg-blue-500' :
+                  r.range === '3 days' ? 'bg-purple-500' :
+                  r.range === '4 days' ? 'bg-amber-500' : 'bg-red-500';
+                return (
+                  <div className="w-full bg-slate-700 rounded-full h-3">
+                    <div className={`h-3 rounded-full ${color}`} style={{ width: `${r.percentage}%` }}></div>
+                  </div>
+                );
+              }
+            },
+          ]}
+          data={deliveryTimes}
+          getRowKey={(row) => (row as typeof deliveryTimes[0]).range}
+        />
       )}
 
-      {/* Issues Tab */}
       {activeTab === 'issues' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-red-500/10 backdrop-blur border border-red-500/30 rounded-xl p-4">
-              <div className="text-sm text-slate-400 mb-1">Active Issues</div>
-              <div className="text-2xl font-bold text-red-400">3</div>
-            </div>
-            <div className="bg-amber-500/10 backdrop-blur border border-amber-500/30 rounded-xl p-4">
-              <div className="text-sm text-slate-400 mb-1">In Progress</div>
-              <div className="text-2xl font-bold text-amber-400">2</div>
-            </div>
-            <div className="bg-emerald-500/10 backdrop-blur border border-emerald-500/30 rounded-xl p-4">
-              <div className="text-sm text-slate-400 mb-1">Resolved This Month</div>
-              <div className="text-2xl font-bold text-emerald-400">18</div>
-            </div>
-          </div>
+          <MetricCardGrid columns={3}>
+            <MetricCard label="Active Issues" value={3} variant="error" />
+            <MetricCard label="In Progress" value={2} variant="warning" />
+            <MetricCard label="Resolved This Month" value={18} variant="success" />
+          </MetricCardGrid>
 
-          <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl overflow-hidden">
-            <div className="p-4 border-b border-slate-700">
-              <h3 className="text-white font-semibold">Recent Issues</h3>
-            </div>
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-700 text-left">
-                  <th className="p-4 text-slate-400 font-medium">Tracking</th>
-                  <th className="p-4 text-slate-400 font-medium">Carrier</th>
-                  <th className="p-4 text-slate-400 font-medium">Issue</th>
-                  <th className="p-4 text-slate-400 font-medium">Status</th>
-                  <th className="p-4 text-slate-400 font-medium">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700/50">
-                {recentIssues.map((issue, i) => (
-                  <tr key={i} className="hover:bg-slate-800/30">
-                    <td className="p-4 text-white font-mono text-sm">{issue.tracking}</td>
-                    <td className="p-4 text-slate-300">{issue.carrier}</td>
-                    <td className="p-4 text-white">{issue.issue}</td>
-                    <td className="p-4">
-                      <span className="px-2 py-1 rounded text-xs bg-amber-500/20 text-amber-400">
-                        {issue.status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-slate-400">{issue.date}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            title="Recent Issues"
+            columns={[
+              { key: 'tracking', header: 'Tracking', render: (v) => <span className="text-white font-mono text-sm">{v as string}</span> },
+              { key: 'carrier', header: 'Carrier', render: (v) => <span className="text-slate-300">{v as string}</span> },
+              { key: 'issue', header: 'Issue', render: (v) => <span className="text-white">{v as string}</span> },
+              { key: 'status', header: 'Status', render: (v) => <StatusBadge status={v as string} variant="warning" /> },
+              { key: 'date', header: 'Date', render: (v) => <span className="text-slate-400">{v as string}</span> },
+            ]}
+            data={recentIssues}
+            getRowKey={(_, i) => `issue-${i}`}
+          />
         </div>
       )}
     </div>

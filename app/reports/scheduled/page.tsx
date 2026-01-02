@@ -1,99 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import {
+  ReportPageHeader,
+  MetricCard,
+  MetricCardGrid,
+  DataTable,
+  StatusBadge,
+} from '@/components/reports';
+import { getFrequencyColor, getFormatIcon } from '@/lib/formatters';
+import { scheduledReports, recentDeliveries } from '@/data/reports';
 
-interface ScheduledReport {
-  id: string;
-  name: string;
-  reportType: string;
-  frequency: 'daily' | 'weekly' | 'monthly';
-  nextRun: string;
-  lastRun: string;
-  recipients: string[];
-  format: 'csv' | 'xlsx' | 'pdf';
-  status: 'active' | 'paused';
-}
-
-const scheduledReports: ScheduledReport[] = [
-  {
-    id: '1',
-    name: 'Daily Sales Summary',
-    reportType: 'Sales',
-    frequency: 'daily',
-    nextRun: '2024-12-29 06:00 AM',
-    lastRun: '2024-12-28 06:00 AM',
-    recipients: ['team@company.com', 'manager@company.com'],
-    format: 'pdf',
-    status: 'active',
-  },
-  {
-    id: '2',
-    name: 'Weekly Inventory Status',
-    reportType: 'Inventory',
-    frequency: 'weekly',
-    nextRun: '2025-01-01 08:00 AM',
-    lastRun: '2024-12-25 08:00 AM',
-    recipients: ['warehouse@company.com'],
-    format: 'xlsx',
-    status: 'active',
-  },
-  {
-    id: '3',
-    name: 'Monthly P&L Statement',
-    reportType: 'Financial',
-    frequency: 'monthly',
-    nextRun: '2025-01-01 09:00 AM',
-    lastRun: '2024-12-01 09:00 AM',
-    recipients: ['accounting@company.com', 'cfo@company.com'],
-    format: 'pdf',
-    status: 'active',
-  },
-  {
-    id: '4',
-    name: 'Weekly Shipping Analysis',
-    reportType: 'Shipping',
-    frequency: 'weekly',
-    nextRun: '2025-01-01 07:00 AM',
-    lastRun: '2024-12-25 07:00 AM',
-    recipients: ['logistics@company.com'],
-    format: 'csv',
-    status: 'active',
-  },
-  {
-    id: '5',
-    name: 'Daily Low Stock Alert',
-    reportType: 'Inventory',
-    frequency: 'daily',
-    nextRun: '2024-12-29 07:00 AM',
-    lastRun: '2024-12-28 07:00 AM',
-    recipients: ['purchasing@company.com'],
-    format: 'xlsx',
-    status: 'active',
-  },
-  {
-    id: '6',
-    name: 'Monthly Marketing Performance',
-    reportType: 'Marketing',
-    frequency: 'monthly',
-    nextRun: '2025-01-01 10:00 AM',
-    lastRun: '2024-12-01 10:00 AM',
-    recipients: ['marketing@company.com'],
-    format: 'pdf',
-    status: 'paused',
-  },
-];
-
-const recentDeliveries = [
-  { report: 'Daily Sales Summary', date: '2024-12-28 06:00 AM', recipients: 2, status: 'delivered' },
-  { report: 'Daily Low Stock Alert', date: '2024-12-28 07:00 AM', recipients: 1, status: 'delivered' },
-  { report: 'Weekly Inventory Status', date: '2024-12-25 08:00 AM', recipients: 1, status: 'delivered' },
-  { report: 'Weekly Shipping Analysis', date: '2024-12-25 07:00 AM', recipients: 1, status: 'failed' },
-];
+type FilterStatus = 'all' | 'active' | 'paused';
 
 export default function ScheduledReportsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'paused'>('all');
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
 
   const filteredReports = scheduledReports.filter(report =>
     filterStatus === 'all' || report.status === filterStatus
@@ -102,38 +24,18 @@ export default function ScheduledReportsPage() {
   const activeCount = scheduledReports.filter(r => r.status === 'active').length;
   const pausedCount = scheduledReports.filter(r => r.status === 'paused').length;
 
-  const getFrequencyColor = (frequency: string) => {
-    switch (frequency) {
-      case 'daily': return 'bg-emerald-500/20 text-emerald-400';
-      case 'weekly': return 'bg-blue-500/20 text-blue-400';
-      case 'monthly': return 'bg-purple-500/20 text-purple-400';
-      default: return 'bg-slate-500/20 text-slate-400';
-    }
-  };
-
-  const getFormatIcon = (format: string) => {
-    switch (format) {
-      case 'pdf': return 'fa-file-pdf text-red-400';
-      case 'xlsx': return 'fa-file-excel text-green-400';
-      case 'csv': return 'fa-file-csv text-blue-400';
-      default: return 'fa-file text-slate-400';
-    }
-  };
-
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <div className="flex items-center gap-2 text-sm text-slate-400 mb-2">
-          <Link href="/reports" className="hover:text-white">Reports</Link>
-          <i className="fas fa-chevron-right text-xs"></i>
-          <span className="text-white">Scheduled Reports</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Scheduled Reports</h1>
-            <p className="text-slate-400">Automate report generation and delivery</p>
-          </div>
+      <ReportPageHeader
+        title="Scheduled Reports"
+        description="Automate report generation and delivery"
+        icon="fa-clock"
+        iconColor="purple"
+        breadcrumbs={[
+          { label: 'Reports', href: '/reports' },
+          { label: 'Scheduled Reports' },
+        ]}
+        actions={
           <button
             onClick={() => setShowCreateModal(true)}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm transition-colors"
@@ -141,56 +43,15 @@ export default function ScheduledReportsPage() {
             <i className="fas fa-plus mr-2"></i>
             New Schedule
           </button>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
-              <i className="fas fa-clock text-purple-400"></i>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-white">{scheduledReports.length}</div>
-              <div className="text-xs text-slate-400">Total Schedules</div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-              <i className="fas fa-play text-emerald-400"></i>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-white">{activeCount}</div>
-              <div className="text-xs text-slate-400">Active</div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center">
-              <i className="fas fa-pause text-amber-400"></i>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-white">{pausedCount}</div>
-              <div className="text-xs text-slate-400">Paused</div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-              <i className="fas fa-paper-plane text-blue-400"></i>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-white">142</div>
-              <div className="text-xs text-slate-400">Delivered This Month</div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <MetricCardGrid columns={4}>
+        <MetricCard label="Total Schedules" value={scheduledReports.length} icon="fa-clock" />
+        <MetricCard label="Active" value={activeCount} icon="fa-play" variant="success" />
+        <MetricCard label="Paused" value={pausedCount} icon="fa-pause" variant="warning" />
+        <MetricCard label="Delivered This Month" value={142} icon="fa-paper-plane" variant="info" />
+      </MetricCardGrid>
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-2">
@@ -212,80 +73,81 @@ export default function ScheduledReportsPage() {
         ))}
       </div>
 
-      {/* Scheduled Reports Table */}
-      <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-700 text-left">
-              <th className="p-4 text-slate-400 font-medium">Report</th>
-              <th className="p-4 text-slate-400 font-medium">Frequency</th>
-              <th className="p-4 text-slate-400 font-medium">Next Run</th>
-              <th className="p-4 text-slate-400 font-medium">Last Run</th>
-              <th className="p-4 text-slate-400 font-medium">Recipients</th>
-              <th className="p-4 text-slate-400 font-medium">Format</th>
-              <th className="p-4 text-slate-400 font-medium">Status</th>
-              <th className="p-4 text-slate-400 font-medium text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-700/50">
-            {filteredReports.map(report => (
-              <tr key={report.id} className="hover:bg-slate-800/30">
-                <td className="p-4">
-                  <div>
-                    <div className="text-white font-medium">{report.name}</div>
-                    <div className="text-xs text-slate-400">{report.reportType}</div>
-                  </div>
-                </td>
-                <td className="p-4">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getFrequencyColor(report.frequency)}`}>
-                    {report.frequency}
-                  </span>
-                </td>
-                <td className="p-4 text-slate-300 text-sm">{report.nextRun}</td>
-                <td className="p-4 text-slate-400 text-sm">{report.lastRun}</td>
-                <td className="p-4">
-                  <div className="flex items-center gap-1">
-                    <i className="fas fa-users text-slate-500 text-xs"></i>
-                    <span className="text-slate-300 text-sm">{report.recipients.length}</span>
-                  </div>
-                </td>
-                <td className="p-4">
-                  <i className={`fas ${getFormatIcon(report.format)}`}></i>
-                </td>
-                <td className="p-4">
-                  {report.status === 'active' ? (
-                    <span className="flex items-center gap-1.5 text-emerald-400 text-sm">
-                      <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                      Active
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1.5 text-amber-400 text-sm">
-                      <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
-                      Paused
-                    </span>
-                  )}
-                </td>
-                <td className="p-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <button className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors" title="Run Now">
-                      <i className="fas fa-play"></i>
-                    </button>
-                    <button className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors" title="Edit">
-                      <i className="fas fa-edit"></i>
-                    </button>
-                    <button className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors" title="Pause/Resume">
-                      <i className={`fas ${report.status === 'active' ? 'fa-pause' : 'fa-play'}`}></i>
-                    </button>
-                    <button className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-red-400 transition-colors" title="Delete">
-                      <i className="fas fa-trash"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={[
+          {
+            key: 'name',
+            header: 'Report',
+            render: (v, row) => (
+              <div>
+                <div className="text-white font-medium">{v as string}</div>
+                <div className="text-xs text-slate-400">{(row as typeof scheduledReports[0]).reportType}</div>
+              </div>
+            )
+          },
+          {
+            key: 'frequency',
+            header: 'Frequency',
+            render: (v) => (
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getFrequencyColor(v as string)}`}>
+                {v as string}
+              </span>
+            )
+          },
+          { key: 'nextRun', header: 'Next Run', render: (v) => <span className="text-slate-300 text-sm">{v as string}</span> },
+          { key: 'lastRun', header: 'Last Run', render: (v) => <span className="text-slate-400 text-sm">{v as string}</span> },
+          {
+            key: 'recipients',
+            header: 'Recipients',
+            render: (v) => (
+              <div className="flex items-center gap-1">
+                <i className="fas fa-users text-slate-500 text-xs"></i>
+                <span className="text-slate-300 text-sm">{(v as string[]).length}</span>
+              </div>
+            )
+          },
+          {
+            key: 'format',
+            header: 'Format',
+            render: (v) => <i className={`fas ${getFormatIcon(v as string)}`}></i>
+          },
+          {
+            key: 'status',
+            header: 'Status',
+            render: (v) => (
+              <StatusBadge
+                status={v === 'active' ? 'Active' : 'Paused'}
+                variant={v === 'active' ? 'success' : 'warning'}
+                showDot
+                pulse={v === 'active'}
+              />
+            )
+          },
+          {
+            key: 'actions',
+            header: 'Actions',
+            align: 'right',
+            render: (_, row) => (
+              <div className="flex items-center justify-end gap-2">
+                <button className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors" title="Run Now">
+                  <i className="fas fa-play"></i>
+                </button>
+                <button className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors" title="Edit">
+                  <i className="fas fa-edit"></i>
+                </button>
+                <button className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors" title="Pause/Resume">
+                  <i className={`fas ${(row as typeof scheduledReports[0]).status === 'active' ? 'fa-pause' : 'fa-play'}`}></i>
+                </button>
+                <button className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-red-400 transition-colors" title="Delete">
+                  <i className="fas fa-trash"></i>
+                </button>
+              </div>
+            )
+          },
+        ]}
+        data={filteredReports}
+        getRowKey={(row) => (row as typeof scheduledReports[0]).id}
+      />
 
       {/* Recent Deliveries */}
       <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl overflow-hidden">
@@ -312,11 +174,10 @@ export default function ScheduledReportsPage() {
                   <i className="fas fa-envelope mr-1"></i>
                   {delivery.recipients} recipient{delivery.recipients > 1 ? 's' : ''}
                 </div>
-                {delivery.status === 'delivered' ? (
-                  <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded">Delivered</span>
-                ) : (
-                  <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded">Failed</span>
-                )}
+                <StatusBadge
+                  status={delivery.status === 'delivered' ? 'Delivered' : 'Failed'}
+                  variant={delivery.status === 'delivered' ? 'success' : 'error'}
+                />
               </div>
             </div>
           ))}
@@ -330,13 +191,13 @@ export default function ScheduledReportsPage() {
           <div>
             <div className="text-sm font-medium text-white">Scheduling Tips</div>
             <div className="text-xs text-slate-400 mt-1">
-              Schedule reports during off-peak hours (early morning) for faster generation. Weekly reports are best scheduled for Monday mornings to capture the full week's data.
+              Schedule reports during off-peak hours (early morning) for faster generation. Weekly reports are best scheduled for Monday mornings to capture the full week&apos;s data.
             </div>
           </div>
         </div>
       </div>
 
-      {/* Create Modal Placeholder */}
+      {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 w-full max-w-lg">

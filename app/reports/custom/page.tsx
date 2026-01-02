@@ -1,115 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-
-type DataSource = 'orders' | 'products' | 'shipments' | 'inventory' | 'returns' | 'customers';
-
-interface Column {
-  id: string;
-  name: string;
-  type: 'string' | 'number' | 'date' | 'currency' | 'percent';
-}
-
-interface Filter {
-  id: string;
-  column: string;
-  operator: 'equals' | 'contains' | 'greater_than' | 'less_than' | 'between' | 'in';
-  value: string;
-}
-
-const dataSources: { id: DataSource; name: string; description: string; icon: string }[] = [
-  { id: 'orders', name: 'Orders', description: 'Sales orders and transactions', icon: 'fa-shopping-cart' },
-  { id: 'products', name: 'Products', description: 'Product catalog and details', icon: 'fa-box' },
-  { id: 'shipments', name: 'Shipments', description: 'Shipping and delivery data', icon: 'fa-truck' },
-  { id: 'inventory', name: 'Inventory', description: 'Stock levels and movements', icon: 'fa-warehouse' },
-  { id: 'returns', name: 'Returns', description: 'Return requests and refunds', icon: 'fa-rotate-left' },
-  { id: 'customers', name: 'Customers', description: 'Customer information', icon: 'fa-users' },
-];
-
-const columnsBySource: Record<DataSource, Column[]> = {
-  orders: [
-    { id: 'orderNumber', name: 'Order Number', type: 'string' },
-    { id: 'customerName', name: 'Customer Name', type: 'string' },
-    { id: 'channel', name: 'Sales Channel', type: 'string' },
-    { id: 'status', name: 'Status', type: 'string' },
-    { id: 'total', name: 'Order Total', type: 'currency' },
-    { id: 'cogs', name: 'COGS', type: 'currency' },
-    { id: 'profit', name: 'Profit', type: 'currency' },
-    { id: 'margin', name: 'Margin', type: 'percent' },
-    { id: 'shipping', name: 'Shipping Charged', type: 'currency' },
-    { id: 'items', name: 'Item Count', type: 'number' },
-    { id: 'createdAt', name: 'Order Date', type: 'date' },
-  ],
-  products: [
-    { id: 'sku', name: 'SKU', type: 'string' },
-    { id: 'name', name: 'Product Name', type: 'string' },
-    { id: 'brand', name: 'Brand', type: 'string' },
-    { id: 'category', name: 'Category', type: 'string' },
-    { id: 'price', name: 'Price', type: 'currency' },
-    { id: 'cost', name: 'Cost', type: 'currency' },
-    { id: 'margin', name: 'Margin', type: 'percent' },
-    { id: 'weight', name: 'Weight', type: 'number' },
-    { id: 'status', name: 'Status', type: 'string' },
-  ],
-  shipments: [
-    { id: 'trackingNumber', name: 'Tracking Number', type: 'string' },
-    { id: 'carrier', name: 'Carrier', type: 'string' },
-    { id: 'service', name: 'Service', type: 'string' },
-    { id: 'status', name: 'Status', type: 'string' },
-    { id: 'customerPaid', name: 'Customer Paid', type: 'currency' },
-    { id: 'actualCost', name: 'Actual Cost', type: 'currency' },
-    { id: 'profit', name: 'Shipping Profit', type: 'currency' },
-    { id: 'weight', name: 'Weight', type: 'number' },
-    { id: 'shippedAt', name: 'Ship Date', type: 'date' },
-  ],
-  inventory: [
-    { id: 'sku', name: 'SKU', type: 'string' },
-    { id: 'productName', name: 'Product Name', type: 'string' },
-    { id: 'location', name: 'Location', type: 'string' },
-    { id: 'quantity', name: 'Quantity', type: 'number' },
-    { id: 'reserved', name: 'Reserved', type: 'number' },
-    { id: 'available', name: 'Available', type: 'number' },
-    { id: 'reorderPoint', name: 'Reorder Point', type: 'number' },
-    { id: 'unitCost', name: 'Unit Cost', type: 'currency' },
-    { id: 'totalValue', name: 'Total Value', type: 'currency' },
-  ],
-  returns: [
-    { id: 'returnId', name: 'Return ID', type: 'string' },
-    { id: 'orderNumber', name: 'Order Number', type: 'string' },
-    { id: 'customerName', name: 'Customer Name', type: 'string' },
-    { id: 'reason', name: 'Return Reason', type: 'string' },
-    { id: 'status', name: 'Status', type: 'string' },
-    { id: 'refundAmount', name: 'Refund Amount', type: 'currency' },
-    { id: 'restockFee', name: 'Restock Fee', type: 'currency' },
-    { id: 'createdAt', name: 'Return Date', type: 'date' },
-  ],
-  customers: [
-    { id: 'name', name: 'Customer Name', type: 'string' },
-    { id: 'email', name: 'Email', type: 'string' },
-    { id: 'phone', name: 'Phone', type: 'string' },
-    { id: 'totalOrders', name: 'Total Orders', type: 'number' },
-    { id: 'totalSpent', name: 'Total Spent', type: 'currency' },
-    { id: 'avgOrderValue', name: 'Avg Order Value', type: 'currency' },
-    { id: 'firstOrderDate', name: 'First Order', type: 'date' },
-    { id: 'lastOrderDate', name: 'Last Order', type: 'date' },
-  ],
-};
-
-const groupByOptions: Record<DataSource, string[]> = {
-  orders: ['channel', 'status', 'createdAt'],
-  products: ['brand', 'category', 'status'],
-  shipments: ['carrier', 'service', 'status'],
-  inventory: ['location'],
-  returns: ['reason', 'status'],
-  customers: [],
-};
+import {
+  ReportPageHeader,
+  DateRangePicker,
+  SummaryCard,
+} from '@/components/reports';
+import {
+  dataSources,
+  columnsBySource,
+  groupByOptions,
+  savedTemplates,
+} from '@/data/reports';
+import type { DataSource, FilterConfig } from '@/types/reports';
 
 export default function CustomReportBuilderPage() {
   const [reportName, setReportName] = useState('');
   const [selectedSource, setSelectedSource] = useState<DataSource | null>(null);
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
-  const [filters, setFilters] = useState<Filter[]>([]);
+  const [filters, setFilters] = useState<FilterConfig[]>([]);
   const [groupBy, setGroupBy] = useState<string>('');
   const [dateRange, setDateRange] = useState('30d');
   const [exportFormat, setExportFormat] = useState<'csv' | 'xlsx' | 'pdf'>('csv');
@@ -134,7 +43,7 @@ export default function CustomReportBuilderPage() {
     }]);
   };
 
-  const updateFilter = (id: string, field: keyof Filter, value: string) => {
+  const updateFilter = (id: string, field: keyof FilterConfig, value: string) => {
     setFilters(filters.map(f => f.id === id ? { ...f, [field]: value } : f));
   };
 
@@ -143,7 +52,6 @@ export default function CustomReportBuilderPage() {
   };
 
   const handleGenerateReport = () => {
-    // In a real app, this would call an API to generate the report
     alert(`Generating ${reportName || 'Custom Report'} with ${selectedColumns.length} columns from ${selectedSource}`);
   };
 
@@ -151,21 +59,29 @@ export default function CustomReportBuilderPage() {
     alert('Report template saved!');
   };
 
+  const getColumnTypeColor = (type: string) => {
+    switch (type) {
+      case 'currency': return 'bg-emerald-500/20 text-emerald-400';
+      case 'number': return 'bg-blue-500/20 text-blue-400';
+      case 'date': return 'bg-purple-500/20 text-purple-400';
+      case 'percent': return 'bg-amber-500/20 text-amber-400';
+      default: return 'bg-slate-700 text-slate-400';
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <div className="flex items-center gap-2 text-sm text-slate-400 mb-2">
-          <Link href="/reports" className="hover:text-white">Reports</Link>
-          <i className="fas fa-chevron-right text-xs"></i>
-          <span className="text-white">Custom Report Builder</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Custom Report Builder</h1>
-            <p className="text-slate-400">Build custom reports with your own columns, filters, and groupings</p>
-          </div>
-          <div className="flex items-center gap-3">
+      <ReportPageHeader
+        title="Custom Report Builder"
+        description="Build custom reports with your own columns, filters, and groupings"
+        icon="fa-wand-magic-sparkles"
+        iconColor="purple"
+        breadcrumbs={[
+          { label: 'Reports', href: '/reports' },
+          { label: 'Custom Report Builder' },
+        ]}
+        actions={
+          <>
             <button
               onClick={handleSaveTemplate}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm transition-colors"
@@ -181,9 +97,9 @@ export default function CustomReportBuilderPage() {
               <i className="fas fa-play mr-2"></i>
               Generate Report
             </button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Report Name */}
       <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
@@ -200,7 +116,7 @@ export default function CustomReportBuilderPage() {
       <div className="grid grid-cols-3 gap-6">
         {/* Data Source Selection */}
         <div className="col-span-1 space-y-4">
-          <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
+          <SummaryCard title="">
             <h3 className="text-white font-semibold mb-4">
               <i className="fas fa-database mr-2 text-emerald-400"></i>
               Data Source
@@ -237,30 +153,31 @@ export default function CustomReportBuilderPage() {
                 </button>
               ))}
             </div>
-          </div>
+          </SummaryCard>
 
           {/* Date Range */}
-          <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
+          <SummaryCard title="">
             <h3 className="text-white font-semibold mb-4">
               <i className="fas fa-calendar mr-2 text-blue-400"></i>
               Date Range
             </h3>
-            <select
+            <DateRangePicker
               value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
-            >
-              <option value="today">Today</option>
-              <option value="7d">Last 7 Days</option>
-              <option value="30d">Last 30 Days</option>
-              <option value="90d">Last 90 Days</option>
-              <option value="ytd">Year to Date</option>
-              <option value="all">All Time</option>
-            </select>
-          </div>
+              onChange={setDateRange}
+              options={[
+                { value: 'today', label: 'Today' },
+                { value: '7d', label: 'Last 7 Days' },
+                { value: '30d', label: 'Last 30 Days' },
+                { value: '90d', label: 'Last 90 Days' },
+                { value: 'ytd', label: 'Year to Date' },
+                { value: 'all', label: 'All Time' },
+              ]}
+              className="w-full"
+            />
+          </SummaryCard>
 
           {/* Export Format */}
-          <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
+          <SummaryCard title="">
             <h3 className="text-white font-semibold mb-4">
               <i className="fas fa-download mr-2 text-purple-400"></i>
               Export Format
@@ -280,12 +197,12 @@ export default function CustomReportBuilderPage() {
                 </button>
               ))}
             </div>
-          </div>
+          </SummaryCard>
         </div>
 
         {/* Column Selection */}
         <div className="col-span-1">
-          <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
+          <SummaryCard title="">
             <h3 className="text-white font-semibold mb-4">
               <i className="fas fa-columns mr-2 text-amber-400"></i>
               Columns
@@ -301,9 +218,7 @@ export default function CustomReportBuilderPage() {
                   <label
                     key={column.id}
                     className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
-                      selectedColumns.includes(column.id)
-                        ? 'bg-amber-500/10'
-                        : 'hover:bg-slate-800'
+                      selectedColumns.includes(column.id) ? 'bg-amber-500/10' : 'hover:bg-slate-800'
                     }`}
                   >
                     <input
@@ -315,13 +230,7 @@ export default function CustomReportBuilderPage() {
                     <div className="flex-1">
                       <div className="text-white text-sm">{column.name}</div>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded ${
-                      column.type === 'currency' ? 'bg-emerald-500/20 text-emerald-400' :
-                      column.type === 'number' ? 'bg-blue-500/20 text-blue-400' :
-                      column.type === 'date' ? 'bg-purple-500/20 text-purple-400' :
-                      column.type === 'percent' ? 'bg-amber-500/20 text-amber-400' :
-                      'bg-slate-700 text-slate-400'
-                    }`}>
+                    <span className={`text-xs px-2 py-0.5 rounded ${getColumnTypeColor(column.type)}`}>
                       {column.type}
                     </span>
                   </label>
@@ -333,13 +242,13 @@ export default function CustomReportBuilderPage() {
                 <p className="text-sm">Select a data source first</p>
               </div>
             )}
-          </div>
+          </SummaryCard>
         </div>
 
         {/* Filters & Grouping */}
         <div className="col-span-1 space-y-4">
           {/* Filters */}
-          <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
+          <SummaryCard title="">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-white font-semibold">
                 <i className="fas fa-filter mr-2 text-cyan-400"></i>
@@ -402,10 +311,10 @@ export default function CustomReportBuilderPage() {
                 No filters applied
               </div>
             )}
-          </div>
+          </SummaryCard>
 
           {/* Group By */}
-          <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
+          <SummaryCard title="">
             <h3 className="text-white font-semibold mb-4">
               <i className="fas fa-layer-group mr-2 text-pink-400"></i>
               Group By
@@ -431,11 +340,11 @@ export default function CustomReportBuilderPage() {
                 {selectedSource ? 'No grouping options available' : 'Select a data source first'}
               </div>
             )}
-          </div>
+          </SummaryCard>
 
           {/* Aggregations */}
           {groupBy && (
-            <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
+            <SummaryCard title="">
               <h3 className="text-white font-semibold mb-4">
                 <i className="fas fa-calculator mr-2 text-orange-400"></i>
                 Aggregations
@@ -451,7 +360,7 @@ export default function CustomReportBuilderPage() {
                   </label>
                 ))}
               </div>
-            </div>
+            </SummaryCard>
           )}
         </div>
       </div>
@@ -497,30 +406,25 @@ export default function CustomReportBuilderPage() {
       )}
 
       {/* Saved Templates */}
-      <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
+      <SummaryCard title="">
         <h3 className="text-white font-semibold mb-4">
           <i className="fas fa-bookmark mr-2 text-emerald-400"></i>
           Saved Templates
         </h3>
         <div className="grid grid-cols-4 gap-3">
-          {[
-            { name: 'Weekly Sales Summary', source: 'orders', columns: 5 },
-            { name: 'Low Stock Alert', source: 'inventory', columns: 6 },
-            { name: 'Shipping Cost Analysis', source: 'shipments', columns: 7 },
-            { name: 'Customer Lifetime Value', source: 'customers', columns: 4 },
-          ].map((template, i) => (
+          {savedTemplates.map((template, i) => (
             <button
               key={i}
               className="p-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-left transition-colors"
             >
               <div className="text-white text-sm font-medium mb-1">{template.name}</div>
               <div className="text-xs text-slate-400">
-                {template.source} • {template.columns} columns
+                {template.source} &bull; {template.columns} columns
               </div>
             </button>
           ))}
         </div>
-      </div>
+      </SummaryCard>
     </div>
   );
 }
