@@ -99,13 +99,28 @@ export default function Sidebar() {
   ];
 
   const bottomNavItems: NavItem[] = [
-    { href: '/reports', icon: 'fa-chart-pie', label: 'Reports' },
+    {
+      id: 'reports',
+      icon: 'fa-chart-pie',
+      label: 'Reports',
+      children: [
+        { href: '/reports', icon: 'fa-chart-line', label: 'Overview' },
+        { href: '/reports/sales', icon: 'fa-dollar-sign', label: 'Sales' },
+        { href: '/reports/inventory', icon: 'fa-boxes-stacked', label: 'Inventory' },
+        { href: '/reports/shipping', icon: 'fa-truck-fast', label: 'Shipping' },
+        { href: '/reports/returns', icon: 'fa-rotate-left', label: 'Returns' },
+        { href: '/reports/marketing', icon: 'fa-bullhorn', label: 'Marketing' },
+        { href: '/reports/financial', icon: 'fa-file-invoice-dollar', label: 'Financial' },
+        { href: '/reports/custom', icon: 'fa-wand-magic-sparkles', label: 'Custom Builder' },
+        { href: '/reports/scheduled', icon: 'fa-clock', label: 'Scheduled' },
+      ]
+    },
     { href: '/settings', icon: 'fa-cog', label: 'Settings' },
   ];
 
   // Auto-expand menu based on current route
   useEffect(() => {
-    navItems.forEach(item => {
+    [...navItems, ...bottomNavItems].forEach(item => {
       if (item.children && item.id) {
         const isActive = item.children.some(child =>
           child.href === pathname || pathname.startsWith(child.href + '/')
