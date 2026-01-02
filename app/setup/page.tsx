@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useOrganization } from '@/context/OrganizationContext'
 import { OrganizationInvite, PlanType, PLAN_LIMITS } from '@/types/organization'
+import { seedOrganizationData } from '@/lib/seedData'
 
 type SetupStep = 'choice' | 'create' | 'invites'
 
@@ -75,7 +76,16 @@ export default function OrganizationSetupPage() {
     clearError()
 
     try {
-      await createOrganization(orgName.trim(), selectedPlan)
+      const newOrg = await createOrganization(orgName.trim(), selectedPlan)
+
+      // Seed default data for the new organization
+      try {
+        await seedOrganizationData(newOrg.id, false) // Don't seed demo products
+      } catch (seedError) {
+        console.error('Error seeding organization data:', seedError)
+        // Continue even if seeding fails - not critical
+      }
+
       router.push('/')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create organization')

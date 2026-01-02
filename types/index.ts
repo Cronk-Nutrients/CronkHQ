@@ -1,3 +1,13 @@
+import { Timestamp } from 'firebase/firestore'
+
+// Base type for Firestore documents
+export interface BaseDocument {
+  id: string
+  createdAt: Date | Timestamp | string
+  updatedAt: Date | Timestamp | string
+  createdBy?: string
+}
+
 // Dimensions type used across products and boxes
 export interface Dimensions {
   length: number; // inches
@@ -542,4 +552,74 @@ export interface FilterState {
   location?: string;
   dateRange?: string;
   channel?: string;
+}
+
+// Return Types
+export type ReturnStatus = 'pending' | 'received' | 'inspected' | 'processed' | 'completed' | 'rejected';
+export type ReturnItemCondition = 'new' | 'like_new' | 'damaged' | 'defective';
+export type ReturnItemAction = 'restock' | 'dispose' | 'return_to_supplier';
+
+export interface Return extends BaseDocument {
+  returnNumber: string;
+  orderId: string;
+  orderNumber: string;
+  status: ReturnStatus;
+  customer: {
+    name: string;
+    email?: string;
+  };
+  items: ReturnItem[];
+  reason: string;
+  customerNotes?: string;
+  internalNotes?: string;
+  refundAmount: number;
+  refundStatus: 'pending' | 'processed' | 'declined';
+  receivedAt?: Date | Timestamp | string;
+  processedAt?: Date | Timestamp | string;
+}
+
+export interface ReturnItem {
+  productId: string;
+  sku: string;
+  name: string;
+  quantity: number;
+  condition: ReturnItemCondition;
+  action: ReturnItemAction;
+}
+
+// Stock Transfer Types
+export type TransferStatus = 'draft' | 'in_transit' | 'received' | 'cancelled';
+
+export interface StockTransfer extends BaseDocument {
+  transferNumber: string;
+  fromLocationId: string;
+  fromLocationName: string;
+  toLocationId: string;
+  toLocationName: string;
+  status: TransferStatus;
+  items: StockTransferItem[];
+  notes?: string;
+  shippedAt?: Date | Timestamp | string;
+  receivedAt?: Date | Timestamp | string;
+}
+
+export interface StockTransferItem {
+  productId: string;
+  sku: string;
+  name: string;
+  quantitySent: number;
+  quantityReceived: number;
+}
+
+// Inventory Level (per location)
+export interface InventoryLevel extends BaseDocument {
+  productId: string;
+  locationId: string;
+  quantity: number;
+  availableQuantity: number;
+  reservedQuantity: number;
+  binLocation?: string;
+  lotNumber?: string;
+  expirationDate?: Date | Timestamp | string;
+  lastCountedAt?: Date | Timestamp | string;
 }
