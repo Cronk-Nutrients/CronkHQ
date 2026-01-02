@@ -11,22 +11,23 @@ import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { formatDate, formatCurrency } from '@/lib/formatting';
 import {
+  SupplierStatusBadge,
+  CurrencyBadge,
+  SupplierStatCard,
+  SupplierStatsGrid,
+} from '@/components/suppliers';
+import {
   Building2,
   Plus,
   Search,
-  Mail,
-  Phone,
-  MapPin,
-  Clock,
-  DollarSign,
-  Package,
-  FileText,
-  MoreHorizontal,
-  Edit,
   Eye,
+  Edit,
   Trash2,
+  MoreHorizontal,
   CheckCircle,
   XCircle,
+  FileText,
+  DollarSign,
 } from 'lucide-react';
 
 export default function SuppliersPage() {
@@ -34,25 +35,16 @@ export default function SuppliersPage() {
   const { success, warning } = useToast();
   const confirm = useConfirm();
 
-  // State
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [showActionsFor, setShowActionsFor] = useState<string | null>(null);
 
-  // Get product count for a supplier
   const getProductCount = (supplierId: string) => {
     return state.productSuppliers.filter(ps => ps.supplierId === supplierId).length;
   };
 
-  // Get PO count for a supplier
-  const getPOCount = (supplierId: string) => {
-    const supplier = state.suppliers.find(s => s.id === supplierId);
-    return state.purchaseOrders.filter(po => po.supplier === supplier?.name).length;
-  };
-
-  // Get last order date for a supplier
   const getLastOrderDate = (supplierId: string) => {
     const supplier = state.suppliers.find(s => s.id === supplierId);
     const pos = state.purchaseOrders
@@ -61,10 +53,8 @@ export default function SuppliersPage() {
     return pos[0]?.createdAt;
   };
 
-  // Filter suppliers
   const filteredSuppliers = useMemo(() => {
     return state.suppliers.filter(supplier => {
-      // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const matchesSearch =
@@ -75,7 +65,6 @@ export default function SuppliersPage() {
         if (!matchesSearch) return false;
       }
 
-      // Status filter
       if (statusFilter === 'active' && !supplier.isActive) return false;
       if (statusFilter === 'inactive' && supplier.isActive) return false;
 
@@ -83,7 +72,6 @@ export default function SuppliersPage() {
     });
   }, [state.suppliers, searchQuery, statusFilter]);
 
-  // Stats
   const stats = useMemo(() => {
     const total = state.suppliers.length;
     const active = state.suppliers.filter(s => s.isActive).length;
@@ -95,22 +83,15 @@ export default function SuppliersPage() {
     const monthlyPOs = state.purchaseOrders.filter(po => new Date(po.createdAt) >= thisMonth);
     const monthlySpend = monthlyPOs.reduce((sum, po) => sum + po.total, 0);
 
-    return {
-      total,
-      active,
-      monthlyOrders: monthlyPOs.length,
-      monthlySpend,
-    };
+    return { total, active, monthlyOrders: monthlyPOs.length, monthlySpend };
   }, [state.suppliers, state.purchaseOrders]);
 
-  // Handle edit
   const handleEdit = (supplier: Supplier) => {
     setEditingSupplier(supplier);
     setIsModalOpen(true);
     setShowActionsFor(null);
   };
 
-  // Handle toggle active
   const handleToggleActive = (supplier: Supplier) => {
     dispatch({
       type: 'UPDATE_SUPPLIER',
@@ -124,7 +105,6 @@ export default function SuppliersPage() {
     setShowActionsFor(null);
   };
 
-  // Handle delete
   const handleDelete = async (supplier: Supplier) => {
     const productCount = getProductCount(supplier.id);
 
@@ -145,7 +125,6 @@ export default function SuppliersPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Breadcrumb */}
       <Breadcrumb items={[
         { label: 'Inventory', href: '/inventory' },
         { label: 'Suppliers' }
@@ -158,9 +137,7 @@ export default function SuppliersPage() {
             <Building2 className="w-6 h-6 text-emerald-400" />
             Suppliers
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
-            Manage your vendor relationships
-          </p>
+          <p className="text-slate-400 text-sm mt-1">Manage your vendor relationships</p>
         </div>
         <Button onClick={() => { setEditingSupplier(null); setIsModalOpen(true); }}>
           <Plus className="w-4 h-4" />
@@ -169,52 +146,32 @@ export default function SuppliersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-blue-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-semibold text-white">{stats.total}</div>
-              <div className="text-sm text-slate-400">Total Suppliers</div>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-              <CheckCircle className="w-5 h-5 text-emerald-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-semibold text-emerald-400">{stats.active}</div>
-              <div className="text-sm text-slate-400">Active</div>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-              <FileText className="w-5 h-5 text-purple-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-semibold text-white">{stats.monthlyOrders}</div>
-              <div className="text-sm text-slate-400">This Month&apos;s Orders</div>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-amber-400" />
-            </div>
-            <div>
-              <div className="text-2xl font-semibold text-white">{formatCurrency(stats.monthlySpend)}</div>
-              <div className="text-sm text-slate-400">Total Spend (MTD)</div>
-            </div>
-          </div>
-        </Card>
-      </div>
+      <SupplierStatsGrid>
+        <SupplierStatCard
+          icon={Building2}
+          iconColor="blue"
+          value={stats.total}
+          label="Total Suppliers"
+        />
+        <SupplierStatCard
+          icon={CheckCircle}
+          iconColor="emerald"
+          value={stats.active}
+          label="Active"
+        />
+        <SupplierStatCard
+          icon={FileText}
+          iconColor="purple"
+          value={stats.monthlyOrders}
+          label="This Month's Orders"
+        />
+        <SupplierStatCard
+          icon={DollarSign}
+          iconColor="amber"
+          value={formatCurrency(stats.monthlySpend)}
+          label="Total Spend (MTD)"
+        />
+      </SupplierStatsGrid>
 
       {/* Filters */}
       <Card className="p-4">
@@ -231,7 +188,7 @@ export default function SuppliersPage() {
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
+            onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
             className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500/50"
           >
             <option value="all">All Status</option>
@@ -316,22 +273,10 @@ export default function SuppliersPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className="px-2 py-1 bg-slate-700 text-white text-xs rounded font-mono">
-                          {supplier.currency}
-                        </span>
+                        <CurrencyBadge currency={supplier.currency} />
                       </td>
                       <td className="px-4 py-3 text-center">
-                        {supplier.isActive ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-400">
-                            <CheckCircle className="w-3 h-3" />
-                            Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-slate-500/20 text-slate-400">
-                            <XCircle className="w-3 h-3" />
-                            Inactive
-                          </span>
-                        )}
+                        <SupplierStatusBadge isActive={supplier.isActive} />
                       </td>
                       <td className="px-4 py-3">
                         {lastOrder ? (
@@ -403,19 +348,14 @@ export default function SuppliersPage() {
         )}
       </Card>
 
-      {/* Modal */}
       <SupplierModal
         isOpen={isModalOpen}
         onClose={() => { setIsModalOpen(false); setEditingSupplier(null); }}
         editSupplier={editingSupplier}
       />
 
-      {/* Click away to close actions */}
       {showActionsFor && (
-        <div
-          className="fixed inset-0 z-0"
-          onClick={() => setShowActionsFor(null)}
-        />
+        <div className="fixed inset-0 z-0" onClick={() => setShowActionsFor(null)} />
       )}
     </div>
   );

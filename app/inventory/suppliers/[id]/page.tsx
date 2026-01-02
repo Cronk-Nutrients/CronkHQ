@@ -11,6 +11,8 @@ import { AssignProductsModal } from '@/components/modals/AssignProductsModal';
 import { useToast } from '@/components/ui/Toast';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { formatDate, formatCurrency, formatNumber } from '@/lib/formatting';
+import { SupplierStatusBadge, SupplierCodeBadge } from '@/components/suppliers';
+import { POStatusBadge } from '@/components/operations';
 import {
   Building2,
   ArrowLeft,
@@ -21,16 +23,11 @@ import {
   Globe,
   MapPin,
   User,
-  Clock,
-  DollarSign,
   CreditCard,
   Package,
   FileText,
-  Eye,
   Trash2,
   Star,
-  CheckCircle,
-  XCircle,
   MoreHorizontal,
 } from 'lucide-react';
 
@@ -40,7 +37,7 @@ export default function SupplierDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { state, dispatch } = useApp();
-  const { success, warning } = useToast();
+  const { success } = useToast();
 
   const supplierId = params.id as string;
   const supplier = state.suppliers.find(s => s.id === supplierId);
@@ -50,12 +47,10 @@ export default function SupplierDetailPage() {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [showProductActions, setShowProductActions] = useState<string | null>(null);
 
-  // Get supplier's products
   const supplierProducts = useMemo(() => {
     return state.productSuppliers.filter(ps => ps.supplierId === supplierId);
   }, [state.productSuppliers, supplierId]);
 
-  // Get supplier's POs
   const supplierPOs = useMemo(() => {
     if (!supplier) return [];
     return state.purchaseOrders
@@ -63,16 +58,13 @@ export default function SupplierDetailPage() {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [state.purchaseOrders, supplier]);
 
-  // Stats
   const stats = useMemo(() => {
     const totalOrders = supplierPOs.length;
     const totalSpend = supplierPOs.reduce((sum, po) => sum + po.total, 0);
     const avgLeadTime = supplier?.leadTimeDays || 0;
-
     return { totalOrders, totalSpend, avgLeadTime };
   }, [supplierPOs, supplier]);
 
-  // Handle remove product supplier
   const handleRemoveProduct = (ps: ProductSupplier) => {
     dispatch({
       type: 'REMOVE_PRODUCT_SUPPLIER',
@@ -82,9 +74,7 @@ export default function SupplierDetailPage() {
     setShowProductActions(null);
   };
 
-  // Handle set primary
   const handleSetPrimary = (ps: ProductSupplier) => {
-    // First, unset any existing primary for this product
     const existingPrimary = state.productSuppliers.find(
       p => p.productId === ps.productId && p.isPrimary && p.supplierId !== ps.supplierId
     );
@@ -95,13 +85,11 @@ export default function SupplierDetailPage() {
       });
     }
 
-    // Set this one as primary
     dispatch({
       type: 'UPDATE_PRODUCT_SUPPLIER',
       payload: { ...ps, isPrimary: true }
     });
 
-    // Update product's primarySupplierId
     const product = state.products.find(p => p.id === ps.productId);
     if (product) {
       dispatch({
@@ -112,24 +100,6 @@ export default function SupplierDetailPage() {
 
     success('Set as primary supplier');
     setShowProductActions(null);
-  };
-
-  // Get status badge for PO
-  const getStatusBadge = (status: string) => {
-    const configs: Record<string, { bg: string; text: string }> = {
-      draft: { bg: 'bg-slate-500/20', text: 'text-slate-400' },
-      pending: { bg: 'bg-amber-500/20', text: 'text-amber-400' },
-      ordered: { bg: 'bg-blue-500/20', text: 'text-blue-400' },
-      partial: { bg: 'bg-purple-500/20', text: 'text-purple-400' },
-      received: { bg: 'bg-emerald-500/20', text: 'text-emerald-400' },
-      cancelled: { bg: 'bg-red-500/20', text: 'text-red-400' },
-    };
-    const config = configs[status] || configs.draft;
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs ${config.bg} ${config.text} capitalize`}>
-        {status}
-      </span>
-    );
   };
 
   if (!supplier) {
@@ -154,7 +124,6 @@ export default function SupplierDetailPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Breadcrumb */}
       <Breadcrumb items={[
         { label: 'Inventory', href: '/inventory' },
         { label: 'Suppliers', href: '/inventory/suppliers' },
@@ -164,10 +133,7 @@ export default function SupplierDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link
-            href="/inventory/suppliers"
-            className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
-          >
+          <Link href="/inventory/suppliers" className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors">
             <ArrowLeft className="w-5 h-5 text-slate-400" />
           </Link>
           <div className="flex items-center gap-3">
@@ -177,20 +143,8 @@ export default function SupplierDetailPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-semibold text-white">{supplier.name}</h1>
-                <span className="px-2 py-1 bg-slate-700 text-slate-300 text-xs rounded font-mono">
-                  {supplier.code}
-                </span>
-                {supplier.isActive ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-400">
-                    <CheckCircle className="w-3 h-3" />
-                    Active
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-slate-500/20 text-slate-400">
-                    <XCircle className="w-3 h-3" />
-                    Inactive
-                  </span>
-                )}
+                <SupplierCodeBadge code={supplier.code} />
+                <SupplierStatusBadge isActive={supplier.isActive} />
               </div>
               <p className="text-slate-400 text-sm mt-1">
                 {supplierProducts.length} products • {supplierPOs.length} orders
@@ -260,9 +214,7 @@ export default function SupplierDetailPage() {
               {supplier.phone && (
                 <div className="flex items-center gap-2">
                   <Phone className="w-4 h-4 text-slate-500" />
-                  <a href={`tel:${supplier.phone}`} className="text-white">
-                    {supplier.phone}
-                  </a>
+                  <a href={`tel:${supplier.phone}`} className="text-white">{supplier.phone}</a>
                 </div>
               )}
               {supplier.website && (
@@ -333,9 +285,7 @@ export default function SupplierDetailPage() {
               <div className="flex justify-between">
                 <span className="text-slate-400">Min Order</span>
                 <span className="text-white">
-                  {supplier.minimumOrderValue
-                    ? formatCurrency(supplier.minimumOrderValue)
-                    : 'None'}
+                  {supplier.minimumOrderValue ? formatCurrency(supplier.minimumOrderValue) : 'None'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -347,7 +297,6 @@ export default function SupplierDetailPage() {
             </div>
           </Card>
 
-          {/* Notes */}
           {supplier.notes && (
             <Card className="p-5 col-span-3">
               <h3 className="font-medium text-white mb-3">Notes</h3>
@@ -397,10 +346,7 @@ export default function SupplierDetailPage() {
                     return (
                       <tr key={ps.productId} className="hover:bg-slate-800/30">
                         <td className="px-4 py-3">
-                          <Link
-                            href={`/inventory/${product.id}`}
-                            className="hover:text-emerald-400"
-                          >
+                          <Link href={`/inventory/${product.id}`} className="hover:text-emerald-400">
                             <div className="font-medium text-white">{product.name}</div>
                             <div className="text-xs text-slate-400 font-mono">{product.sku}</div>
                           </Link>
@@ -416,16 +362,12 @@ export default function SupplierDetailPage() {
                           <span className="text-white">{formatCurrency(ps.unitCost)}</span>
                           <span className="text-slate-500 text-xs ml-1">{ps.currency}</span>
                         </td>
-                        <td className="px-4 py-3 text-center text-slate-300">
-                          {ps.minimumOrderQty || '-'}
-                        </td>
+                        <td className="px-4 py-3 text-center text-slate-300">{ps.minimumOrderQty || '-'}</td>
                         <td className="px-4 py-3 text-center text-slate-300">
                           {ps.leadTimeDays || supplier.leadTimeDays || '-'} days
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {ps.isPrimary && (
-                            <Star className="w-4 h-4 text-amber-400 mx-auto fill-amber-400" />
-                          )}
+                          {ps.isPrimary && <Star className="w-4 h-4 text-amber-400 mx-auto fill-amber-400" />}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end relative">
@@ -503,23 +445,12 @@ export default function SupplierDetailPage() {
                       <td className="px-4 py-3">
                         <span className="font-mono text-white">{po.poNumber}</span>
                       </td>
-                      <td className="px-4 py-3 text-slate-400">
-                        {formatDate(po.createdAt)}
-                      </td>
-                      <td className="px-4 py-3 text-center text-slate-300">
-                        {po.items.length} items
-                      </td>
-                      <td className="px-4 py-3 text-right text-white">
-                        {formatCurrency(po.total)}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {getStatusBadge(po.status)}
-                      </td>
+                      <td className="px-4 py-3 text-slate-400">{formatDate(po.createdAt)}</td>
+                      <td className="px-4 py-3 text-center text-slate-300">{po.items.length} items</td>
+                      <td className="px-4 py-3 text-right text-white">{formatCurrency(po.total)}</td>
+                      <td className="px-4 py-3 text-center"><POStatusBadge status={po.status} /></td>
                       <td className="px-4 py-3 text-right">
-                        <Link
-                          href={`/operations/purchase-orders`}
-                          className="text-emerald-400 hover:text-emerald-300 text-sm"
-                        >
+                        <Link href={`/operations/purchase-orders`} className="text-emerald-400 hover:text-emerald-300 text-sm">
                           View
                         </Link>
                       </td>
@@ -532,26 +463,20 @@ export default function SupplierDetailPage() {
         </Card>
       )}
 
-      {/* Edit Modal */}
       <SupplierModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         editSupplier={supplier}
       />
 
-      {/* Assign Products Modal */}
       <AssignProductsModal
         isOpen={isAssignModalOpen}
         onClose={() => setIsAssignModalOpen(false)}
         supplier={supplier}
       />
 
-      {/* Click away to close actions */}
       {showProductActions && (
-        <div
-          className="fixed inset-0 z-0"
-          onClick={() => setShowProductActions(null)}
-        />
+        <div className="fixed inset-0 z-0" onClick={() => setShowProductActions(null)} />
       )}
     </div>
   );
