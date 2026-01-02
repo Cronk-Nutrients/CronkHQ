@@ -14,6 +14,13 @@ import { ImportCSVModal } from '@/components/modals/ImportCSVModal';
 import { SerialLookup } from '@/components/SerialLookup';
 import { formatCurrency, formatNumber } from '@/lib/formatting';
 import { Hash, Layers, Loader2 } from 'lucide-react';
+import {
+  getCategoryStyle,
+  categoryStyles,
+  CategoryIcon,
+  StockStatus,
+} from '@/components/inventory';
+import { Pagination, EmptyState } from '@/components/inventory/InventoryTable';
 
 type CategoryFilter = 'all' | 'nutrients' | 'supplements' | 'ph_adjusters' | 'bundles';
 type StatusFilter = 'all' | 'in_stock' | 'low_stock' | 'out_of_stock';
@@ -276,45 +283,9 @@ function InventoryPageContent() {
     };
   }, [state.products, state.inventory]);
 
-  // Category styles
-  const getCategoryStyle = (category: Product['category']) => {
-    const styles: Record<string, { gradient: string; border: string; text: string; icon: string }> = {
-      nutrients: {
-        gradient: 'from-emerald-500/20 to-emerald-600/20',
-        border: 'border-emerald-500/20',
-        text: 'text-emerald-400',
-        icon: 'fa-flask',
-      },
-      supplements: {
-        gradient: 'from-purple-500/20 to-purple-600/20',
-        border: 'border-purple-500/20',
-        text: 'text-purple-400',
-        icon: 'fa-seedling',
-      },
-      ph_adjusters: {
-        gradient: 'from-blue-500/20 to-blue-600/20',
-        border: 'border-blue-500/20',
-        text: 'text-blue-400',
-        icon: 'fa-vial',
-      },
-      bundles: {
-        gradient: 'from-amber-500/20 to-amber-600/20',
-        border: 'border-amber-500/20',
-        text: 'text-amber-400',
-        icon: 'fa-boxes-stacked',
-      },
-    };
-    return styles[category] || styles.nutrients;
-  };
-
+  // Get category label from shared styles
   const getCategoryLabel = (category: Product['category']) => {
-    const labels: Record<string, string> = {
-      nutrients: 'Nutrients',
-      supplements: 'Supplements',
-      ph_adjusters: 'pH Adjusters',
-      bundles: 'Bundles',
-    };
-    return labels[category] || category;
+    return categoryStyles[category]?.label || category;
   };
 
   // Handle row click
@@ -685,7 +656,6 @@ function InventoryPageContent() {
           {paginatedProducts.map((product) => {
             const stock = getProductStock(product.id);
             const status = getStockStatus(product);
-            const categoryStyle = getCategoryStyle(product.category);
             const avgMargin = getAvgMargin(product);
 
             return (
@@ -697,9 +667,7 @@ function InventoryPageContent() {
                 }`}
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className={`w-12 h-12 bg-gradient-to-br ${categoryStyle.gradient} rounded-lg flex items-center justify-center border ${categoryStyle.border}`}>
-                    <i className={`fas ${categoryStyle.icon} ${categoryStyle.text}`}></i>
-                  </div>
+                  <CategoryIcon category={product.category} />
                   <input
                     type="checkbox"
                     checked={selectedProducts.has(product.id)}
@@ -719,14 +687,7 @@ function InventoryPageContent() {
                   }`}>
                     {formatNumber(stock.total)} units
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded ${
-                    status === 'in_stock' ? 'bg-emerald-500/10 text-emerald-400' :
-                    status === 'low_stock' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'
-                  }`}>
-                    {status === 'in_stock' && 'In Stock'}
-                    {status === 'low_stock' && 'Low Stock'}
-                    {status === 'out_of_stock' && 'Out of Stock'}
-                  </span>
+                  <StockStatus status={status} />
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
@@ -787,7 +748,6 @@ function InventoryPageContent() {
                 {paginatedProducts.map((product) => {
                   const stock = getProductStock(product.id);
                   const status = getStockStatus(product);
-                  const categoryStyle = getCategoryStyle(product.category);
                   const avgMargin = getAvgMargin(product);
 
                   return (
@@ -811,9 +771,7 @@ function InventoryPageContent() {
                       {/* Product */}
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-3">
-                          <div className={`w-12 h-12 bg-gradient-to-br ${categoryStyle.gradient} rounded-lg flex items-center justify-center border ${categoryStyle.border}`}>
-                            <i className={`fas ${categoryStyle.icon} ${categoryStyle.text}`}></i>
-                          </div>
+                          <CategoryIcon category={product.category} />
                           <div>
                             <div className="font-medium text-white">{product.name}</div>
                             <div className="text-xs text-slate-400">{getCategoryLabel(product.category)} • {product.weight.value} {product.weight.unit}</div>
@@ -862,14 +820,7 @@ function InventoryPageContent() {
                               </span>
                             ))}
                           </div>
-                          <div className={`text-xs mt-1 ${
-                            status === 'in_stock' ? 'text-emerald-400' :
-                            status === 'low_stock' ? 'text-amber-400' : 'text-red-400'
-                          }`}>
-                            {status === 'in_stock' && '✓ In Stock'}
-                            {status === 'low_stock' && '↓ Low Stock'}
-                            {status === 'out_of_stock' && '✗ Out of Stock'}
-                          </div>
+                          <StockStatus status={status} compact />
                         </div>
                       </td>
 
@@ -961,57 +912,14 @@ function InventoryPageContent() {
           )}
 
           {/* Pagination */}
-          {filteredProducts.length > 0 && (
-            <div className="px-5 py-4 border-t border-slate-700/50 flex items-center justify-between">
-              <div className="text-sm text-slate-400">
-                Showing <span className="text-white">{((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</span> of <span className="text-white">{filteredProducts.length}</span> products
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <i className="fas fa-chevron-left text-sm"></i>
-                </button>
-
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                  let pageNum: number;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`px-3 py-1.5 rounded-lg transition-colors ${
-                        currentPage === pageNum
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                          : 'bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-
-                <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <i className="fas fa-chevron-right text-sm"></i>
-                </button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredProducts.length}
+            itemsPerPage={itemsPerPage}
+            itemLabel="products"
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
 

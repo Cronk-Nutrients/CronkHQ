@@ -9,6 +9,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { AddProductModal } from '@/components/modals/AddProductModal';
 import { AdjustStockModal } from '@/components/modals/AdjustStockModal';
 import { formatCurrency, formatNumber } from '@/lib/formatting';
+import { getCategoryStyle, CategoryIcon } from '@/components/inventory';
 
 type TabType = 'overview' | 'suppliers' | 'bundles';
 
@@ -226,37 +227,6 @@ export default function ItemDetailPage() {
     },
   ];
 
-  // Category styles
-  const getCategoryStyle = (category: string) => {
-    const styles: Record<string, { gradient: string; border: string; text: string; icon: string }> = {
-      nutrients: {
-        gradient: 'from-emerald-500/20 to-emerald-600/20',
-        border: 'border-emerald-500/30',
-        text: 'text-emerald-400',
-        icon: 'fa-flask',
-      },
-      supplements: {
-        gradient: 'from-purple-500/20 to-purple-600/20',
-        border: 'border-purple-500/30',
-        text: 'text-purple-400',
-        icon: 'fa-seedling',
-      },
-      ph_adjusters: {
-        gradient: 'from-blue-500/20 to-blue-600/20',
-        border: 'border-blue-500/30',
-        text: 'text-blue-400',
-        icon: 'fa-vial',
-      },
-      bundles: {
-        gradient: 'from-amber-500/20 to-amber-600/20',
-        border: 'border-amber-500/30',
-        text: 'text-amber-400',
-        icon: 'fa-boxes-stacked',
-      },
-    };
-    return styles[category] || styles.nutrients;
-  };
-
   const categoryStyle = getCategoryStyle(product.category);
 
   // Find related variants - products with similar base name (e.g., "Micro 5-0-1" variants: 500mL, 1L, 1Gal)
@@ -299,9 +269,7 @@ export default function ItemDetailPage() {
             <i className="fas fa-arrow-left"></i>
           </button>
           <div className="flex items-center gap-4">
-            <div className={`w-16 h-16 bg-gradient-to-br ${categoryStyle.gradient} rounded-xl flex items-center justify-center border ${categoryStyle.border}`}>
-              <i className={`fas ${categoryStyle.icon} ${categoryStyle.text} text-2xl`}></i>
-            </div>
+            <CategoryIcon category={product.category} size="lg" />
             <div>
               <h1 className="text-2xl font-bold text-white">{product.name}</h1>
               <div className="flex items-center gap-3 text-sm">
