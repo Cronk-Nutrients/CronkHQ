@@ -83,6 +83,19 @@ export default function Sidebar() {
         { href: '/operations/work-orders', icon: 'fa-industry', label: 'Work Orders', badge: pendingWOsCount },
       ]
     },
+    {
+      id: 'marketing',
+      icon: 'fa-bullhorn',
+      label: 'Marketing',
+      children: [
+        { href: '/marketing', icon: 'fa-chart-line', label: 'Dashboard' },
+        { href: '/marketing/google-ads', icon: 'fa-google', label: 'Google Ads', isBrand: true },
+        { href: '/marketing/meta-ads', icon: 'fa-meta', label: 'Meta Ads', isBrand: true },
+        { href: '/marketing/amazon-ads', icon: 'fa-amazon', label: 'Amazon Ads', isBrand: true },
+        { href: '/marketing/tiktok-ads', icon: 'fa-tiktok', label: 'TikTok Ads', isBrand: true },
+        { href: '/marketing/email', icon: 'fa-envelope', label: 'Email Marketing' },
+      ]
+    },
   ];
 
   const bottomNavItems: NavItem[] = [
