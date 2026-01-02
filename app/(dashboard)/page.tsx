@@ -15,6 +15,7 @@ import {
   Tag,
   Check,
   ArrowUp,
+  ArrowDown,
   AlertTriangle,
   CheckCircle,
   XCircle,
@@ -28,6 +29,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { useDateRange } from '@/context/DateRangeContext';
 import { formatCurrency } from '@/data/mockData';
 import { ChannelBadge, QueueStatusBadge } from '@/components/fulfillment/FulfillmentBadges';
 import { ChannelCard, QuickActionCard } from '@/components/dashboard';
@@ -35,6 +37,7 @@ import { ChannelCard, QuickActionCard } from '@/components/dashboard';
 export default function Dashboard() {
   const router = useRouter();
   const { state } = useApp();
+  const { dateRange, isInRange, getComparisonRange } = useDateRange();
 
   // Helper to get total stock for a product
   const getTotalStock = (productId: string) => {
@@ -45,10 +48,31 @@ export default function Dashboard() {
 
   // Calculate live dashboard stats from AppContext
   const dashboardStats = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Filter orders by selected date range
+    const periodOrders = state.orders.filter(o => isInRange(o.createdAt));
 
-    const todaysOrders = state.orders.filter(o => new Date(o.createdAt) >= today);
+    // Get comparison period for change calculation
+    const compRange = getComparisonRange();
+    const compOrders = compRange
+      ? state.orders.filter(o => {
+          const orderDate = new Date(o.createdAt);
+          return orderDate >= compRange.startDate && orderDate <= compRange.endDate;
+        })
+      : [];
+
+    // Calculate period metrics
+    const periodRevenue = periodOrders.reduce((sum, o) => sum + o.total, 0);
+    const periodProfit = periodOrders.reduce((sum, o) => sum + o.profit, 0);
+    const compRevenue = compOrders.reduce((sum, o) => sum + o.total, 0);
+    const compProfit = compOrders.reduce((sum, o) => sum + o.profit, 0);
+
+    // Calculate change percentages
+    const revenueChange = compRevenue > 0 ? ((periodRevenue - compRevenue) / compRevenue) * 100 : 0;
+    const profitChange = compProfit > 0 ? ((periodProfit - compProfit) / compProfit) * 100 : 0;
+    const ordersChange = compOrders.length > 0 ? ((periodOrders.length - compOrders.length) / compOrders.length) * 100 : 0;
+
+    // Filter shipments by date range
+    const periodShipments = state.shipments.filter(s => s.shippedAt && isInRange(s.shippedAt));
 
     return {
       toPick: state.orders.filter(o => o.status === 'to_pick').length,
@@ -56,10 +80,13 @@ export default function Dashboard() {
       toPack: state.orders.filter(o => o.status === 'to_pack').length,
       packing: state.orders.filter(o => o.status === 'packing').length,
       readyToShip: state.orders.filter(o => o.status === 'ready').length,
-      shippedToday: state.shipments.filter(s => new Date(s.shippedAt) >= today).length,
-      todaysRevenue: todaysOrders.reduce((sum, o) => sum + o.total, 0),
-      todaysProfit: todaysOrders.reduce((sum, o) => sum + o.profit, 0),
-      todaysOrders: todaysOrders.length,
+      shippedInPeriod: periodShipments.length,
+      periodRevenue,
+      periodProfit,
+      periodOrders: periodOrders.length,
+      revenueChange,
+      profitChange,
+      ordersChange,
       lowStockCount: state.products.filter(p => {
         const stock = getTotalStock(p.id);
         return stock <= p.reorderPoint;
@@ -73,7 +100,7 @@ export default function Dashboard() {
         return sum + (p.cost.rolling * getTotalStock(p.id));
       }, 0),
     };
-  }, [state.orders, state.products, state.inventory, state.shipments]);
+  }, [state.orders, state.products, state.inventory, state.shipments, isInRange, getComparisonRange]);
 
   // Calculate inventory valuation by location
   const inventoryValuation = useMemo(() => {
@@ -187,12 +214,11 @@ export default function Dashboard() {
 
   // Channel performance from orders
   const channelPerformance = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todaysOrders = state.orders.filter(o => new Date(o.createdAt) >= today);
+    // Filter orders by selected date range
+    const periodOrders = state.orders.filter(o => isInRange(o.createdAt));
 
-    const shopifyOrders = todaysOrders.filter(o => o.channel === 'shopify');
-    const amazonOrders = todaysOrders.filter(o => o.channel === 'amazon_fba' || o.channel === 'amazon_fbm');
+    const shopifyOrders = periodOrders.filter(o => o.channel === 'shopify');
+    const amazonOrders = periodOrders.filter(o => o.channel === 'amazon_fba' || o.channel === 'amazon_fbm');
 
     const shopifyRevenue = shopifyOrders.reduce((sum, o) => sum + o.total, 0);
     const amazonRevenue = amazonOrders.reduce((sum, o) => sum + o.total, 0);
@@ -212,7 +238,7 @@ export default function Dashboard() {
         pct: totalRevenue > 0 ? Math.round((amazonRevenue / totalRevenue) * 100) : 0,
       },
     };
-  }, [state.orders]);
+  }, [state.orders, isInRange]);
 
   const formatCurrencyPrecise = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -235,23 +261,39 @@ export default function Dashboard() {
         <div className="rounded-xl bg-slate-800/50 backdrop-blur border border-slate-700/50 p-5">
           <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
             <DollarSign className="h-4 w-4" />
-            <span>Today&apos;s Revenue</span>
+            <span>{dateRange.label} Revenue</span>
           </div>
-          <div className="text-3xl font-bold text-white">{formatCurrencyPrecise(dashboardStats.todaysRevenue)}</div>
-          <div className="text-sm text-slate-400 mt-1">{dashboardStats.todaysOrders} orders</div>
+          <div className="text-3xl font-bold text-white">{formatCurrencyPrecise(dashboardStats.periodRevenue)}</div>
+          <div className="flex items-center gap-2 text-sm mt-1">
+            <span className="text-slate-400">{dashboardStats.periodOrders} orders</span>
+            {dashboardStats.revenueChange !== 0 && (
+              <span className={`flex items-center gap-0.5 ${dashboardStats.revenueChange > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {dashboardStats.revenueChange > 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                {Math.abs(dashboardStats.revenueChange).toFixed(1)}%
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Gross Profit */}
         <div className="rounded-xl bg-gradient-to-br from-emerald-500/20 to-green-600/20 border border-emerald-500/30 p-5">
           <div className="flex items-center gap-2 text-emerald-300 text-sm mb-2">
             <TrendingUp className="h-4 w-4" />
-            <span>Today&apos;s Profit</span>
+            <span>{dateRange.label} Profit</span>
           </div>
-          <div className="text-3xl font-bold text-emerald-400">{formatCurrencyPrecise(dashboardStats.todaysProfit)}</div>
-          <div className="text-sm text-slate-300 mt-1">
-            {dashboardStats.todaysRevenue > 0
-              ? ((dashboardStats.todaysProfit / dashboardStats.todaysRevenue) * 100).toFixed(1)
-              : 0}% margin
+          <div className="text-3xl font-bold text-emerald-400">{formatCurrencyPrecise(dashboardStats.periodProfit)}</div>
+          <div className="flex items-center gap-2 text-sm mt-1">
+            <span className="text-slate-300">
+              {dashboardStats.periodRevenue > 0
+                ? ((dashboardStats.periodProfit / dashboardStats.periodRevenue) * 100).toFixed(1)
+                : 0}% margin
+            </span>
+            {dashboardStats.profitChange !== 0 && (
+              <span className={`flex items-center gap-0.5 ${dashboardStats.profitChange > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {dashboardStats.profitChange > 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                {Math.abs(dashboardStats.profitChange).toFixed(1)}%
+              </span>
+            )}
           </div>
         </div>
 
@@ -380,7 +422,7 @@ export default function Dashboard() {
         <div className="rounded-xl bg-slate-800/50 backdrop-blur border border-slate-700/50 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-700/50">
             <h2 className="font-semibold text-white">Fulfillment Status</h2>
-            <p className="text-xs text-slate-400">Today&apos;s order pipeline</p>
+            <p className="text-xs text-slate-400">Current order pipeline</p>
           </div>
           <div className="p-5 space-y-4">
             {/* To Pick */}
@@ -434,7 +476,7 @@ export default function Dashboard() {
               <div className="text-2xl font-bold text-purple-400">{dashboardStats.readyToShip}</div>
             </Link>
 
-            {/* Shipped Today */}
+            {/* Shipped in Period */}
             <Link
               href="/fulfillment/shipping?date=today"
               className="flex items-center justify-between p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 transition-colors group"
@@ -444,11 +486,11 @@ export default function Dashboard() {
                   <Check className="h-5 w-5 text-emerald-400" />
                 </div>
                 <div className="text-left">
-                  <div className="font-medium text-white group-hover:text-emerald-400 transition-colors">Shipped Today</div>
-                  <div className="text-xs text-slate-400">Completed</div>
+                  <div className="font-medium text-white group-hover:text-emerald-400 transition-colors">Shipped</div>
+                  <div className="text-xs text-slate-400">{dateRange.label}</div>
                 </div>
               </div>
-              <div className="text-2xl font-bold text-emerald-400">{dashboardStats.shippedToday}</div>
+              <div className="text-2xl font-bold text-emerald-400">{dashboardStats.shippedInPeriod}</div>
             </Link>
 
             {/* Total Orders */}
@@ -470,7 +512,7 @@ export default function Dashboard() {
         <div className="rounded-xl bg-slate-800/50 backdrop-blur border border-slate-700/50 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-700/50">
             <h2 className="font-semibold text-white">Channel Performance</h2>
-            <p className="text-xs text-slate-400">Today</p>
+            <p className="text-xs text-slate-400">{dateRange.label}</p>
           </div>
           <div className="p-5 space-y-4">
             <ChannelCard

@@ -4,6 +4,7 @@ import { ReactNode } from 'react';
 import { AuthProvider } from '@/context/AuthContext';
 import { OrganizationProvider } from '@/context/OrganizationContext';
 import { AppProvider } from '@/context/AppContext';
+import { DateRangeProvider } from '@/context/DateRangeContext';
 import { ToastProvider } from '@/components/ui/Toast';
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
 
@@ -15,13 +16,15 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <AuthProvider>
       <OrganizationProvider>
-        <AppProvider>
-          <ToastProvider>
-            <ConfirmProvider>
-              {children}
-            </ConfirmProvider>
-          </ToastProvider>
-        </AppProvider>
+        <DateRangeProvider>
+          <AppProvider>
+            <ToastProvider>
+              <ConfirmProvider>
+                {children}
+              </ConfirmProvider>
+            </ToastProvider>
+          </AppProvider>
+        </DateRangeProvider>
       </OrganizationProvider>
     </AuthProvider>
   );
