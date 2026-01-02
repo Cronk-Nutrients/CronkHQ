@@ -2,3 +2,4 @@
 export * from './FulfillmentBadges';
 export * from './FulfillmentStats';
 export * from './StatusFilterTabs';
+export * from './ShippingConfig';
