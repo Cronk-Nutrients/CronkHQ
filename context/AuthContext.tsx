@@ -24,6 +24,8 @@ export interface UserProfile {
   photoURL: string | null
   role: 'admin' | 'warehouse' | 'viewer'
   company?: string
+  organizationId?: string // Organization this user belongs to
+  organizations?: string[] // All organizations user is a member of
   createdAt?: Date
   lastLoginAt?: Date
   isDemo?: boolean
@@ -53,6 +55,8 @@ const DEMO_USER_PROFILE: UserProfile = {
   photoURL: null,
   role: 'admin',
   company: 'Cronk Nutrients (Demo)',
+  organizationId: 'demo-org-id',
+  organizations: ['demo-org-id'],
   isDemo: true,
 }
 
