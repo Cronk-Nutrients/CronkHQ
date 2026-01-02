@@ -137,6 +137,13 @@ export default function SettingsPage() {
               <i className="fas fa-bolt w-4"></i>
               Automations
             </Link>
+            <Link
+              href="/settings/sales-channels"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors"
+            >
+              <i className="fas fa-store w-4"></i>
+              Sales Channels
+            </Link>
           </div>
         </div>
       </div>

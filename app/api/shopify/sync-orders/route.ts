@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/firebase-admin'
+import { FieldValue } from 'firebase-admin/firestore'
 
 interface ShopifyLineItem {
   id: number
@@ -256,7 +257,24 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // Get or create Shopify sales channel
+    const channelsRef = adminDb.collection('organizations').doc(organizationId).collection('salesChannels')
+    const shopifyChannelSnap = await channelsRef.where('code', '==', 'shopify').limit(1).get()
+
+    let shopifyChannelId = ''
+    let shopifyChannelName = 'Shopify'
+    let shopifyChannelCode = 'shopify'
+
+    if (!shopifyChannelSnap.empty) {
+      const channelDoc = shopifyChannelSnap.docs[0]
+      shopifyChannelId = channelDoc.id
+      const channelData = channelDoc.data()
+      shopifyChannelName = channelData.name || 'Shopify'
+      shopifyChannelCode = channelData.code || 'shopify'
+    }
+
     let imported = 0
+    let totalImportedRevenue = 0
     let updated = 0
     let skipped = 0
     let totalFetched = 0
@@ -545,7 +563,22 @@ export async function POST(request: NextRequest) {
 
           updatedAt: new Date(),
           source: 'shopify',
+
+          // Sales channel info
+          channelId: shopifyChannelId,
+          channelCode: shopifyChannelCode,
+          channelName: shopifyChannelName,
+
+          // Source details
+          sourceDetails: {
+            platform: 'shopify',
+            externalId: shopifyId,
+            externalOrderNumber: shopifyOrder.name,
+            importedAt: new Date(),
+          },
         }
+
+        const orderTotal = parseFloat(shopifyOrder.total_price) || 0
 
         if (existingDocId) {
           // Update existing order
@@ -558,6 +591,7 @@ export async function POST(request: NextRequest) {
             createdAt: new Date(),
           })
           imported++
+          totalImportedRevenue += orderTotal
         }
       }
 
@@ -568,6 +602,22 @@ export async function POST(request: NextRequest) {
     await adminDb.collection('organizations').doc(organizationId).update({
       'shopify.lastSyncOrders': new Date(),
     })
+
+    // Update Shopify channel stats
+    if (shopifyChannelId && imported > 0) {
+      try {
+        await channelsRef.doc(shopifyChannelId).update({
+          'stats.totalOrders': FieldValue.increment(imported),
+          'stats.pendingOrders': FieldValue.increment(imported),
+          'stats.totalRevenue': FieldValue.increment(totalImportedRevenue),
+          'stats.lastOrderAt': new Date(),
+          'integration.lastSyncAt': new Date(),
+        })
+      } catch (channelUpdateError) {
+        console.error('Error updating channel stats:', channelUpdateError)
+        // Don't fail the sync for this
+      }
+    }
 
     return NextResponse.json({
       success: true,
