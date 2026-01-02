@@ -248,18 +248,58 @@ export default function Sidebar() {
 
         {/* Bottom Nav Items */}
         {bottomNavItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href!}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-              isActiveRoute(item.href!)
-                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-            }`}
-          >
-            <i className={`fas ${item.icon} w-5`}></i>
-            <span>{item.label}</span>
-          </Link>
+          <div key={item.id || item.href}>
+            {item.children ? (
+              // Expandable menu
+              <>
+                <button
+                  onClick={() => toggleMenu(item.id!)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                    isParentActive(item)
+                      ? 'bg-emerald-500/10 text-emerald-400'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                  }`}
+                >
+                  <i className={`fas ${item.icon} w-5`}></i>
+                  <span className="font-medium">{item.label}</span>
+                  <i className={`fas fa-chevron-${expandedMenus.includes(item.id!) ? 'down' : 'right'} text-xs text-slate-500 ml-auto`}></i>
+                </button>
+
+                {/* Sub-menu */}
+                {expandedMenus.includes(item.id!) && (
+                  <div className="ml-4 mt-1 space-y-1 border-l border-slate-700/50 pl-3">
+                    {item.children.map((child) => (
+                      <Link
+                        key={child.href}
+                        href={child.href!}
+                        className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-all text-sm ${
+                          isActiveRoute(child.href!)
+                            ? 'bg-emerald-500/10 text-emerald-400'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <i className={`${child.isBrand ? 'fab' : 'fas'} ${child.icon} w-4 text-xs`}></i>
+                        <span>{child.label}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              // Single menu item
+              <Link
+                href={item.href!}
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                  isActiveRoute(item.href!)
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <i className={`fas ${item.icon} w-5`}></i>
+                <span>{item.label}</span>
+              </Link>
+            )}
+          </div>
         ))}
       </nav>
 
