@@ -1364,8 +1364,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
               cogs: 0, // Calculate if we have cost data
               profit: 0, // Calculate if we have cost data
               margin: 0,
+              // Tracking info from fulfillments
               trackingNumber: data.fulfillments?.[0]?.trackingNumber || undefined,
               carrier: data.fulfillments?.[0]?.trackingCompany || undefined,
+              service: data.shippingMethod || undefined,
+              shippedAt: data.fulfillments?.[0]?.createdAt?.toDate?.() || undefined,
+              // Notes and tags
+              notes: data.note || undefined,
+              tags: data.tags || undefined,
               createdAt: data.shopifyCreatedAt?.toDate?.() || data.createdAt?.toDate?.() || new Date(),
               updatedAt: data.shopifyUpdatedAt?.toDate?.() || data.updatedAt?.toDate?.() || new Date(),
             };

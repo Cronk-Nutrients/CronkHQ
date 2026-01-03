@@ -31,6 +31,7 @@ function OrdersPageContent() {
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'total_high' | 'total_low'>('newest');
   const itemsPerPage = 10;
 
   // Initialize filters from URL
@@ -88,7 +89,7 @@ function OrdersPageContent() {
   };
 
   const filteredOrders = useMemo(() => {
-    return state.orders.filter(order => {
+    const filtered = state.orders.filter(order => {
       const matchesSearch = order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.customer.email.toLowerCase().includes(searchQuery.toLowerCase());
@@ -97,7 +98,23 @@ function OrdersPageContent() {
       const matchesDate = filterByDate(order.createdAt, dateFilter);
       return matchesSearch && matchesStatus && matchesChannel && matchesDate;
     });
-  }, [state.orders, searchQuery, statusFilter, channelFilter, dateFilter]);
+
+    // Apply sorting
+    return filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case 'oldest':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'total_high':
+          return b.total - a.total;
+        case 'total_low':
+          return a.total - b.total;
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
+  }, [state.orders, searchQuery, statusFilter, channelFilter, dateFilter, sortBy]);
 
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const paginatedOrders = filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -229,6 +246,13 @@ function OrdersPageContent() {
             className="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:outline-none focus:border-emerald-500/50">
             {dateFilterOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
+          <select value={sortBy} onChange={(e) => { setSortBy(e.target.value as typeof sortBy); setCurrentPage(1); }}
+            className="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:outline-none focus:border-emerald-500/50">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="total_high">Highest Total</option>
+            <option value="total_low">Lowest Total</option>
+          </select>
           {selectedOrders.size > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-sm text-slate-400">{selectedOrders.size} selected</span>
@@ -266,6 +290,7 @@ function OrdersPageContent() {
                 <th className="px-4 py-3 font-medium text-right">Profit</th>
                 <th className="px-4 py-3 font-medium text-center">Margin</th>
                 <th className="px-4 py-3 font-medium text-center">Status</th>
+                <th className="px-4 py-3 font-medium">Tracking</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/50">
@@ -276,8 +301,16 @@ function OrdersPageContent() {
                     <input type="checkbox" checked={selectedOrders.has(order.id)} onChange={() => {}} className="rounded bg-slate-700 border-slate-600" />
                   </td>
                   <td className="px-4 py-4">
-                    <div className="font-mono text-sm font-medium text-white">#{order.orderNumber}</div>
-                    {order.veeqoId && <div className="text-xs text-slate-500">Veeqo: {order.veeqoId}</div>}
+                    <div className="font-mono text-sm font-medium text-white">{order.orderNumber}</div>
+                    {order.notes && <div className="text-xs text-amber-400 truncate max-w-[150px]" title={order.notes}><i className="fas fa-sticky-note mr-1"></i>{order.notes}</div>}
+                    {order.tags && order.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {order.tags.slice(0, 2).map(tag => (
+                          <span key={tag} className="px-1.5 py-0.5 bg-slate-700 text-slate-300 text-[10px] rounded">{tag}</span>
+                        ))}
+                        {order.tags.length > 2 && <span className="text-[10px] text-slate-500">+{order.tags.length - 2}</span>}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-4">
                     <div className="text-sm text-white">{formatDate(order.createdAt)}</div>
@@ -301,6 +334,18 @@ function OrdersPageContent() {
                   </td>
                   <td className="px-4 py-4 text-center"><MarginBadge margin={order.margin} /></td>
                   <td className="px-4 py-4 text-center"><OrderStatusBadge status={order.status} /></td>
+                  <td className="px-4 py-4">
+                    {order.trackingNumber ? (
+                      <div>
+                        <div className="text-xs text-emerald-400">{order.carrier || 'Shipped'}</div>
+                        <div className="font-mono text-xs text-slate-300 truncate max-w-[120px]" title={order.trackingNumber}>{order.trackingNumber}</div>
+                      </div>
+                    ) : order.status === 'shipped' || order.status === 'delivered' ? (
+                      <span className="text-xs text-slate-500">No tracking</span>
+                    ) : (
+                      <span className="text-xs text-slate-600">—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
