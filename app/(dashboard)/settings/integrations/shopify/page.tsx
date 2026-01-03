@@ -2,69 +2,88 @@
 
 import { useState, useEffect } from 'react'
 import { db } from '@/lib/firebase'
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
-import { useAuth } from '@/context/AuthContext'
+import { doc, getDoc, setDoc, collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore'
 import { useOrganization } from '@/context/OrganizationContext'
 import { useToast } from '@/components/ui/Toast'
-import { Button } from '@/components/ui/Button'
 import Link from 'next/link'
-import { ShopifySyncSettings, ShopifyConnection } from '@/types'
 
-const DEFAULT_SYNC_SETTINGS: ShopifySyncSettings = {
-  productSyncMode: 'read',
-  autoSyncProducts: false,
-  pushProductChanges: false,
-  orderSyncMode: 'read',
-  autoSyncOrders: true,
-  inventorySyncMode: 'read',
-  pushInventoryLevels: false,
-  syncIntervalMinutes: 15,
+interface ShopifyConnection {
+  isConnected: boolean
+  storeName: string
+  storeUrl: string
+  accessToken: string
+  shopName: string | null
+  connectedAt: Date | null
+  lastSync: Date | null
+  syncStatus: 'idle' | 'syncing' | 'success' | 'error'
+  lastError: string | null
 }
 
-type OrderImportMode = 'unfulfilled' | 'all' | 'date_range'
-type OrderStatus = 'any' | 'open' | 'closed' | 'cancelled'
+interface TestResult {
+  success: boolean
+  shopName?: string
+  email?: string
+  plan?: string
+  ordersCount?: number
+  productsCount?: number
+  error?: string
+  rawResponse?: any
+}
 
 export default function ShopifySettingsPage() {
-  const { user } = useAuth()
   const { organization } = useOrganization()
-  const { success, error } = useToast()
+  const { success, error: showError } = useToast()
 
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [testing, setTesting] = useState(false)
-  const [syncing, setSyncing] = useState<'products' | 'orders' | null>(null)
-
-  // Order import modal state
-  const [showOrderImportModal, setShowOrderImportModal] = useState(false)
-  const [orderImportMode, setOrderImportMode] = useState<OrderImportMode>('unfulfilled')
-  const [orderImportStatus, setOrderImportStatus] = useState<OrderStatus>('any')
-  const [orderStartDate, setOrderStartDate] = useState('')
-  const [orderEndDate, setOrderEndDate] = useState('')
-  const [importProgress, setImportProgress] = useState<{ imported: number; updated: number; total: number } | null>(null)
-
-  const [connection, setConnection] = useState<ShopifyConnection | null>(null)
+  // Connection state
+  const [connection, setConnection] = useState<ShopifyConnection>({
+    isConnected: false,
+    storeName: '',
+    storeUrl: '',
+    accessToken: '',
+    shopName: null,
+    connectedAt: null,
+    lastSync: null,
+    syncStatus: 'idle',
+    lastError: null,
+  })
 
   // Form state
   const [storeName, setStoreName] = useState('')
   const [accessToken, setAccessToken] = useState('')
   const [showToken, setShowToken] = useState(false)
-  const [syncSettings, setSyncSettings] = useState<ShopifySyncSettings>(DEFAULT_SYNC_SETTINGS)
-  const [activeTab, setActiveTab] = useState<'connection' | 'sync' | 'logs'>('connection')
+
+  // UI state
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [testResult, setTestResult] = useState<TestResult | null>(null)
+  const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0, status: '' })
 
   // Load existing connection
   useEffect(() => {
-    if (!organization?.id) return
+    async function loadConnection() {
+      if (!organization?.id) return
 
-    const loadConnection = async () => {
       try {
-        const orgRef = doc(db, 'organizations', organization.id)
-        const orgDoc = await getDoc(orgRef)
-        if (orgDoc.exists() && orgDoc.data().shopify) {
-          const shopify = orgDoc.data().shopify as ShopifyConnection
-          setConnection(shopify)
-          setStoreName(shopify.storeName || '')
-          setAccessToken(shopify.accessToken || '')
-          setSyncSettings(shopify.syncSettings || DEFAULT_SYNC_SETTINGS)
+        const orgDoc = await getDoc(doc(db, 'organizations', organization.id))
+        if (orgDoc.exists()) {
+          const data = orgDoc.data()
+          if (data.shopify) {
+            setConnection({
+              isConnected: data.shopify.isConnected || false,
+              storeName: data.shopify.storeName || '',
+              storeUrl: data.shopify.storeUrl || '',
+              accessToken: data.shopify.accessToken || '',
+              shopName: data.shopify.shopName || null,
+              connectedAt: data.shopify.connectedAt?.toDate() || null,
+              lastSync: data.shopify.lastSync?.toDate() || null,
+              syncStatus: data.shopify.syncStatus || 'idle',
+              lastError: data.shopify.lastError || null,
+            })
+            setStoreName(data.shopify.storeName || '')
+            setAccessToken(data.shopify.accessToken || '')
+          }
         }
       } catch (err) {
         console.error('Error loading Shopify connection:', err)
@@ -79,32 +98,37 @@ export default function ShopifySettingsPage() {
   // Test connection
   const handleTestConnection = async () => {
     if (!storeName || !accessToken) {
-      error('Please enter store name and access token')
+      showError('Please enter store name and access token')
       return
     }
 
     setTesting(true)
+    setTestResult(null)
+
     try {
-      const response = await fetch('/api/shopify/test', {
+      const response = await fetch('/api/shopify/test-connection', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          organizationId: organization?.id,
-          storeName: storeName.replace('.myshopify.com', ''),
-          accessToken,
+          storeName: storeName.replace('.myshopify.com', '').trim(),
+          accessToken: accessToken.trim(),
         }),
       })
 
       const data = await response.json()
+      setTestResult(data)
 
       if (data.success) {
-        success(`Connected! Store: ${data.shopName}`)
+        success(`Connected to ${data.shopName}!`)
       } else {
-        error(data.error || 'Connection failed')
+        showError(data.error || 'Connection failed')
       }
-    } catch (err) {
-      console.error('Test connection error:', err)
-      error('Failed to test connection')
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        error: err.message || 'Network error',
+      })
+      showError('Failed to test connection')
     } finally {
       setTesting(false)
     }
@@ -112,66 +136,46 @@ export default function ShopifySettingsPage() {
 
   // Save connection
   const handleSaveConnection = async () => {
-    if (!organization?.id || !user) return
-    if (!storeName || !accessToken) {
-      error('Please enter store name and access token')
+    if (!organization?.id) return
+    if (!testResult?.success) {
+      showError('Please test the connection first')
       return
     }
 
     setSaving(true)
-    try {
-      const cleanStoreName = storeName.replace('.myshopify.com', '').toLowerCase()
 
-      const orgRef = doc(db, 'organizations', organization.id)
-      await updateDoc(orgRef, {
+    try {
+      const cleanStoreName = storeName.replace('.myshopify.com', '').trim()
+
+      await setDoc(doc(db, 'organizations', organization.id), {
         shopify: {
           isConnected: true,
           storeName: cleanStoreName,
-          storeUrl: `${cleanStoreName}.myshopify.com`,
-          accessToken,
-          lastSyncProducts: null,
-          lastSyncOrders: null,
-          syncSettings,
+          storeUrl: `https://${cleanStoreName}.myshopify.com`,
+          accessToken: accessToken.trim(),
+          shopName: testResult.shopName,
+          email: testResult.email,
+          plan: testResult.plan,
           connectedAt: serverTimestamp(),
-          connectedBy: user.uid,
+          lastSync: null,
+          syncStatus: 'idle',
+          lastError: null,
         },
-      })
+      }, { merge: true })
 
-      setConnection({
+      setConnection(prev => ({
+        ...prev,
         isConnected: true,
         storeName: cleanStoreName,
-        storeUrl: `${cleanStoreName}.myshopify.com`,
-        accessToken,
-        lastSyncProducts: null,
-        lastSyncOrders: null,
-        syncSettings,
+        storeUrl: `https://${cleanStoreName}.myshopify.com`,
+        accessToken: accessToken.trim(),
+        shopName: testResult.shopName || null,
         connectedAt: new Date(),
-        connectedBy: user.uid,
-      })
+      }))
 
-      success('Shopify connected successfully!')
-    } catch (err) {
-      console.error('Save connection error:', err)
-      error('Failed to save connection')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  // Save sync settings
-  const handleSaveSyncSettings = async () => {
-    if (!organization?.id || !connection) return
-
-    setSaving(true)
-    try {
-      const orgRef = doc(db, 'organizations', organization.id)
-      await updateDoc(orgRef, {
-        'shopify.syncSettings': syncSettings,
-      })
-      success('Sync settings saved')
-    } catch (err) {
-      console.error('Save settings error:', err)
-      error('Failed to save settings')
+      success('Shopify connection saved!')
+    } catch (err: any) {
+      showError(err.message || 'Failed to save connection')
     } finally {
       setSaving(false)
     }
@@ -180,169 +184,224 @@ export default function ShopifySettingsPage() {
   // Disconnect
   const handleDisconnect = async () => {
     if (!organization?.id) return
-    if (!confirm('Disconnect Shopify? This will stop syncing orders and products.')) return
+    if (!confirm('Disconnect from Shopify? This will not delete any synced data.')) return
 
     try {
-      const orgRef = doc(db, 'organizations', organization.id)
-      await updateDoc(orgRef, {
-        shopify: null,
-      })
+      await setDoc(doc(db, 'organizations', organization.id), {
+        shopify: {
+          isConnected: false,
+          accessToken: '',
+          lastSync: connection.lastSync,
+          disconnectedAt: serverTimestamp(),
+        },
+      }, { merge: true })
 
-      setConnection(null)
+      setConnection({
+        isConnected: false,
+        storeName: '',
+        storeUrl: '',
+        accessToken: '',
+        shopName: null,
+        connectedAt: null,
+        lastSync: connection.lastSync,
+        syncStatus: 'idle',
+        lastError: null,
+      })
       setStoreName('')
       setAccessToken('')
-      setSyncSettings(DEFAULT_SYNC_SETTINGS)
-      success('Shopify disconnected')
-    } catch (err) {
-      console.error('Disconnect error:', err)
-      error('Failed to disconnect')
+      setTestResult(null)
+
+      success('Disconnected from Shopify')
+    } catch (err: any) {
+      showError(err.message || 'Failed to disconnect')
     }
   }
 
-  // Sync products
-  const handleSyncProducts = async () => {
-    if (!organization?.id) return
-
-    setSyncing('products')
-    try {
-      const response = await fetch('/api/shopify/sync-products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId: organization.id }),
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        success(`Synced ${data.imported} new, ${data.updated} updated products from Shopify`)
-        // Refresh connection to get updated lastSyncProducts
-        const orgRef = doc(db, 'organizations', organization.id)
-        const orgDoc = await getDoc(orgRef)
-        if (orgDoc.exists() && orgDoc.data().shopify) {
-          setConnection(orgDoc.data().shopify as ShopifyConnection)
-        }
-      } else {
-        error(data.error || 'Sync failed')
-      }
-    } catch (err) {
-      console.error('Sync products error:', err)
-      error('Failed to sync products')
-    } finally {
-      setSyncing(null)
-    }
-  }
-
-  // Open order import modal
-  const openOrderImportModal = () => {
-    setOrderImportMode('unfulfilled')
-    setOrderImportStatus('any')
-    setOrderStartDate('')
-    setOrderEndDate('')
-    setImportProgress(null)
-    setShowOrderImportModal(true)
-  }
-
-  // Sync orders with options
+  // Sync orders
   const handleSyncOrders = async () => {
-    if (!organization?.id) return
+    if (!organization?.id || !connection.isConnected) return
 
-    setSyncing('orders')
-    setImportProgress(null)
+    setSyncing(true)
+    setSyncProgress({ current: 0, total: 0, status: 'Fetching orders from Shopify...' })
+
     try {
-      const requestBody: any = {
-        organizationId: organization.id,
-        importMode: orderImportMode,
-        includeStatus: orderImportStatus,
-      }
+      // Step 1: Fetch all orders from Shopify (with pagination)
+      let allOrders: any[] = []
+      let pageInfo: string | null = null
+      let pageCount = 0
 
-      if (orderImportMode === 'date_range') {
-        if (orderStartDate) requestBody.startDate = orderStartDate
-        if (orderEndDate) requestBody.endDate = orderEndDate
-      }
+      do {
+        pageCount++
+        setSyncProgress(prev => ({ ...prev, status: `Fetching page ${pageCount}...` }))
 
-      const response = await fetch('/api/shopify/sync-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setImportProgress({
-          imported: data.imported,
-          updated: data.updated,
-          total: data.total
+        const response: Response = await fetch('/api/shopify/fetch-orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            storeName: connection.storeName,
+            accessToken: connection.accessToken,
+            status: 'any',
+            limit: 250,
+            pageInfo,
+          }),
         })
-        success(`Imported ${data.imported} new orders, updated ${data.updated} existing (${data.total} total from Shopify)`)
-        // Refresh connection to get updated lastSyncOrders
-        const orgRef = doc(db, 'organizations', organization.id)
-        const orgDoc = await getDoc(orgRef)
-        if (orgDoc.exists() && orgDoc.data().shopify) {
-          setConnection(orgDoc.data().shopify as ShopifyConnection)
+
+        const data = await response.json()
+
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to fetch orders')
         }
-      } else {
-        error(data.error || 'Sync failed')
+
+        allOrders = [...allOrders, ...(data.orders || [])]
+        pageInfo = data.hasNextPage ? data.nextPageInfo : null
+
+      } while (pageInfo)
+
+      setSyncProgress({ current: 0, total: allOrders.length, status: 'Processing orders...' })
+
+      if (allOrders.length === 0) {
+        success('No orders to sync')
+        setSyncing(false)
+        return
       }
-    } catch (err) {
-      console.error('Sync orders error:', err)
-      error('Failed to sync orders')
-    } finally {
-      setSyncing(null)
-    }
-  }
 
-  // Quick sync unfulfilled orders (from connection tab)
-  const handleQuickSyncOrders = async () => {
-    if (!organization?.id) return
-
-    setSyncing('orders')
-    try {
-      const response = await fetch('/api/shopify/sync-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          organizationId: organization.id,
-          importMode: 'unfulfilled'
-        }),
+      // Step 2: Get existing orders to avoid duplicates
+      const ordersRef = collection(db, 'organizations', organization.id, 'orders')
+      const existingSnapshot = await getDocs(ordersRef)
+      const existingByShopifyId = new Map<string, string>()
+      existingSnapshot.docs.forEach(d => {
+        const data = d.data()
+        if (data.shopifyId) {
+          existingByShopifyId.set(data.shopifyId, d.id)
+        }
       })
 
-      const data = await response.json()
+      // Step 3: Get products for SKU matching
+      const productsRef = collection(db, 'organizations', organization.id, 'products')
+      const productsSnapshot = await getDocs(productsRef)
+      const productsBySku = new Map<string, string>()
+      productsSnapshot.docs.forEach(docSnap => {
+        const data = docSnap.data()
+        if (data.sku) productsBySku.set(data.sku.toLowerCase(), docSnap.id)
+      })
 
-      if (data.success) {
-        success(`Synced ${data.imported} new unfulfilled orders from Shopify`)
-        const orgRef = doc(db, 'organizations', organization.id)
-        const orgDoc = await getDoc(orgRef)
-        if (orgDoc.exists() && orgDoc.data().shopify) {
-          setConnection(orgDoc.data().shopify as ShopifyConnection)
-        }
+      // Step 4: Get or create Shopify sales channel
+      const channelsRef = collection(db, 'organizations', organization.id, 'salesChannels')
+      const channelQuery = query(channelsRef, where('code', '==', 'shopify'))
+      const channelSnapshot = await getDocs(channelQuery)
+
+      let channelId: string
+      let channelName = 'Shopify'
+
+      if (channelSnapshot.empty) {
+        const newChannel = await addDoc(channelsRef, {
+          name: 'Shopify',
+          code: 'shopify',
+          type: 'ecommerce',
+          color: '#96bf48',
+          icon: 'fab fa-shopify',
+          isActive: true,
+          sortOrder: 1,
+          stats: {
+            totalOrders: 0,
+            pendingOrders: 0,
+            totalRevenue: 0,
+          },
+          createdAt: serverTimestamp(),
+        })
+        channelId = newChannel.id
       } else {
-        error(data.error || 'Sync failed')
+        channelId = channelSnapshot.docs[0].id
+        channelName = channelSnapshot.docs[0].data().name || 'Shopify'
       }
-    } catch (err) {
-      console.error('Sync orders error:', err)
-      error('Failed to sync orders')
-    } finally {
-      setSyncing(null)
-    }
-  }
 
-  const formatLastSync = (date: Date | null | undefined) => {
-    if (!date) return 'Never synced'
-    const d = date instanceof Date ? date : new Date(date as any)
-    return `Last: ${d.toLocaleString()}`
+      // Step 5: Process and save orders
+      let added = 0
+      let updated = 0
+
+      for (let i = 0; i < allOrders.length; i++) {
+        const shopifyOrder = allOrders[i]
+        const shopifyId = shopifyOrder.id.toString()
+
+        setSyncProgress({
+          current: i + 1,
+          total: allOrders.length,
+          status: `Processing order ${shopifyOrder.name}...`
+        })
+
+        // Map order data
+        const orderData = mapShopifyOrder(shopifyOrder, productsBySku, channelId, channelName)
+
+        // Check if exists
+        const existingDocId = existingByShopifyId.get(shopifyId)
+        if (existingDocId) {
+          // Update existing
+          await setDoc(doc(ordersRef, existingDocId), {
+            ...orderData,
+            updatedAt: serverTimestamp(),
+          }, { merge: true })
+          updated++
+        } else {
+          // Add new
+          await addDoc(ordersRef, {
+            ...orderData,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          })
+          added++
+        }
+      }
+
+      // Step 6: Update sync status
+      await setDoc(doc(db, 'organizations', organization.id), {
+        shopify: {
+          lastSync: serverTimestamp(),
+          syncStatus: 'success',
+          lastError: null,
+          lastSyncStats: { added, updated, total: allOrders.length },
+        },
+      }, { merge: true })
+
+      setConnection(prev => ({
+        ...prev,
+        lastSync: new Date(),
+        syncStatus: 'success',
+        lastError: null,
+      }))
+
+      success(`Synced ${allOrders.length} orders (${added} new, ${updated} updated)`)
+    } catch (err: any) {
+      console.error('Sync error:', err)
+
+      await setDoc(doc(db, 'organizations', organization.id), {
+        shopify: {
+          syncStatus: 'error',
+          lastError: err.message,
+        },
+      }, { merge: true })
+
+      setConnection(prev => ({
+        ...prev,
+        syncStatus: 'error',
+        lastError: err.message,
+      }))
+
+      showError(err.message || 'Sync failed')
+    } finally {
+      setSyncing(false)
+    }
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="p-6 flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-4xl">
+    <div className="p-6 max-w-4xl">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-slate-400 mb-6">
         <Link href="/settings" className="hover:text-white transition-colors">
@@ -353,19 +412,15 @@ export default function ShopifySettingsPage() {
       </div>
 
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-12 h-12 bg-[#96bf48]/20 rounded-xl flex items-center justify-center">
-            <i className="fab fa-shopify text-[#96bf48] text-2xl"></i>
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white">Shopify Integration</h1>
-            <p className="text-slate-400">Connect your Shopify store to sync products and orders</p>
-          </div>
-        </div>
+        <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+          <i className="fab fa-shopify text-[#96bf48]"></i>
+          Shopify Integration
+        </h1>
+        <p className="text-slate-400 mt-1">Connect your Shopify store to sync orders and products</p>
       </div>
 
       {/* Connection Status Banner */}
-      {connection?.isConnected && (
+      {connection.isConnected && (
         <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -373,627 +428,440 @@ export default function ShopifySettingsPage() {
                 <i className="fas fa-check text-emerald-400"></i>
               </div>
               <div>
-                <span className="text-white font-medium">Connected to </span>
-                <span className="text-emerald-400">{connection.storeUrl}</span>
+                <div className="text-white font-medium">
+                  Connected to {connection.shopName || connection.storeName}.myshopify.com
+                </div>
+                <div className="text-sm text-slate-400">
+                  {connection.lastSync
+                    ? `Last synced: ${connection.lastSync.toLocaleString()}`
+                    : 'Never synced'}
+                </div>
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={handleDisconnect}>
-              <i className="fas fa-unlink mr-2"></i>
+            <button
+              onClick={handleDisconnect}
+              className="px-3 py-1.5 text-red-400 hover:bg-red-500/10 rounded-lg text-sm transition-colors"
+            >
+              <i className="fas fa-unlink mr-1"></i>
               Disconnect
-            </Button>
+            </button>
           </div>
         </div>
       )}
 
-      {/* Tabs */}
-      {connection?.isConnected && (
-        <div className="border-b border-slate-700 mb-6">
-          <div className="flex gap-6">
-            {[
-              { key: 'connection', label: 'Connection', icon: 'fa-plug' },
-              { key: 'sync', label: 'Sync Settings', icon: 'fa-sliders-h' },
-              { key: 'logs', label: 'Activity', icon: 'fa-history' },
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab.key
-                    ? 'border-emerald-500 text-emerald-400'
-                    : 'border-transparent text-slate-400 hover:text-white'
-                }`}
-              >
-                <i className={`fas ${tab.icon}`}></i>
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Connection Form */}
+      {!connection.isConnected && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 mb-6">
+          <h2 className="text-lg font-semibold text-white mb-4">Connect Your Store</h2>
 
-      {/* Connection Tab / Not Connected State */}
-      {(!connection?.isConnected || activeTab === 'connection') && (
-        <>
-          {!connection?.isConnected && (
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 mb-6">
-              <h3 className="text-white font-semibold mb-4">Connect Your Store</h3>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm text-slate-400 mb-2">Store Name *</label>
-                  <div className="flex items-center">
-                    <input
-                      type="text"
-                      value={storeName}
-                      onChange={(e) =>
-                        setStoreName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
-                      }
-                      placeholder="your-store-name"
-                      className="flex-1 bg-slate-800 border border-slate-600 rounded-l-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-                    />
-                    <span className="bg-slate-900 border border-l-0 border-slate-600 rounded-r-lg px-4 py-3 text-slate-400">
-                      .myshopify.com
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm text-slate-400 mb-2">
-                    Admin API Access Token *
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showToken ? 'text' : 'password'}
-                      value={accessToken}
-                      onChange={(e) => setAccessToken(e.target.value)}
-                      placeholder="shpat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                      className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-emerald-500 pr-12"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowToken(!showToken)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                    >
-                      <i className={`fas ${showToken ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Get this from Shopify Admin - Settings - Apps - Develop apps
-                  </p>
-                </div>
-
-                <div className="flex gap-3">
-                  <Button
-                    variant="secondary"
-                    onClick={handleTestConnection}
-                    disabled={testing || !storeName || !accessToken}
-                  >
-                    {testing ? (
-                      <>
-                        <i className="fas fa-spinner fa-spin mr-2"></i>
-                        Testing...
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-plug mr-2"></i>
-                        Test Connection
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    onClick={handleSaveConnection}
-                    disabled={saving || !storeName || !accessToken}
-                  >
-                    {saving ? (
-                      <>
-                        <i className="fas fa-spinner fa-spin mr-2"></i>
-                        Connecting...
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-link mr-2"></i>
-                        Connect Store
-                      </>
-                    )}
-                  </Button>
-                </div>
+          <div className="space-y-4">
+            {/* Store Name */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">
+                Store Name
+              </label>
+              <div className="flex">
+                <input
+                  type="text"
+                  value={storeName}
+                  onChange={(e) => setStoreName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  placeholder="your-store-name"
+                  className="flex-1 bg-slate-900 border border-slate-600 rounded-l-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                />
+                <span className="bg-slate-700 border border-l-0 border-slate-600 rounded-r-lg px-4 py-2.5 text-slate-400">
+                  .myshopify.com
+                </span>
               </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Enter just the store name, not the full URL
+              </p>
             </div>
-          )}
 
-          {/* Sync Actions */}
-          {connection?.isConnected && activeTab === 'connection' && (
-            <div className="grid grid-cols-2 gap-6 mb-6">
-              {/* Sync Products */}
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                    <i className="fas fa-box text-blue-400"></i>
-                  </div>
-                  <div>
-                    <h3 className="text-white font-semibold">Products</h3>
-                    <p className="text-sm text-slate-400">
-                      {formatLastSync(connection.lastSyncProducts as Date | null)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 mb-3">
-                  <span
-                    className={`px-2 py-0.5 rounded text-xs ${
-                      syncSettings.productSyncMode === 'read'
-                        ? 'bg-blue-500/20 text-blue-400'
-                        : syncSettings.productSyncMode === 'write'
-                        ? 'bg-amber-500/20 text-amber-400'
-                        : 'bg-emerald-500/20 text-emerald-400'
-                    }`}
-                  >
-                    {syncSettings.productSyncMode === 'read'
-                      ? 'Read Only'
-                      : syncSettings.productSyncMode === 'write'
-                      ? 'Write Only'
-                      : 'Bidirectional'}
-                  </span>
-                </div>
-                <Button
-                  variant="secondary"
-                  className="w-full"
-                  onClick={handleSyncProducts}
-                  disabled={syncing === 'products'}
+            {/* Access Token */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">
+                Admin API Access Token
+              </label>
+              <div className="relative">
+                <input
+                  type={showToken ? 'text' : 'password'}
+                  value={accessToken}
+                  onChange={(e) => setAccessToken(e.target.value)}
+                  placeholder="shpat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 pr-10 text-white font-mono placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowToken(!showToken)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
                 >
-                  {syncing === 'products' ? (
-                    <>
-                      <i className="fas fa-spinner fa-spin mr-2"></i>
-                      Syncing...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-sync mr-2"></i>
-                      Sync Products Now
-                    </>
-                  )}
-                </Button>
+                  <i className={`fas ${showToken ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                </button>
               </div>
-
-              {/* Sync Orders */}
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-                    <i className="fas fa-shopping-cart text-emerald-400"></i>
-                  </div>
-                  <div>
-                    <h3 className="text-white font-semibold">Orders</h3>
-                    <p className="text-sm text-slate-400">
-                      {formatLastSync(connection.lastSyncOrders as Date | null)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="px-2 py-0.5 rounded text-xs bg-blue-500/20 text-blue-400">
-                    Read Only
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  <Button className="w-full" onClick={handleQuickSyncOrders} disabled={syncing === 'orders'}>
-                    {syncing === 'orders' ? (
-                      <>
-                        <i className="fas fa-spinner fa-spin mr-2"></i>
-                        Syncing...
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-sync mr-2"></i>
-                        Sync Unfulfilled Orders
-                      </>
-                    )}
-                  </Button>
-                  <Button variant="secondary" className="w-full" onClick={openOrderImportModal} disabled={syncing === 'orders'}>
-                    <i className="fas fa-file-import mr-2"></i>
-                    Import Historical Orders
-                  </Button>
-                </div>
-              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Get this from Shopify Admin - Settings - Apps - Develop apps
+              </p>
             </div>
-          )}
-        </>
-      )}
 
-      {/* Sync Settings Tab */}
-      {connection?.isConnected && activeTab === 'sync' && (
-        <div className="space-y-6">
-          {/* Product Sync Settings */}
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-            <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-              <i className="fas fa-box text-blue-400"></i>
-              Product Sync Settings
-            </h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-slate-400 mb-2">Sync Mode</label>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { value: 'read', label: 'Read Only', desc: 'Import from Shopify only', icon: 'fa-download' },
-                    { value: 'write', label: 'Write Only', desc: 'Push to Shopify only', icon: 'fa-upload' },
-                    { value: 'bidirectional', label: 'Bidirectional', desc: 'Sync both ways', icon: 'fa-sync' },
-                  ].map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() =>
-                        setSyncSettings((s) => ({
-                          ...s,
-                          productSyncMode: option.value as ShopifySyncSettings['productSyncMode'],
-                        }))
-                      }
-                      className={`p-4 rounded-lg border text-left transition-all ${
-                        syncSettings.productSyncMode === option.value
-                          ? 'border-emerald-500 bg-emerald-500/10'
-                          : 'border-slate-700 hover:border-slate-600'
-                      }`}
-                    >
-                      <i className={`fas ${option.icon} text-xl mb-2 ${
-                        syncSettings.productSyncMode === option.value ? 'text-emerald-400' : 'text-slate-400'
-                      }`}></i>
-                      <div className="text-white font-medium">{option.label}</div>
-                      <div className="text-xs text-slate-400">{option.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {(syncSettings.productSyncMode === 'write' ||
-                syncSettings.productSyncMode === 'bidirectional') && (
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <i className="fas fa-exclamation-triangle text-amber-400 mt-0.5"></i>
-                    <div className="text-sm">
-                      <p className="text-amber-300 font-medium">Write Mode Enabled</p>
-                      <p className="text-slate-400 mt-1">
-                        Changes made in Cronk WMS will update your Shopify store. Make sure your API
-                        token has <code className="text-amber-400">write_products</code> permission.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-lg">
-                <div>
-                  <div className="text-white font-medium">Push Product Changes</div>
-                  <div className="text-sm text-slate-400">
-                    When you edit title, description, or price in WMS, push to Shopify
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={syncSettings.pushProductChanges}
-                    onChange={(e) =>
-                      setSyncSettings((s) => ({ ...s, pushProductChanges: e.target.checked }))
-                    }
-                    disabled={syncSettings.productSyncMode === 'read'}
-                    className="sr-only peer"
-                  />
-                  <div
-                    className={`w-11 h-6 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all ${
-                      syncSettings.productSyncMode === 'read'
-                        ? 'bg-slate-700 opacity-50'
-                        : 'bg-slate-700 peer-checked:bg-emerald-500'
-                    }`}
-                  ></div>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Inventory Sync Settings */}
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-            <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-              <i className="fas fa-warehouse text-emerald-400"></i>
-              Inventory Sync Settings
-            </h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-slate-400 mb-2">Sync Mode</label>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { value: 'read', label: 'Read Only', desc: 'Import levels from Shopify', icon: 'fa-download' },
-                    { value: 'write', label: 'Write Only', desc: 'Push levels to Shopify', icon: 'fa-upload' },
-                    { value: 'bidirectional', label: 'Bidirectional', desc: 'Sync both ways', icon: 'fa-sync' },
-                  ].map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() =>
-                        setSyncSettings((s) => ({
-                          ...s,
-                          inventorySyncMode: option.value as ShopifySyncSettings['inventorySyncMode'],
-                        }))
-                      }
-                      className={`p-4 rounded-lg border text-left transition-all ${
-                        syncSettings.inventorySyncMode === option.value
-                          ? 'border-emerald-500 bg-emerald-500/10'
-                          : 'border-slate-700 hover:border-slate-600'
-                      }`}
-                    >
-                      <i className={`fas ${option.icon} text-xl mb-2 ${
-                        syncSettings.inventorySyncMode === option.value ? 'text-emerald-400' : 'text-slate-400'
-                      }`}></i>
-                      <div className="text-white font-medium">{option.label}</div>
-                      <div className="text-xs text-slate-400">{option.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-lg">
-                <div>
-                  <div className="text-white font-medium">Push Inventory Levels</div>
-                  <div className="text-sm text-slate-400">
-                    Keep Shopify inventory in sync with WMS stock levels
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={syncSettings.pushInventoryLevels}
-                    onChange={(e) =>
-                      setSyncSettings((s) => ({ ...s, pushInventoryLevels: e.target.checked }))
-                    }
-                    disabled={syncSettings.inventorySyncMode === 'read'}
-                    className="sr-only peer"
-                  />
-                  <div
-                    className={`w-11 h-6 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all ${
-                      syncSettings.inventorySyncMode === 'read'
-                        ? 'bg-slate-700 opacity-50'
-                        : 'bg-slate-700 peer-checked:bg-emerald-500'
-                    }`}
-                  ></div>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Save Button */}
-          <div className="flex justify-end">
-            <Button onClick={handleSaveSyncSettings} disabled={saving}>
-              {saving ? (
-                <>
-                  <i className="fas fa-spinner fa-spin mr-2"></i>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <i className="fas fa-save mr-2"></i>
-                  Save Settings
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Activity Tab */}
-      {connection?.isConnected && activeTab === 'logs' && (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <div className="text-center py-8">
-            <i className="fas fa-history text-4xl text-slate-600 mb-4"></i>
-            <p className="text-slate-400">Sync activity logs coming soon</p>
-          </div>
-        </div>
-      )}
-
-      {/* Setup Instructions */}
-      {!connection?.isConnected && (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-white font-semibold mb-4">Setup Instructions</h3>
-          <ol className="space-y-3 text-sm">
-            <li className="flex items-start gap-3">
-              <span className="flex-shrink-0 w-6 h-6 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xs font-bold">
-                1
-              </span>
-              <span className="text-slate-300">
-                Go to your Shopify Admin - Settings - Apps and sales channels
-              </span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="flex-shrink-0 w-6 h-6 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xs font-bold">
-                2
-              </span>
-              <span className="text-slate-300">Click &quot;Develop apps&quot; - &quot;Create an app&quot;</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="flex-shrink-0 w-6 h-6 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xs font-bold">
-                3
-              </span>
-              <div className="text-slate-300">
-                <span>Name it &quot;Cronk WMS&quot; and configure Admin API scopes:</span>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <code className="text-emerald-400 bg-slate-900 px-2 py-1 rounded text-xs">
-                    read_products
-                  </code>
-                  <code className="text-emerald-400 bg-slate-900 px-2 py-1 rounded text-xs">
-                    write_products
-                  </code>
-                  <code className="text-emerald-400 bg-slate-900 px-2 py-1 rounded text-xs">
-                    read_orders
-                  </code>
-                  <code className="text-emerald-400 bg-slate-900 px-2 py-1 rounded text-xs">
-                    read_inventory
-                  </code>
-                  <code className="text-emerald-400 bg-slate-900 px-2 py-1 rounded text-xs">
-                    write_inventory
-                  </code>
-                  <code className="text-emerald-400 bg-slate-900 px-2 py-1 rounded text-xs">
-                    read_locations
-                  </code>
-                </div>
-              </div>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="flex-shrink-0 w-6 h-6 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xs font-bold">
-                4
-              </span>
-              <span className="text-slate-300">Install the app and copy the Admin API access token</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="flex-shrink-0 w-6 h-6 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xs font-bold">
-                5
-              </span>
-              <span className="text-slate-300">
-                Paste the token above and click &quot;Connect Store&quot;
-              </span>
-            </li>
-          </ol>
-        </div>
-      )}
-
-      {/* Order Import Modal */}
-      {showOrderImportModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg">
-            <div className="flex items-center justify-between p-6 border-b border-slate-700">
-              <h2 className="text-xl font-bold text-white">Import Orders from Shopify</h2>
+            {/* Test & Save Buttons */}
+            <div className="flex gap-3">
               <button
-                onClick={() => setShowOrderImportModal(false)}
-                className="text-slate-400 hover:text-white transition-colors"
+                onClick={handleTestConnection}
+                disabled={testing || !storeName || !accessToken}
+                className="px-4 py-2.5 bg-slate-700 text-white rounded-lg hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
               >
-                <i className="fas fa-times text-xl"></i>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* Import Mode Selection */}
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-3">
-                  What orders do you want to import?
-                </label>
-                <div className="space-y-2">
-                  {[
-                    { value: 'unfulfilled', label: 'Unfulfilled Orders Only', desc: 'Orders that need to be fulfilled', icon: 'fa-clock' },
-                    { value: 'all', label: 'All Historical Orders', desc: 'Import your entire order history', icon: 'fa-history' },
-                    { value: 'date_range', label: 'Date Range', desc: 'Select a specific time period', icon: 'fa-calendar-alt' },
-                  ].map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => setOrderImportMode(option.value as OrderImportMode)}
-                      className={`w-full p-4 rounded-lg border text-left transition-all flex items-center gap-4 ${
-                        orderImportMode === option.value
-                          ? 'border-emerald-500 bg-emerald-500/10'
-                          : 'border-slate-700 hover:border-slate-600'
-                      }`}
-                    >
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        orderImportMode === option.value ? 'bg-emerald-500/20' : 'bg-slate-700'
-                      }`}>
-                        <i className={`fas ${option.icon} ${
-                          orderImportMode === option.value ? 'text-emerald-400' : 'text-slate-400'
-                        }`}></i>
-                      </div>
-                      <div>
-                        <div className="text-white font-medium">{option.label}</div>
-                        <div className="text-sm text-slate-400">{option.desc}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Date Range Inputs */}
-              {orderImportMode === 'date_range' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-slate-400 mb-2">Start Date</label>
-                    <input
-                      type="date"
-                      value={orderStartDate}
-                      onChange={(e) => setOrderStartDate(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-slate-400 mb-2">End Date</label>
-                    <input
-                      type="date"
-                      value={orderEndDate}
-                      onChange={(e) => setOrderEndDate(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Order Status Filter */}
-              {(orderImportMode === 'all' || orderImportMode === 'date_range') && (
-                <div>
-                  <label className="block text-sm text-slate-400 mb-2">Order Status Filter</label>
-                  <select
-                    value={orderImportStatus}
-                    onChange={(e) => setOrderImportStatus(e.target.value as OrderStatus)}
-                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="any">All Statuses</option>
-                    <option value="open">Open Orders</option>
-                    <option value="closed">Closed/Completed Orders</option>
-                    <option value="cancelled">Cancelled Orders</option>
-                  </select>
-                </div>
-              )}
-
-              {/* Warning for all orders */}
-              {orderImportMode === 'all' && (
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <i className="fas fa-exclamation-triangle text-amber-400 mt-0.5"></i>
-                    <div className="text-sm">
-                      <p className="text-amber-300 font-medium">Large Import Warning</p>
-                      <p className="text-slate-400 mt-1">
-                        Importing all historical orders may take several minutes depending on your order volume.
-                        The import will run in the background.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Import Progress */}
-              {importProgress && (
-                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
-                  <div className="flex items-center gap-3">
-                    <i className="fas fa-check-circle text-emerald-400"></i>
-                    <div>
-                      <p className="text-emerald-300 font-medium">Import Complete!</p>
-                      <p className="text-sm text-slate-400">
-                        {importProgress.imported} new orders imported, {importProgress.updated} updated
-                        ({importProgress.total} total from Shopify)
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-3 p-6 border-t border-slate-700">
-              <Button variant="secondary" onClick={() => setShowOrderImportModal(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSyncOrders} disabled={syncing === 'orders'}>
-                {syncing === 'orders' ? (
+                {testing ? (
                   <>
-                    <i className="fas fa-spinner fa-spin mr-2"></i>
-                    Importing...
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    Testing...
                   </>
                 ) : (
                   <>
-                    <i className="fas fa-file-import mr-2"></i>
-                    Start Import
+                    <i className="fas fa-plug"></i>
+                    Test Connection
                   </>
                 )}
-              </Button>
+              </button>
+
+              {testResult?.success && (
+                <button
+                  onClick={handleSaveConnection}
+                  disabled={saving}
+                  className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 disabled:opacity-50 flex items-center gap-2 transition-colors"
+                >
+                  {saving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-save"></i>
+                      Save Connection
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Test Result */}
+          {testResult && (
+            <div className={`mt-4 p-4 rounded-lg ${
+              testResult.success
+                ? 'bg-emerald-500/10 border border-emerald-500/30'
+                : 'bg-red-500/10 border border-red-500/30'
+            }`}>
+              {testResult.success ? (
+                <div>
+                  <div className="flex items-center gap-2 text-emerald-400 font-medium mb-2">
+                    <i className="fas fa-check-circle"></i>
+                    Connection Successful!
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="text-slate-400">Shop Name:</div>
+                    <div className="text-white">{testResult.shopName}</div>
+                    <div className="text-slate-400">Email:</div>
+                    <div className="text-white">{testResult.email}</div>
+                    <div className="text-slate-400">Plan:</div>
+                    <div className="text-white">{testResult.plan}</div>
+                    <div className="text-slate-400">Products:</div>
+                    <div className="text-white">{testResult.productsCount?.toLocaleString()}</div>
+                    <div className="text-slate-400">Orders:</div>
+                    <div className="text-white">{testResult.ordersCount?.toLocaleString()}</div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex items-center gap-2 text-red-400 font-medium mb-2">
+                    <i className="fas fa-times-circle"></i>
+                    Connection Failed
+                  </div>
+                  <div className="text-sm text-red-300">{testResult.error}</div>
+                  {testResult.rawResponse && (
+                    <details className="mt-2">
+                      <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-400">
+                        Show raw response
+                      </summary>
+                      <pre className="mt-2 text-xs bg-slate-900 p-2 rounded overflow-auto max-h-40 text-slate-400">
+                        {JSON.stringify(testResult.rawResponse, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
+
+      {/* Sync Section */}
+      {connection.isConnected && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 mb-6">
+          <h2 className="text-lg font-semibold text-white mb-4">Sync Orders</h2>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleSyncOrders}
+              disabled={syncing}
+              className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 disabled:opacity-50 flex items-center gap-2 transition-colors"
+            >
+              {syncing ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-sync"></i>
+                  Sync Orders Now
+                </>
+              )}
+            </button>
+
+            {connection.syncStatus === 'error' && connection.lastError && (
+              <div className="text-sm text-red-400">
+                <i className="fas fa-exclamation-triangle mr-1"></i>
+                {connection.lastError}
+              </div>
+            )}
+          </div>
+
+          {syncing && (
+            <div className="mt-4">
+              <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
+                  style={{ width: syncProgress.total > 0 ? `${(syncProgress.current / syncProgress.total) * 100}%` : '0%' }}
+                ></div>
+              </div>
+              <div className="text-sm text-slate-400 mt-2">
+                {syncProgress.status}
+                {syncProgress.total > 0 && ` (${syncProgress.current}/${syncProgress.total})`}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Help Section */}
+      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+        <h2 className="text-lg font-semibold text-white mb-4">
+          <i className="fas fa-question-circle text-slate-400 mr-2"></i>
+          Setup Instructions
+        </h2>
+
+        <ol className="space-y-3 text-sm text-slate-300">
+          <li className="flex gap-3">
+            <span className="flex-shrink-0 w-6 h-6 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+            <span>Go to your Shopify Admin - Settings - Apps and sales channels</span>
+          </li>
+          <li className="flex gap-3">
+            <span className="flex-shrink-0 w-6 h-6 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+            <span>Click "Develop apps" then "Create an app"</span>
+          </li>
+          <li className="flex gap-3">
+            <span className="flex-shrink-0 w-6 h-6 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+            <span>Name your app (e.g., "Cronk WMS Integration")</span>
+          </li>
+          <li className="flex gap-3">
+            <span className="flex-shrink-0 w-6 h-6 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xs font-bold">4</span>
+            <span>Click "Configure Admin API scopes" and enable these permissions:</span>
+          </li>
+        </ol>
+
+        <div className="mt-3 ml-9 p-3 bg-slate-900 rounded-lg">
+          <div className="text-xs text-slate-400 mb-2">Required API Scopes:</div>
+          <div className="grid grid-cols-2 gap-1 text-xs">
+            <div className="text-emerald-400"><i className="fas fa-check mr-1"></i>read_orders</div>
+            <div className="text-emerald-400"><i className="fas fa-check mr-1"></i>write_orders</div>
+            <div className="text-emerald-400"><i className="fas fa-check mr-1"></i>read_products</div>
+            <div className="text-emerald-400"><i className="fas fa-check mr-1"></i>write_products</div>
+            <div className="text-emerald-400"><i className="fas fa-check mr-1"></i>read_inventory</div>
+            <div className="text-emerald-400"><i className="fas fa-check mr-1"></i>write_inventory</div>
+            <div className="text-emerald-400"><i className="fas fa-check mr-1"></i>read_fulfillments</div>
+            <div className="text-emerald-400"><i className="fas fa-check mr-1"></i>write_fulfillments</div>
+            <div className="text-emerald-400"><i className="fas fa-check mr-1"></i>read_customers</div>
+            <div className="text-slate-500"><i className="far fa-circle mr-1"></i>read_locations (optional)</div>
+          </div>
+        </div>
+
+        <ol className="space-y-3 text-sm text-slate-300 mt-4" start={5}>
+          <li className="flex gap-3">
+            <span className="flex-shrink-0 w-6 h-6 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xs font-bold">5</span>
+            <span>Click "Install app" to generate your access token</span>
+          </li>
+          <li className="flex gap-3">
+            <span className="flex-shrink-0 w-6 h-6 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xs font-bold">6</span>
+            <span>Copy the "Admin API access token" (starts with shpat_)</span>
+          </li>
+          <li className="flex gap-3">
+            <span className="flex-shrink-0 w-6 h-6 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-xs font-bold">7</span>
+            <span>Paste it above and test the connection</span>
+          </li>
+        </ol>
+      </div>
     </div>
   )
+}
+
+// Helper function to map Shopify order to our format
+function mapShopifyOrder(
+  shopifyOrder: any,
+  productsBySku: Map<string, string>,
+  channelId: string,
+  channelName: string
+) {
+  const shopifyId = shopifyOrder.id.toString()
+  const shippingAddress = shopifyOrder.shipping_address || {}
+  const billingAddress = shopifyOrder.billing_address || null
+  const customer = shopifyOrder.customer || {}
+
+  // Map line items
+  const lineItems = (shopifyOrder.line_items || []).map((item: any) => {
+    const sku = item.sku?.toLowerCase()
+    return {
+      id: `li_${item.id}`,
+      shopifyLineItemId: item.id.toString(),
+      productId: sku ? productsBySku.get(sku) || null : null,
+      shopifyProductId: item.product_id?.toString() || null,
+      shopifyVariantId: item.variant_id?.toString() || null,
+      sku: item.sku || '',
+      name: item.name,
+      variantTitle: item.variant_title || null,
+      quantity: item.quantity,
+      price: parseFloat(item.price) || 0,
+      totalDiscount: parseFloat(item.total_discount) || 0,
+      fulfillableQuantity: item.fulfillable_quantity,
+      fulfillmentStatus: item.fulfillment_status || 'unfulfilled',
+    }
+  })
+
+  // Map fulfillments
+  const fulfillments = (shopifyOrder.fulfillments || []).map((f: any) => ({
+    id: `ful_${f.id}`,
+    shopifyFulfillmentId: f.id.toString(),
+    status: f.status,
+    trackingCompany: f.tracking_company || null,
+    trackingNumber: f.tracking_number || null,
+    trackingNumbers: f.tracking_numbers || [],
+    trackingUrl: f.tracking_url || null,
+    trackingUrls: f.tracking_urls || [],
+    shipmentStatus: f.shipment_status || null,
+    createdAt: new Date(f.created_at),
+    updatedAt: new Date(f.updated_at),
+  }))
+
+  // Map discount codes
+  const discountCodes = (shopifyOrder.discount_codes || []).map((dc: any) => ({
+    code: dc.code,
+    amount: parseFloat(dc.amount) || 0,
+    type: dc.type,
+  }))
+
+  // Map refunds
+  const refunds = (shopifyOrder.refunds || []).map((r: any) => ({
+    id: `ref_${r.id}`,
+    shopifyRefundId: r.id.toString(),
+    totalRefunded: (r.transactions || []).reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0),
+    note: r.note || null,
+    createdAt: new Date(r.created_at),
+  }))
+
+  // Determine status
+  let status = 'pending'
+  if (shopifyOrder.cancelled_at) {
+    status = 'cancelled'
+  } else if (shopifyOrder.fulfillment_status === 'fulfilled') {
+    status = 'shipped'
+  } else if (shopifyOrder.fulfillment_status === 'partial') {
+    status = 'partially_shipped'
+  } else if (shopifyOrder.financial_status === 'paid') {
+    status = 'processing'
+  }
+
+  return {
+    shopifyId,
+    shopifyOrderNumber: `#${shopifyOrder.order_number}`,
+    shopifyOrderName: shopifyOrder.name,
+
+    status,
+    fulfillmentStatus: shopifyOrder.fulfillment_status || 'unfulfilled',
+    paymentStatus: shopifyOrder.financial_status === 'paid' ? 'paid' :
+                   shopifyOrder.financial_status === 'refunded' ? 'refunded' :
+                   shopifyOrder.financial_status === 'partially_refunded' ? 'partially_refunded' : 'pending',
+
+    customer: {
+      id: customer.id?.toString() || '',
+      email: shopifyOrder.email || '',
+      firstName: customer.first_name || shippingAddress.first_name || '',
+      lastName: customer.last_name || shippingAddress.last_name || '',
+      phone: customer.phone || shopifyOrder.phone || null,
+      ordersCount: customer.orders_count || 0,
+      totalSpent: parseFloat(customer.total_spent) || 0,
+    },
+
+    shippingAddress: {
+      firstName: shippingAddress.first_name || '',
+      lastName: shippingAddress.last_name || '',
+      company: shippingAddress.company || null,
+      address1: shippingAddress.address1 || '',
+      address2: shippingAddress.address2 || null,
+      city: shippingAddress.city || '',
+      province: shippingAddress.province || '',
+      provinceCode: shippingAddress.province_code || '',
+      country: shippingAddress.country || '',
+      countryCode: shippingAddress.country_code || '',
+      zip: shippingAddress.zip || '',
+      phone: shippingAddress.phone || null,
+    },
+
+    billingAddress: billingAddress ? {
+      firstName: billingAddress.first_name || '',
+      lastName: billingAddress.last_name || '',
+      company: billingAddress.company || null,
+      address1: billingAddress.address1 || '',
+      address2: billingAddress.address2 || null,
+      city: billingAddress.city || '',
+      province: billingAddress.province || '',
+      provinceCode: billingAddress.province_code || '',
+      country: billingAddress.country || '',
+      countryCode: billingAddress.country_code || '',
+      zip: billingAddress.zip || '',
+      phone: billingAddress.phone || null,
+    } : null,
+
+    lineItems,
+    fulfillments,
+    discountCodes,
+    refunds,
+
+    subtotal: parseFloat(shopifyOrder.subtotal_price) || 0,
+    shippingTotal: parseFloat(shopifyOrder.total_shipping_price_set?.shop_money?.amount) || 0,
+    taxTotal: parseFloat(shopifyOrder.total_tax) || 0,
+    discountTotal: parseFloat(shopifyOrder.total_discounts) || 0,
+    total: parseFloat(shopifyOrder.total_price) || 0,
+    currency: shopifyOrder.currency || 'USD',
+
+    shippingMethod: shopifyOrder.shipping_lines?.[0]?.title || null,
+
+    note: shopifyOrder.note || null,
+    tags: shopifyOrder.tags ? shopifyOrder.tags.split(',').map((t: string) => t.trim()) : [],
+
+    shopifyCreatedAt: new Date(shopifyOrder.created_at),
+    shopifyUpdatedAt: new Date(shopifyOrder.updated_at),
+    cancelledAt: shopifyOrder.cancelled_at ? new Date(shopifyOrder.cancelled_at) : null,
+    cancelReason: shopifyOrder.cancel_reason || null,
+
+    channelId,
+    channelCode: 'shopify',
+    channelName,
+
+    source: {
+      platform: 'shopify',
+      externalId: shopifyId,
+      externalOrderNumber: shopifyOrder.name,
+      importedAt: new Date(),
+    },
+  }
 }
