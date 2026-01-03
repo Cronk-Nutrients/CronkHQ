@@ -1,8 +1,0 @@
-{
-  "/(dashboard)/page": "app/(dashboard)/page.js",
-  "/(dashboard)/settings/integrations/shopify/page": "app/(dashboard)/settings/integrations/shopify/page.js",
-  "/(dashboard)/settings/page": "app/(dashboard)/settings/page.js",
-  "/api/shopify/sync-orders/route": "app/api/shopify/sync-orders/route.js",
-  "/login/page": "app/login/page.js",
-  "/setup/page": "app/setup/page.js"
-}
