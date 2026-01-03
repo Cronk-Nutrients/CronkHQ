@@ -13,10 +13,10 @@ export async function POST(request: NextRequest) {
     try {
       adminDb = getAdminDb()
     } catch (adminError: any) {
-      console.error('Firebase Admin init error:', adminError)
+      console.error('Firebase Admin init error:', adminError.message)
       return NextResponse.json({
         success: false,
-        error: 'Server configuration error. Please contact support.'
+        error: `Server configuration error: ${adminError.message}`
       }, { status: 500 })
     }
 

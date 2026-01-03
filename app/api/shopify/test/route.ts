@@ -23,14 +23,18 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Shopify API error:', errorText)
-      return NextResponse.json(
-        {
-          success: false,
-          error: response.status === 401 ? 'Invalid access token' : 'Connection failed',
-        },
-        { status: 400 }
-      )
+      console.error('Shopify API error:', response.status, errorText)
+
+      let errorMessage = 'Connection failed'
+      if (response.status === 401) {
+        errorMessage = 'Invalid access token - check your API credentials'
+      } else if (response.status === 403) {
+        errorMessage = 'Access denied - check API permissions'
+      } else if (response.status === 404) {
+        errorMessage = 'Store not found - check store name'
+      }
+
+      return NextResponse.json({ success: false, error: errorMessage }, { status: 400 })
     }
 
     const data = await response.json()
@@ -40,8 +44,11 @@ export async function POST(request: NextRequest) {
       shopName: data.shop.name,
       shopDomain: data.shop.domain,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Test connection error:', error)
-    return NextResponse.json({ success: false, error: 'Connection failed' }, { status: 500 })
+    return NextResponse.json({
+      success: false,
+      error: error.message || 'Connection failed - network error'
+    }, { status: 500 })
   }
 }

@@ -374,6 +374,12 @@
       "namedRegex": "^/settings/products(?:/)?$"
     },
     {
+      "page": "/settings/sales-channels",
+      "regex": "^/settings/sales\\-channels(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/settings/sales\\-channels(?:/)?$"
+    },
+    {
       "page": "/setup",
       "regex": "^/setup(?:/)?$",
       "routeKeys": {},

@@ -3054,13 +3054,39 @@ __turbopack_context__.s([
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/compiled/react/jsx-dev-runtime.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/compiled/react/index.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/dist/client/app-dir/link.js [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$firebase$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/firebase.ts [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$firebase$2f$firestore$2f$dist$2f$esm$2f$index$2e$esm$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/node_modules/firebase/firestore/dist/esm/index.esm.js [app-client] (ecmascript) <locals>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$esm$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/@firebase/firestore/dist/index.esm.js [app-client] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$context$2f$OrganizationContext$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/context/OrganizationContext.tsx [app-client] (ecmascript)");
 ;
 var _s = __turbopack_context__.k.signature();
 'use client';
 ;
 ;
+;
+;
+;
 const integrations = [
     // Sales Channels
+    {
+        id: 'shopify',
+        name: 'Shopify',
+        description: 'E-commerce',
+        icon: 'fa-shopify',
+        iconType: 'fab',
+        color: '#96bf48',
+        category: 'sales',
+        href: '/settings/integrations/shopify'
+    },
+    {
+        id: 'amazon',
+        name: 'Amazon Seller Central',
+        description: 'Marketplace',
+        icon: 'fa-amazon',
+        iconType: 'fab',
+        color: '#ff9900',
+        category: 'sales'
+    },
     {
         id: 'walmart',
         name: 'Walmart',
@@ -3408,8 +3434,51 @@ const integrations = [
 ];
 function IntegrationsSettings() {
     _s();
+    const { organization } = (0, __TURBOPACK__imported__module__$5b$project$5d2f$context$2f$OrganizationContext$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useOrganization"])();
     const [selectedIntegration, setSelectedIntegration] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(null);
-    const connectedIntegrations = integrations.filter((i)=>i.status === 'connected');
+    const [connectedIntegrations, setConnectedIntegrations] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])([]);
+    // Listen for organization changes to get connected integrations
+    (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
+        "IntegrationsSettings.useEffect": ()=>{
+            if (!organization?.id) {
+                setConnectedIntegrations([]);
+                return;
+            }
+            const orgRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$esm$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["doc"])(__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$firebase$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["db"], 'organizations', organization.id);
+            const unsubscribe = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$esm$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["onSnapshot"])(orgRef, {
+                "IntegrationsSettings.useEffect.unsubscribe": (snapshot)=>{
+                    if (!snapshot.exists()) {
+                        setConnectedIntegrations([]);
+                        return;
+                    }
+                    const data = snapshot.data();
+                    const connected = [];
+                    // Check Shopify connection
+                    if (data.shopify?.isConnected) {
+                        connected.push({
+                            id: 'shopify',
+                            name: 'Shopify',
+                            description: 'E-commerce',
+                            icon: 'fa-shopify',
+                            iconType: 'fab',
+                            color: '#96bf48',
+                            details: `${data.shopify.storeUrl}`,
+                            href: '/settings/integrations/shopify'
+                        });
+                    }
+                    // Add other integration checks here as they are implemented
+                    // if (data.amazon?.isConnected) { ... }
+                    // if (data.veeqo?.isConnected) { ... }
+                    setConnectedIntegrations(connected);
+                }
+            }["IntegrationsSettings.useEffect.unsubscribe"]);
+            return ({
+                "IntegrationsSettings.useEffect": ()=>unsubscribe()
+            })["IntegrationsSettings.useEffect"];
+        }
+    }["IntegrationsSettings.useEffect"], [
+        organization?.id
+    ]);
     const salesChannels = integrations.filter((i)=>i.category === 'sales');
     const shippingIntegrations = integrations.filter((i)=>i.category === 'shipping');
     const automationTools = integrations.filter((i)=>i.category === 'automation');
@@ -3432,12 +3501,12 @@ function IntegrationsSettings() {
                     className: `${integration.iconType} ${integration.icon} text-white`
                 }, void 0, false, {
                     fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                    lineNumber: 414,
+                    lineNumber: 475,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                lineNumber: 410,
+                lineNumber: 471,
                 columnNumber: 9
             }, this);
         }
@@ -3451,15 +3520,18 @@ function IntegrationsSettings() {
                 children: integration.icon
             }, void 0, false, {
                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                lineNumber: 424,
+                lineNumber: 485,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-            lineNumber: 420,
+            lineNumber: 481,
             columnNumber: 7
         }, this);
     };
+    // Filter out integrations that are already connected
+    const connectedIds = new Set(connectedIntegrations.map((c)=>c.id));
+    const availableSalesChannels = salesChannels.filter((i)=>!connectedIds.has(i.id));
     const getBadgeClass = (color)=>{
         switch(color){
             case 'emerald':
@@ -3480,7 +3552,7 @@ function IntegrationsSettings() {
                 children: "Integrations"
             }, void 0, false, {
                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                lineNumber: 440,
+                lineNumber: 505,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3488,7 +3560,7 @@ function IntegrationsSettings() {
                 children: "Connect your sales channels, shipping carriers, and automation tools"
             }, void 0, false, {
                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                lineNumber: 441,
+                lineNumber: 506,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3499,7 +3571,7 @@ function IntegrationsSettings() {
                         children: "Connected"
                     }, void 0, false, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 445,
+                        lineNumber: 510,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3524,13 +3596,13 @@ function IntegrationsSettings() {
                                                                     children: integration.badge
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                                    lineNumber: 460,
+                                                                    lineNumber: 525,
                                                                     columnNumber: 25
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                            lineNumber: 457,
+                                                            lineNumber: 522,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3538,19 +3610,19 @@ function IntegrationsSettings() {
                                                             children: integration.details
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                            lineNumber: 465,
+                                                            lineNumber: 530,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                    lineNumber: 456,
+                                                    lineNumber: 521,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                            lineNumber: 454,
+                                            lineNumber: 519,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3563,7 +3635,7 @@ function IntegrationsSettings() {
                                                             className: "w-2 h-2 bg-emerald-400 rounded-full animate-pulse"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                            lineNumber: 470,
+                                                            lineNumber: 535,
                                                             columnNumber: 21
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3571,13 +3643,13 @@ function IntegrationsSettings() {
                                                             children: "Connected"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                            lineNumber: 471,
+                                                            lineNumber: 536,
                                                             columnNumber: 21
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                    lineNumber: 469,
+                                                    lineNumber: 534,
                                                     columnNumber: 19
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3586,24 +3658,24 @@ function IntegrationsSettings() {
                                                         className: "fas fa-cog"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                        lineNumber: 474,
+                                                        lineNumber: 539,
                                                         columnNumber: 21
                                                     }, this)
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                    lineNumber: 473,
+                                                    lineNumber: 538,
                                                     columnNumber: 19
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                            lineNumber: 468,
+                                            lineNumber: 533,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                    lineNumber: 449,
+                                    lineNumber: 514,
                                     columnNumber: 15
                                 }, this);
                                 if (integration.href) {
@@ -3612,7 +3684,7 @@ function IntegrationsSettings() {
                                         children: content
                                     }, integration.id, false, {
                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                        lineNumber: 482,
+                                        lineNumber: 547,
                                         columnNumber: 17
                                     }, this);
                                 }
@@ -3620,7 +3692,7 @@ function IntegrationsSettings() {
                                     children: content
                                 }, integration.id, false, {
                                     fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                    lineNumber: 488,
+                                    lineNumber: 553,
                                     columnNumber: 20
                                 }, this);
                             }),
@@ -3631,32 +3703,32 @@ function IntegrationsSettings() {
                                         className: "fas fa-plug text-2xl mb-2"
                                     }, void 0, false, {
                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                        lineNumber: 493,
+                                        lineNumber: 558,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                         children: "No integrations connected yet"
                                     }, void 0, false, {
                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                        lineNumber: 494,
+                                        lineNumber: 559,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                lineNumber: 492,
+                                lineNumber: 557,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 446,
+                        lineNumber: 511,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                lineNumber: 444,
+                lineNumber: 509,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3667,12 +3739,12 @@ function IntegrationsSettings() {
                         children: "Sales Channels"
                     }, void 0, false, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 502,
+                        lineNumber: 567,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "grid grid-cols-3 gap-4",
-                        children: salesChannels.map((integration)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                        children: availableSalesChannels.map((integration)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                 className: "p-4 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-slate-600 transition-colors",
                                 children: [
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3686,7 +3758,7 @@ function IntegrationsSettings() {
                                                         children: integration.name
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                        lineNumber: 512,
+                                                        lineNumber: 577,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3694,45 +3766,53 @@ function IntegrationsSettings() {
                                                         children: integration.description
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                        lineNumber: 513,
+                                                        lineNumber: 578,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                lineNumber: 511,
+                                                lineNumber: 576,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                        lineNumber: 509,
+                                        lineNumber: 574,
                                         columnNumber: 15
                                     }, this),
-                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
-                                        onClick: ()=>handleConnect(integration),
-                                        className: `w-full px-3 py-2 text-sm rounded-lg transition-colors ${integration.id === 'walmart' ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`,
+                                    integration.href ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                                        href: integration.href,
+                                        className: `block w-full px-3 py-2 text-sm rounded-lg transition-colors text-center ${integration.id === 'shopify' ? 'bg-[#96bf48] hover:bg-[#7ea03a] text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`,
                                         children: "Connect"
                                     }, void 0, false, {
                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                        lineNumber: 516,
-                                        columnNumber: 15
+                                        lineNumber: 582,
+                                        columnNumber: 17
+                                    }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
+                                        onClick: ()=>handleConnect(integration),
+                                        className: "w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors",
+                                        children: "Connect"
+                                    }, void 0, false, {
+                                        fileName: "[project]/components/settings/IntegrationsSettings.tsx",
+                                        lineNumber: 593,
+                                        columnNumber: 17
                                     }, this)
                                 ]
                             }, integration.id, true, {
                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                lineNumber: 505,
+                                lineNumber: 570,
                                 columnNumber: 13
                             }, this))
                     }, void 0, false, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 503,
+                        lineNumber: 568,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                lineNumber: 501,
+                lineNumber: 566,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3743,7 +3823,7 @@ function IntegrationsSettings() {
                         children: "Shipping & Fulfillment"
                     }, void 0, false, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 533,
+                        lineNumber: 607,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3762,7 +3842,7 @@ function IntegrationsSettings() {
                                                         children: integration.name
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                        lineNumber: 543,
+                                                        lineNumber: 617,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3770,19 +3850,19 @@ function IntegrationsSettings() {
                                                         children: integration.description
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                        lineNumber: 544,
+                                                        lineNumber: 618,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                lineNumber: 542,
+                                                lineNumber: 616,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                        lineNumber: 540,
+                                        lineNumber: 614,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -3791,24 +3871,24 @@ function IntegrationsSettings() {
                                         children: "Connect"
                                     }, void 0, false, {
                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                        lineNumber: 547,
+                                        lineNumber: 621,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, integration.id, true, {
                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                lineNumber: 536,
+                                lineNumber: 610,
                                 columnNumber: 13
                             }, this))
                     }, void 0, false, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 534,
+                        lineNumber: 608,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                lineNumber: 532,
+                lineNumber: 606,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3819,7 +3899,7 @@ function IntegrationsSettings() {
                         children: "Automation & Tools"
                     }, void 0, false, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 560,
+                        lineNumber: 634,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3838,7 +3918,7 @@ function IntegrationsSettings() {
                                                         children: integration.name
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                        lineNumber: 570,
+                                                        lineNumber: 644,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3846,19 +3926,19 @@ function IntegrationsSettings() {
                                                         children: integration.description
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                        lineNumber: 571,
+                                                        lineNumber: 645,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                lineNumber: 569,
+                                                lineNumber: 643,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                        lineNumber: 567,
+                                        lineNumber: 641,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -3867,24 +3947,24 @@ function IntegrationsSettings() {
                                         children: "Connect"
                                     }, void 0, false, {
                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                        lineNumber: 574,
+                                        lineNumber: 648,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, integration.id, true, {
                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                lineNumber: 563,
+                                lineNumber: 637,
                                 columnNumber: 13
                             }, this))
                     }, void 0, false, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 561,
+                        lineNumber: 635,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                lineNumber: 559,
+                lineNumber: 633,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3897,14 +3977,14 @@ function IntegrationsSettings() {
                                 className: "fas fa-bullhorn mr-2"
                             }, void 0, false, {
                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                lineNumber: 592,
+                                lineNumber: 666,
                                 columnNumber: 11
                             }, this),
                             "Advertising Platforms"
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 591,
+                        lineNumber: 665,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3923,7 +4003,7 @@ function IntegrationsSettings() {
                                                         children: integration.name
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                        lineNumber: 604,
+                                                        lineNumber: 678,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3931,19 +4011,19 @@ function IntegrationsSettings() {
                                                         children: integration.description
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                        lineNumber: 605,
+                                                        lineNumber: 679,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                lineNumber: 603,
+                                                lineNumber: 677,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                        lineNumber: 601,
+                                        lineNumber: 675,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -3952,24 +4032,24 @@ function IntegrationsSettings() {
                                         children: "Connect"
                                     }, void 0, false, {
                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                        lineNumber: 608,
+                                        lineNumber: 682,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, integration.id, true, {
                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                lineNumber: 597,
+                                lineNumber: 671,
                                 columnNumber: 13
                             }, this))
                     }, void 0, false, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 595,
+                        lineNumber: 669,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                lineNumber: 590,
+                lineNumber: 664,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3982,14 +4062,14 @@ function IntegrationsSettings() {
                                 className: "fas fa-envelope mr-2"
                             }, void 0, false, {
                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                lineNumber: 622,
+                                lineNumber: 696,
                                 columnNumber: 11
                             }, this),
                             "Email & SMS Marketing"
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 621,
+                        lineNumber: 695,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4008,7 +4088,7 @@ function IntegrationsSettings() {
                                                         children: integration.name
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                        lineNumber: 634,
+                                                        lineNumber: 708,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4016,19 +4096,19 @@ function IntegrationsSettings() {
                                                         children: integration.description
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                        lineNumber: 635,
+                                                        lineNumber: 709,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                lineNumber: 633,
+                                                lineNumber: 707,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                        lineNumber: 631,
+                                        lineNumber: 705,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -4037,24 +4117,24 @@ function IntegrationsSettings() {
                                         children: "Connect"
                                     }, void 0, false, {
                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                        lineNumber: 638,
+                                        lineNumber: 712,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, integration.id, true, {
                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                lineNumber: 627,
+                                lineNumber: 701,
                                 columnNumber: 13
                             }, this))
                     }, void 0, false, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 625,
+                        lineNumber: 699,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                lineNumber: 620,
+                lineNumber: 694,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4067,14 +4147,14 @@ function IntegrationsSettings() {
                                 className: "fas fa-chart-line mr-2"
                             }, void 0, false, {
                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                lineNumber: 656,
+                                lineNumber: 730,
                                 columnNumber: 11
                             }, this),
                             "Analytics & Attribution"
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 655,
+                        lineNumber: 729,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4093,7 +4173,7 @@ function IntegrationsSettings() {
                                                         children: integration.name
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                        lineNumber: 668,
+                                                        lineNumber: 742,
                                                         columnNumber: 19
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4101,19 +4181,19 @@ function IntegrationsSettings() {
                                                         children: integration.description
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                        lineNumber: 669,
+                                                        lineNumber: 743,
                                                         columnNumber: 19
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                                lineNumber: 667,
+                                                lineNumber: 741,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                        lineNumber: 665,
+                                        lineNumber: 739,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -4122,24 +4202,24 @@ function IntegrationsSettings() {
                                         children: "Connect"
                                     }, void 0, false, {
                                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                        lineNumber: 672,
+                                        lineNumber: 746,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, integration.id, true, {
                                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                                lineNumber: 661,
+                                lineNumber: 735,
                                 columnNumber: 13
                             }, this))
                     }, void 0, false, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 659,
+                        lineNumber: 733,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                lineNumber: 654,
+                lineNumber: 728,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -4151,12 +4231,12 @@ function IntegrationsSettings() {
                             className: "fas fa-code text-slate-400 text-xl"
                         }, void 0, false, {
                             fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                            lineNumber: 686,
+                            lineNumber: 760,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 685,
+                        lineNumber: 759,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h4", {
@@ -4164,7 +4244,7 @@ function IntegrationsSettings() {
                         children: "Custom Integration"
                     }, void 0, false, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 688,
+                        lineNumber: 762,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -4172,7 +4252,7 @@ function IntegrationsSettings() {
                         children: "Use our REST API to build custom integrations"
                     }, void 0, false, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 689,
+                        lineNumber: 763,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -4180,23 +4260,27 @@ function IntegrationsSettings() {
                         children: "View API Documentation"
                     }, void 0, false, {
                         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                        lineNumber: 690,
+                        lineNumber: 764,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-                lineNumber: 684,
+                lineNumber: 758,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/settings/IntegrationsSettings.tsx",
-        lineNumber: 439,
+        lineNumber: 504,
         columnNumber: 5
     }, this);
 }
-_s(IntegrationsSettings, "TZ3NLi7qphxxeWZpgd2qRuoXeDo=");
+_s(IntegrationsSettings, "3rsykZ28mAcHTE2/J8NDKuATPsU=", false, function() {
+    return [
+        __TURBOPACK__imported__module__$5b$project$5d2f$context$2f$OrganizationContext$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useOrganization"]
+    ];
+});
 _c = IntegrationsSettings;
 var _c;
 __turbopack_context__.k.register(_c, "IntegrationsSettings");
@@ -5783,6 +5867,24 @@ function SettingsPage() {
                                     fileName: "[project]/app/(dashboard)/settings/page.tsx",
                                     lineNumber: 133,
                                     columnNumber: 13
+                                }, this),
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                                    href: "/settings/sales-channels",
+                                    className: "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors",
+                                    children: [
+                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("i", {
+                                            className: "fas fa-store w-4"
+                                        }, void 0, false, {
+                                            fileName: "[project]/app/(dashboard)/settings/page.tsx",
+                                            lineNumber: 144,
+                                            columnNumber: 15
+                                        }, this),
+                                        "Sales Channels"
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "[project]/app/(dashboard)/settings/page.tsx",
+                                    lineNumber: 140,
+                                    columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
@@ -5806,7 +5908,7 @@ function SettingsPage() {
                 children: renderContent()
             }, void 0, false, {
                 fileName: "[project]/app/(dashboard)/settings/page.tsx",
-                lineNumber: 145,
+                lineNumber: 152,
                 columnNumber: 7
             }, this)
         ]

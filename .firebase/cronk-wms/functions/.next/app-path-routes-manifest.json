@@ -45,6 +45,7 @@
   "/(dashboard)/settings/integrations/shopify/page": "/settings/integrations/shopify",
   "/(dashboard)/settings/page": "/settings",
   "/(dashboard)/settings/products/page": "/settings/products",
+  "/(dashboard)/settings/sales-channels/page": "/settings/sales-channels",
   "/_global-error/page": "/_global-error",
   "/_not-found/page": "/_not-found",
   "/api/shopify/push-inventory/route": "/api/shopify/push-inventory",

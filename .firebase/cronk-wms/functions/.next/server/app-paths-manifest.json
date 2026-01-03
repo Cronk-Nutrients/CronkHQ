@@ -45,6 +45,7 @@
   "/(dashboard)/settings/integrations/shopify/page": "app/(dashboard)/settings/integrations/shopify/page.js",
   "/(dashboard)/settings/page": "app/(dashboard)/settings/page.js",
   "/(dashboard)/settings/products/page": "app/(dashboard)/settings/products/page.js",
+  "/(dashboard)/settings/sales-channels/page": "app/(dashboard)/settings/sales-channels/page.js",
   "/_global-error/page": "app/_global-error/page.js",
   "/_not-found/page": "app/_not-found/page.js",
   "/api/shopify/push-inventory/route": "app/api/shopify/push-inventory/route.js",
