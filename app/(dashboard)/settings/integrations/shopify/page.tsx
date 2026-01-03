@@ -30,6 +30,15 @@ interface TestResult {
   rawResponse?: any
 }
 
+interface SyncSettings {
+  importProducts: boolean
+  importOrders: boolean
+  syncMode: 'read_only' | 'read_write'
+  orderDateRange: 'all' | '30_days' | '90_days' | '6_months' | '1_year' | 'custom'
+  customStartDate: string
+  customEndDate: string
+}
+
 export default function ShopifySettingsPage() {
   const { organization } = useOrganization()
   const { success, error: showError } = useToast()
@@ -59,6 +68,16 @@ export default function ShopifySettingsPage() {
   const [syncing, setSyncing] = useState(false)
   const [testResult, setTestResult] = useState<TestResult | null>(null)
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0, status: '' })
+
+  // Sync settings
+  const [syncSettings, setSyncSettings] = useState<SyncSettings>({
+    importProducts: true,
+    importOrders: true,
+    syncMode: 'read_write',
+    orderDateRange: 'all',
+    customStartDate: '',
+    customEndDate: '',
+  })
 
   // Load existing connection
   useEffect(() => {
@@ -217,75 +236,65 @@ export default function ShopifySettingsPage() {
     }
   }
 
-  // Sync orders
-  const handleSyncOrders = async () => {
+  // Calculate date range for order filtering
+  const getDateRange = (): { startDate: string | null; endDate: string | null } => {
+    const now = new Date()
+    let startDate: Date | null = null
+    const endDate: Date | null = now
+
+    switch (syncSettings.orderDateRange) {
+      case '30_days':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        break
+      case '90_days':
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+        break
+      case '6_months':
+        startDate = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
+        break
+      case '1_year':
+        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+        break
+      case 'custom':
+        return {
+          startDate: syncSettings.customStartDate || null,
+          endDate: syncSettings.customEndDate || null,
+        }
+      default:
+        return { startDate: null, endDate: null }
+    }
+
+    return {
+      startDate: startDate?.toISOString().split('T')[0] || null,
+      endDate: endDate?.toISOString().split('T')[0] || null,
+    }
+  }
+
+  // Main sync function
+  const handleSync = async () => {
     if (!organization?.id || !connection.isConnected) return
+    if (!syncSettings.importProducts && !syncSettings.importOrders) return
 
     setSyncing(true)
-    setSyncProgress({ current: 0, total: 0, status: 'Fetching orders from Shopify...' })
+    let productsAdded = 0
+    let productsUpdated = 0
+    let ordersAdded = 0
+    let ordersUpdated = 0
 
     try {
-      // Step 1: Fetch all orders from Shopify (with pagination)
-      let allOrders: any[] = []
-      let pageInfo: string | null = null
-      let pageCount = 0
+      // Save sync settings to organization
+      await setDoc(doc(db, 'organizations', organization.id), {
+        shopify: {
+          syncMode: syncSettings.syncMode,
+          syncSettings: {
+            importProducts: syncSettings.importProducts,
+            importOrders: syncSettings.importOrders,
+            orderDateRange: syncSettings.orderDateRange,
+          },
+        },
+      }, { merge: true })
 
-      do {
-        pageCount++
-        setSyncProgress(prev => ({ ...prev, status: `Fetching page ${pageCount}...` }))
-
-        const response: Response = await fetch('/api/shopify/fetch-orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            storeName: connection.storeName,
-            accessToken: connection.accessToken,
-            status: 'any',
-            limit: 250,
-            pageInfo,
-          }),
-        })
-
-        const data = await response.json()
-
-        if (!data.success) {
-          throw new Error(data.error || 'Failed to fetch orders')
-        }
-
-        allOrders = [...allOrders, ...(data.orders || [])]
-        pageInfo = data.hasNextPage ? data.nextPageInfo : null
-
-      } while (pageInfo)
-
-      setSyncProgress({ current: 0, total: allOrders.length, status: 'Processing orders...' })
-
-      if (allOrders.length === 0) {
-        success('No orders to sync')
-        setSyncing(false)
-        return
-      }
-
-      // Step 2: Get existing orders to avoid duplicates
-      const ordersRef = collection(db, 'organizations', organization.id, 'orders')
-      const existingSnapshot = await getDocs(ordersRef)
-      const existingByShopifyId = new Map<string, string>()
-      existingSnapshot.docs.forEach(d => {
-        const data = d.data()
-        if (data.shopifyId) {
-          existingByShopifyId.set(data.shopifyId, d.id)
-        }
-      })
-
-      // Step 3: Get products for SKU matching
-      const productsRef = collection(db, 'organizations', organization.id, 'products')
-      const productsSnapshot = await getDocs(productsRef)
-      const productsBySku = new Map<string, string>()
-      productsSnapshot.docs.forEach(docSnap => {
-        const data = docSnap.data()
-        if (data.sku) productsBySku.set(data.sku.toLowerCase(), docSnap.id)
-      })
-
-      // Step 4: Get or create Shopify sales channel
+      // Get or create Shopify sales channel
       const channelsRef = collection(db, 'organizations', organization.id, 'salesChannels')
       const channelQuery = query(channelsRef, where('code', '==', 'shopify'))
       const channelSnapshot = await getDocs(channelQuery)
@@ -302,11 +311,7 @@ export default function ShopifySettingsPage() {
           icon: 'fab fa-shopify',
           isActive: true,
           sortOrder: 1,
-          stats: {
-            totalOrders: 0,
-            pendingOrders: 0,
-            totalRevenue: 0,
-          },
+          stats: { totalOrders: 0, pendingOrders: 0, totalRevenue: 0 },
           createdAt: serverTimestamp(),
         })
         channelId = newChannel.id
@@ -315,77 +320,177 @@ export default function ShopifySettingsPage() {
         channelName = channelSnapshot.docs[0].data().name || 'Shopify'
       }
 
-      // Step 5: Process and save orders
-      let added = 0
-      let updated = 0
+      // Import Products
+      if (syncSettings.importProducts) {
+        setSyncProgress({ current: 0, total: 0, status: 'Fetching products from Shopify...' })
 
-      for (let i = 0; i < allOrders.length; i++) {
-        const shopifyOrder = allOrders[i]
-        const shopifyId = shopifyOrder.id.toString()
+        let allProducts: any[] = []
+        let pageInfo: string | null = null
+        let pageCount = 0
 
-        setSyncProgress({
-          current: i + 1,
-          total: allOrders.length,
-          status: `Processing order ${shopifyOrder.name}...`
-        })
+        do {
+          pageCount++
+          setSyncProgress(prev => ({ ...prev, status: `Fetching products page ${pageCount}...` }))
 
-        // Map order data
-        const orderData = mapShopifyOrder(shopifyOrder, productsBySku, channelId, channelName)
-
-        // Check if exists
-        const existingDocId = existingByShopifyId.get(shopifyId)
-        if (existingDocId) {
-          // Update existing
-          await setDoc(doc(ordersRef, existingDocId), {
-            ...orderData,
-            updatedAt: serverTimestamp(),
-          }, { merge: true })
-          updated++
-        } else {
-          // Add new
-          await addDoc(ordersRef, {
-            ...orderData,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
+          const response: Response = await fetch('/api/shopify/fetch-products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              storeName: connection.storeName,
+              accessToken: connection.accessToken,
+              limit: 250,
+              pageInfo,
+            }),
           })
-          added++
+
+          const data = await response.json()
+          if (!data.success) throw new Error(data.error || 'Failed to fetch products')
+
+          allProducts = [...allProducts, ...(data.products || [])]
+          pageInfo = data.hasNextPage ? data.nextPageInfo : null
+        } while (pageInfo)
+
+        if (allProducts.length > 0) {
+          setSyncProgress({ current: 0, total: allProducts.length, status: 'Processing products...' })
+
+          const productsRef = collection(db, 'organizations', organization.id, 'products')
+          const existingSnapshot = await getDocs(productsRef)
+          const existingByShopifyId = new Map<string, string>()
+          existingSnapshot.docs.forEach(d => {
+            const data = d.data()
+            if (data.shopifyProductId) existingByShopifyId.set(data.shopifyProductId, d.id)
+          })
+
+          for (let i = 0; i < allProducts.length; i++) {
+            const product = allProducts[i]
+            setSyncProgress({ current: i + 1, total: allProducts.length, status: `Processing ${product.title}...` })
+
+            const productData = mapShopifyProduct(product, channelId)
+            const existingId = existingByShopifyId.get(product.id.toString())
+
+            if (existingId) {
+              await setDoc(doc(productsRef, existingId), { ...productData, updatedAt: serverTimestamp() }, { merge: true })
+              productsUpdated++
+            } else {
+              await addDoc(productsRef, { ...productData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
+              productsAdded++
+            }
+          }
         }
       }
 
-      // Step 6: Update sync status
+      // Import Orders
+      if (syncSettings.importOrders) {
+        setSyncProgress({ current: 0, total: 0, status: 'Fetching orders from Shopify...' })
+
+        const dateRange = getDateRange()
+        let allOrders: any[] = []
+        let pageInfo: string | null = null
+        let pageCount = 0
+
+        do {
+          pageCount++
+          setSyncProgress(prev => ({ ...prev, status: `Fetching orders page ${pageCount}...` }))
+
+          const response: Response = await fetch('/api/shopify/fetch-orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              storeName: connection.storeName,
+              accessToken: connection.accessToken,
+              status: 'any',
+              limit: 250,
+              pageInfo,
+              createdAtMin: dateRange.startDate,
+              createdAtMax: dateRange.endDate,
+            }),
+          })
+
+          const data = await response.json()
+          if (!data.success) throw new Error(data.error || 'Failed to fetch orders')
+
+          allOrders = [...allOrders, ...(data.orders || [])]
+          pageInfo = data.hasNextPage ? data.nextPageInfo : null
+        } while (pageInfo)
+
+        // Filter orders by date if needed (backup client-side filter)
+        if (dateRange.startDate || dateRange.endDate) {
+          allOrders = allOrders.filter(order => {
+            const orderDate = new Date(order.created_at)
+            if (dateRange.startDate && orderDate < new Date(dateRange.startDate)) return false
+            if (dateRange.endDate && orderDate > new Date(dateRange.endDate + 'T23:59:59')) return false
+            return true
+          })
+        }
+
+        if (allOrders.length > 0) {
+          setSyncProgress({ current: 0, total: allOrders.length, status: 'Processing orders...' })
+
+          const ordersRef = collection(db, 'organizations', organization.id, 'orders')
+          const existingSnapshot = await getDocs(ordersRef)
+          const existingByShopifyId = new Map<string, string>()
+          existingSnapshot.docs.forEach(d => {
+            const data = d.data()
+            if (data.shopifyId) existingByShopifyId.set(data.shopifyId, d.id)
+          })
+
+          const productsRef = collection(db, 'organizations', organization.id, 'products')
+          const productsSnapshot = await getDocs(productsRef)
+          const productsBySku = new Map<string, string>()
+          productsSnapshot.docs.forEach(docSnap => {
+            const data = docSnap.data()
+            if (data.sku) productsBySku.set(data.sku.toLowerCase(), docSnap.id)
+          })
+
+          for (let i = 0; i < allOrders.length; i++) {
+            const shopifyOrder = allOrders[i]
+            const shopifyId = shopifyOrder.id.toString()
+
+            setSyncProgress({ current: i + 1, total: allOrders.length, status: `Processing order ${shopifyOrder.name}...` })
+
+            const orderData = mapShopifyOrder(shopifyOrder, productsBySku, channelId, channelName)
+            const existingDocId = existingByShopifyId.get(shopifyId)
+
+            if (existingDocId) {
+              await setDoc(doc(ordersRef, existingDocId), { ...orderData, updatedAt: serverTimestamp() }, { merge: true })
+              ordersUpdated++
+            } else {
+              await addDoc(ordersRef, { ...orderData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
+              ordersAdded++
+            }
+          }
+        }
+      }
+
+      // Update sync status
       await setDoc(doc(db, 'organizations', organization.id), {
         shopify: {
           lastSync: serverTimestamp(),
           syncStatus: 'success',
           lastError: null,
-          lastSyncStats: { added, updated, total: allOrders.length },
+          lastSyncStats: {
+            productsAdded,
+            productsUpdated,
+            ordersAdded,
+            ordersUpdated,
+          },
         },
       }, { merge: true })
 
-      setConnection(prev => ({
-        ...prev,
-        lastSync: new Date(),
-        syncStatus: 'success',
-        lastError: null,
-      }))
+      setConnection(prev => ({ ...prev, lastSync: new Date(), syncStatus: 'success', lastError: null }))
 
-      success(`Synced ${allOrders.length} orders (${added} new, ${updated} updated)`)
+      const messages: string[] = []
+      if (syncSettings.importProducts) messages.push(`${productsAdded + productsUpdated} products (${productsAdded} new, ${productsUpdated} updated)`)
+      if (syncSettings.importOrders) messages.push(`${ordersAdded + ordersUpdated} orders (${ordersAdded} new, ${ordersUpdated} updated)`)
+      success(`Synced: ${messages.join(', ')}`)
     } catch (err: any) {
       console.error('Sync error:', err)
 
       await setDoc(doc(db, 'organizations', organization.id), {
-        shopify: {
-          syncStatus: 'error',
-          lastError: err.message,
-        },
+        shopify: { syncStatus: 'error', lastError: err.message },
       }, { merge: true })
 
-      setConnection(prev => ({
-        ...prev,
-        syncStatus: 'error',
-        lastError: err.message,
-      }))
-
+      setConnection(prev => ({ ...prev, syncStatus: 'error', lastError: err.message }))
       showError(err.message || 'Sync failed')
     } finally {
       setSyncing(false)
@@ -598,13 +703,146 @@ export default function ShopifySettingsPage() {
       {/* Sync Section */}
       {connection.isConnected && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 mb-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Sync Orders</h2>
+          <h2 className="text-lg font-semibold text-white mb-4">
+            <i className="fas fa-sync text-slate-400 mr-2"></i>
+            Import Settings
+          </h2>
 
+          {/* What to Import */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-slate-300 mb-3">
+              What to Import
+            </label>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={syncSettings.importProducts}
+                  onChange={(e) => setSyncSettings(prev => ({ ...prev, importProducts: e.target.checked }))}
+                  className="w-5 h-5 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-800"
+                />
+                <span className="text-white">
+                  <i className="fas fa-box mr-2 text-blue-400"></i>
+                  Products
+                </span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={syncSettings.importOrders}
+                  onChange={(e) => setSyncSettings(prev => ({ ...prev, importOrders: e.target.checked }))}
+                  className="w-5 h-5 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-800"
+                />
+                <span className="text-white">
+                  <i className="fas fa-shopping-cart mr-2 text-purple-400"></i>
+                  Orders
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* Order Date Range */}
+          {syncSettings.importOrders && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-300 mb-3">
+                Order Date Range
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                {[
+                  { value: 'all', label: 'All Orders' },
+                  { value: '30_days', label: 'Last 30 Days' },
+                  { value: '90_days', label: 'Last 90 Days' },
+                  { value: '6_months', label: 'Last 6 Months' },
+                  { value: '1_year', label: 'Last Year' },
+                  { value: 'custom', label: 'Custom Range' },
+                ].map(option => (
+                  <button
+                    key={option.value}
+                    onClick={() => setSyncSettings(prev => ({ ...prev, orderDateRange: option.value as SyncSettings['orderDateRange'] }))}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      syncSettings.orderDateRange === option.value
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Date Range */}
+              {syncSettings.orderDateRange === 'custom' && (
+                <div className="flex gap-4 mt-3">
+                  <div className="flex-1">
+                    <label className="block text-xs text-slate-400 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      value={syncSettings.customStartDate}
+                      onChange={(e) => setSyncSettings(prev => ({ ...prev, customStartDate: e.target.value }))}
+                      className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs text-slate-400 mb-1">End Date</label>
+                    <input
+                      type="date"
+                      value={syncSettings.customEndDate}
+                      onChange={(e) => setSyncSettings(prev => ({ ...prev, customEndDate: e.target.value }))}
+                      className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Sync Mode */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-slate-300 mb-3">
+              Sync Mode
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={() => setSyncSettings(prev => ({ ...prev, syncMode: 'read_only' }))}
+                className={`p-4 rounded-lg border text-left transition-colors ${
+                  syncSettings.syncMode === 'read_only'
+                    ? 'bg-emerald-600/10 border-emerald-500 text-white'
+                    : 'bg-slate-900 border-slate-600 text-slate-300 hover:border-slate-500'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-medium">
+                  <i className={`fas fa-eye ${syncSettings.syncMode === 'read_only' ? 'text-emerald-400' : 'text-slate-400'}`}></i>
+                  Read Only
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Import data from Shopify. No changes will be pushed back to Shopify.
+                </p>
+              </button>
+              <button
+                onClick={() => setSyncSettings(prev => ({ ...prev, syncMode: 'read_write' }))}
+                className={`p-4 rounded-lg border text-left transition-colors ${
+                  syncSettings.syncMode === 'read_write'
+                    ? 'bg-emerald-600/10 border-emerald-500 text-white'
+                    : 'bg-slate-900 border-slate-600 text-slate-300 hover:border-slate-500'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-medium">
+                  <i className={`fas fa-exchange-alt ${syncSettings.syncMode === 'read_write' ? 'text-emerald-400' : 'text-slate-400'}`}></i>
+                  Read & Write
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Two-way sync. Inventory and fulfillment updates will be pushed to Shopify.
+                </p>
+              </button>
+            </div>
+          </div>
+
+          {/* Sync Button */}
           <div className="flex items-center gap-4">
             <button
-              onClick={handleSyncOrders}
-              disabled={syncing}
-              className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 disabled:opacity-50 flex items-center gap-2 transition-colors"
+              onClick={handleSync}
+              disabled={syncing || (!syncSettings.importProducts && !syncSettings.importOrders)}
+              className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
             >
               {syncing ? (
                 <>
@@ -613,11 +851,18 @@ export default function ShopifySettingsPage() {
                 </>
               ) : (
                 <>
-                  <i className="fas fa-sync"></i>
-                  Sync Orders Now
+                  <i className="fas fa-download"></i>
+                  Start Import
                 </>
               )}
             </button>
+
+            {!syncSettings.importProducts && !syncSettings.importOrders && (
+              <span className="text-sm text-amber-400">
+                <i className="fas fa-info-circle mr-1"></i>
+                Select at least one item to import
+              </span>
+            )}
 
             {connection.syncStatus === 'error' && connection.lastError && (
               <div className="text-sm text-red-400">
@@ -627,6 +872,7 @@ export default function ShopifySettingsPage() {
             )}
           </div>
 
+          {/* Progress Bar */}
           {syncing && (
             <div className="mt-4">
               <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
@@ -861,6 +1107,81 @@ function mapShopifyOrder(
       platform: 'shopify',
       externalId: shopifyId,
       externalOrderNumber: shopifyOrder.name,
+      importedAt: new Date(),
+    },
+  }
+}
+
+// Helper function to map Shopify product to our format
+function mapShopifyProduct(shopifyProduct: any, channelId: string) {
+  const mainVariant = shopifyProduct.variants?.[0] || {}
+
+  // Map variants
+  const variants = (shopifyProduct.variants || []).map((v: any) => ({
+    shopifyVariantId: v.id.toString(),
+    title: v.title,
+    sku: v.sku || '',
+    barcode: v.barcode || null,
+    price: parseFloat(v.price) || 0,
+    compareAtPrice: v.compare_at_price ? parseFloat(v.compare_at_price) : null,
+    weight: v.weight || 0,
+    weightUnit: v.weight_unit || 'lb',
+    inventoryQuantity: v.inventory_quantity || 0,
+    inventoryItemId: v.inventory_item_id?.toString() || null,
+    option1: v.option1 || null,
+    option2: v.option2 || null,
+    option3: v.option3 || null,
+  }))
+
+  // Map images
+  const images = (shopifyProduct.images || []).map((img: any) => ({
+    shopifyImageId: img.id.toString(),
+    src: img.src,
+    alt: img.alt || null,
+    position: img.position,
+  }))
+
+  return {
+    shopifyProductId: shopifyProduct.id.toString(),
+    shopifyHandle: shopifyProduct.handle,
+
+    name: shopifyProduct.title,
+    description: shopifyProduct.body_html || '',
+    vendor: shopifyProduct.vendor || '',
+    productType: shopifyProduct.product_type || '',
+
+    sku: mainVariant.sku || '',
+    barcode: mainVariant.barcode || null,
+    price: parseFloat(mainVariant.price) || 0,
+    compareAtPrice: mainVariant.compare_at_price ? parseFloat(mainVariant.compare_at_price) : null,
+    cost: 0, // Shopify doesn't expose cost in Products API
+
+    weight: mainVariant.weight || 0,
+    weightUnit: mainVariant.weight_unit || 'lb',
+
+    status: shopifyProduct.status === 'active' ? 'active' : 'inactive',
+    tags: shopifyProduct.tags ? shopifyProduct.tags.split(',').map((t: string) => t.trim()) : [],
+
+    variants,
+    hasVariants: variants.length > 1,
+    options: shopifyProduct.options || [],
+
+    images,
+    mainImage: images[0]?.src || null,
+
+    inventoryQuantity: variants.reduce((sum: number, v: any) => sum + (v.inventoryQuantity || 0), 0),
+    inventoryTracking: mainVariant.inventory_management === 'shopify',
+
+    channelId,
+    channelCode: 'shopify',
+
+    shopifyCreatedAt: new Date(shopifyProduct.created_at),
+    shopifyUpdatedAt: new Date(shopifyProduct.updated_at),
+    shopifyPublishedAt: shopifyProduct.published_at ? new Date(shopifyProduct.published_at) : null,
+
+    source: {
+      platform: 'shopify',
+      externalId: shopifyProduct.id.toString(),
       importedAt: new Date(),
     },
   }
