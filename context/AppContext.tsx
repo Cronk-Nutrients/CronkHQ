@@ -2,6 +2,9 @@
 
 import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useOrganization } from '@/context/OrganizationContext';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 
 // Types
 // Component for product manufacturing BOM
@@ -1253,24 +1256,122 @@ const AppContext = createContext<{
   dispatch: React.Dispatch<Action>;
 } | undefined>(undefined);
 
+// Helper to map Firestore order status to AppContext status
+function mapFirestoreStatus(status: string, fulfillmentStatus?: string): Order['status'] {
+  if (status === 'cancelled') return 'cancelled';
+  if (status === 'shipped' || fulfillmentStatus === 'fulfilled') return 'shipped';
+  if (status === 'partially_shipped' || fulfillmentStatus === 'partial') return 'picking';
+  if (status === 'processing') return 'to_pick';
+  if (status === 'pending') return 'to_pick';
+  return 'to_pick';
+}
+
 // Provider
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const { isDemo, loading: authLoading, user } = useAuth();
+  const { organization } = useOrganization();
 
-  // Initialize data - mock data for demo, empty for real users
+  // Initialize data - mock data for demo, Firestore for real users
   useEffect(() => {
     // Wait for auth to finish loading
     if (authLoading) return;
 
     const initializeData = async () => {
       try {
-        // If not demo mode, reset to empty state for real users
+        // If not demo mode, load from Firestore for real users
         if (!isDemo) {
-          // For real users: empty state, they import their own data
-          // This also clears any demo data if switching from demo to real user
-          // In the future, this would load from Firestore per user
-          dispatch({ type: 'RESET_STATE' });
+          // For real users: load data from Firestore
+          if (!organization?.id) {
+            dispatch({ type: 'RESET_STATE' });
+            return;
+          }
+
+          dispatch({ type: 'SET_LOADING', payload: true });
+
+          // Load orders from Firestore
+          const ordersRef = collection(db, 'organizations', organization.id, 'orders');
+          const ordersQuery = query(ordersRef, orderBy('createdAt', 'desc'), limit(500));
+          const ordersSnapshot = await getDocs(ordersQuery);
+
+          const firestoreOrders: Order[] = ordersSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              orderNumber: data.shopifyOrderName || data.shopifyOrderNumber || `#${doc.id.slice(-6)}`,
+              veeqoId: data.shopifyId || undefined,
+              channel: (data.channelCode === 'shopify' ? 'shopify' : data.channel || 'manual') as Order['channel'],
+              status: mapFirestoreStatus(data.status, data.fulfillmentStatus),
+              customer: {
+                name: `${data.customer?.firstName || ''} ${data.customer?.lastName || ''}`.trim() || 'Unknown',
+                email: data.customer?.email || '',
+                phone: data.customer?.phone || undefined,
+                address: {
+                  street: data.shippingAddress?.address1 || '',
+                  city: data.shippingAddress?.city || '',
+                  state: data.shippingAddress?.province || data.shippingAddress?.provinceCode || '',
+                  zip: data.shippingAddress?.zip || '',
+                  country: data.shippingAddress?.country || data.shippingAddress?.countryCode || 'US',
+                },
+              },
+              items: (data.lineItems || []).map((item: any) => ({
+                productId: item.productId || item.shopifyProductId || '',
+                productName: item.name || '',
+                sku: item.sku || '',
+                quantity: item.quantity || 0,
+                price: item.price || 0,
+                cost: 0, // Shopify doesn't provide cost
+                picked: item.fulfillmentStatus === 'fulfilled',
+              })),
+              subtotal: data.subtotal || 0,
+              shipping: data.shippingTotal || 0,
+              tax: data.taxTotal || 0,
+              discount: data.discountTotal || 0,
+              total: data.total || 0,
+              cogs: 0, // Calculate if we have cost data
+              profit: 0, // Calculate if we have cost data
+              margin: 0,
+              trackingNumber: data.fulfillments?.[0]?.trackingNumber || undefined,
+              carrier: data.fulfillments?.[0]?.trackingCompany || undefined,
+              createdAt: data.shopifyCreatedAt?.toDate?.() || data.createdAt?.toDate?.() || new Date(),
+              updatedAt: data.shopifyUpdatedAt?.toDate?.() || data.updatedAt?.toDate?.() || new Date(),
+            };
+          });
+
+          dispatch({ type: 'SET_ORDERS', payload: firestoreOrders });
+
+          // Load products from Firestore
+          const productsRef = collection(db, 'organizations', organization.id, 'products');
+          const productsSnapshot = await getDocs(productsRef);
+
+          const firestoreProducts: Product[] = productsSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              name: data.name || '',
+              sku: data.sku || '',
+              barcode: data.barcode || undefined,
+              category: data.productType || data.category || 'Uncategorized',
+              description: data.description || undefined,
+              cost: { rolling: data.cost || 0, fixed: data.cost || 0 },
+              prices: {
+                msrp: data.price || 0,
+                shopify: data.price || 0,
+                amazon: data.price || 0,
+                wholesale: (data.price || 0) * 0.6,
+              },
+              weight: { value: data.weight || 0, unit: (data.weightUnit || 'lb') as 'lbs' | 'oz' | 'kg' | 'g' },
+              reorderPoint: 10,
+              supplier: data.vendor || undefined,
+              imageUrl: data.mainImage || undefined,
+              createdAt: data.createdAt?.toDate?.() || new Date(),
+              updatedAt: data.updatedAt?.toDate?.() || new Date(),
+            };
+          });
+
+          dispatch({ type: 'SET_PRODUCTS', payload: firestoreProducts });
+          dispatch({ type: 'SET_LOADING', payload: false });
+          dispatch({ type: 'SET_INITIALIZED', payload: true });
           return;
         }
 
@@ -1970,7 +2071,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
 
     initializeData();
-  }, [isDemo, authLoading]);
+  }, [isDemo, authLoading, organization?.id]);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>
