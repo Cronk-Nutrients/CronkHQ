@@ -517,6 +517,22 @@ export default function AnalyticsPage() {
               Switch to a date range to see historical metrics.
             </div>
           </div>
+
+          {/* GA vs Shopify Note */}
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <i className="fas fa-lightbulb text-amber-400 mt-0.5"></i>
+              <div>
+                <div className="text-amber-400 font-medium text-sm mb-1">Why does GA show different numbers than Shopify?</div>
+                <div className="text-slate-400 text-sm">
+                  Google Analytics counts "active users" within a <span className="text-white">30-minute window</span>,
+                  while Shopify's Live View uses a <span className="text-white">5-minute window</span>.
+                  This means GA will typically show more visitors at any given time.
+                  Both numbers are accurate—they just use different time windows.
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

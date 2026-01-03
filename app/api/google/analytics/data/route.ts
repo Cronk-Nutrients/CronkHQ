@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminDb } from '@/lib/firebase-admin'
+import { getAdminDb } from '@/lib/firebase-admin'
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,8 +9,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing organization ID' })
     }
 
+    // Get Firestore instance with error handling
+    let db
+    try {
+      db = getAdminDb()
+    } catch (dbError: any) {
+      console.error('Firebase Admin init error:', dbError)
+      return NextResponse.json({
+        success: false,
+        error: 'Database connection failed. Please check server configuration.'
+      })
+    }
+
     // Get stored tokens from Firestore
-    const orgDoc = await adminDb().collection('organizations').doc(organizationId).get()
+    const orgDoc = await db.collection('organizations').doc(organizationId).get()
     if (!orgDoc.exists) {
       return NextResponse.json({ success: false, error: 'Organization not found' })
     }
@@ -98,7 +110,7 @@ export async function POST(request: NextRequest) {
 
         if (refreshData.access_token) {
           // Update token in Firestore
-          await adminDb().collection('organizations').doc(organizationId).update({
+          await db.collection('organizations').doc(organizationId).update({
             'googleAnalytics.accessToken': refreshData.access_token,
           })
 
