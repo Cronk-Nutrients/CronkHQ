@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useApp, Product } from '@/context/AppContext';
+import { useOrganization } from '@/context/OrganizationContext';
 import { useToast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { Modal } from '@/components/ui/Modal';
@@ -22,10 +23,27 @@ import {
   StockStatus,
 } from '@/components/inventory';
 import { Pagination, EmptyState } from '@/components/inventory/InventoryTable';
+import { db } from '@/lib/firebase';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { Category } from '@/types';
 
-type CategoryFilter = 'all' | 'nutrients' | 'supplements' | 'ph_adjusters' | 'bundles';
 type StatusFilter = 'all' | 'in_stock' | 'low_stock' | 'out_of_stock';
 type LocationFilter = 'all' | string;
+type ProductStatusFilter = 'all' | 'active' | 'archived' | 'draft';
+type SortOption = 'stock_high' | 'stock_low' | 'name_asc' | 'name_desc' | 'price_high' | 'price_low' | 'recent';
+
+interface SavedView {
+  id: string;
+  name: string;
+  filters: {
+    category?: string;
+    status?: string;
+    location?: string;
+    productStatus?: string;
+    sortBy?: string;
+    search?: string;
+  };
+}
 
 function InventoryPageLoading() {
   return (
@@ -47,15 +65,58 @@ function InventoryPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { state, dispatch } = useApp();
+  const { organization } = useOrganization();
   const { success, error: showError, warning } = useToast();
   const confirm = useConfirm();
 
+  // Dynamic categories from Firestore
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+  // Load categories from Firestore
+  useEffect(() => {
+    if (!organization?.id) {
+      setCategoriesLoading(false);
+      return;
+    }
+
+    const categoriesRef = collection(db, 'organizations', organization.id, 'categories');
+    const q = query(categoriesRef, orderBy('sortOrder'), orderBy('name'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const cats = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Category[];
+      setCategories(cats);
+      setCategoriesLoading(false);
+    }, (err) => {
+      console.error('Error loading categories:', err);
+      setCategoriesLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [organization?.id]);
+
   // Read initial filter values from URL
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [locationFilter, setLocationFilter] = useState<LocationFilter>('all');
+  const [productStatusFilter, setProductStatusFilter] = useState<ProductStatusFilter>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('stock_high');
   const [urlInitialized, setUrlInitialized] = useState(false);
+
+  // Saved views
+  const [savedViews, setSavedViews] = useState<SavedView[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('inventory_saved_views');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+  const [showSaveViewModal, setShowSaveViewModal] = useState(false);
+  const [newViewName, setNewViewName] = useState('');
 
   // Initialize filters from URL params
   useEffect(() => {
@@ -64,13 +125,20 @@ function InventoryPageContent() {
       const status = searchParams.get('status');
       const category = searchParams.get('category');
       const search = searchParams.get('search');
+      const pStatus = searchParams.get('productStatus');
+      const sort = searchParams.get('sort');
 
       if (location) setLocationFilter(location);
       if (status && ['in_stock', 'low_stock', 'out_of_stock'].includes(status)) {
         setStatusFilter(status as StatusFilter);
       }
-      if (category && ['nutrients', 'supplements', 'ph_adjusters', 'bundles'].includes(category)) {
-        setCategoryFilter(category as CategoryFilter);
+      // Accept any category from URL - will be validated against loaded categories
+      if (category) setCategoryFilter(category);
+      if (pStatus && ['active', 'archived', 'draft'].includes(pStatus)) {
+        setProductStatusFilter(pStatus as ProductStatusFilter);
+      }
+      if (sort && ['stock_high', 'stock_low', 'name_asc', 'name_desc', 'price_high', 'price_low', 'recent'].includes(sort)) {
+        setSortBy(sort as SortOption);
       }
       if (search) setSearchQuery(search);
 
@@ -84,21 +152,82 @@ function InventoryPageContent() {
     status?: string;
     category?: string;
     search?: string;
+    productStatus?: string;
+    sort?: string;
   }) => {
     const params = new URLSearchParams();
     const location = newFilters.location ?? locationFilter;
     const status = newFilters.status ?? statusFilter;
     const category = newFilters.category ?? categoryFilter;
     const search = newFilters.search ?? searchQuery;
+    const pStatus = newFilters.productStatus ?? productStatusFilter;
+    const sort = newFilters.sort ?? sortBy;
 
     if (location !== 'all') params.set('location', location);
     if (status !== 'all') params.set('status', status);
     if (category !== 'all') params.set('category', category);
+    if (pStatus !== 'all') params.set('productStatus', pStatus);
+    if (sort !== 'stock_high') params.set('sort', sort);
     if (search) params.set('search', search);
 
     const url = params.toString() ? `/inventory?${params.toString()}` : '/inventory';
     router.replace(url, { scroll: false });
-  }, [router, locationFilter, statusFilter, categoryFilter, searchQuery]);
+  }, [router, locationFilter, statusFilter, categoryFilter, searchQuery, productStatusFilter, sortBy]);
+
+  // Save current view
+  const handleSaveView = () => {
+    if (!newViewName.trim()) return;
+
+    const newView: SavedView = {
+      id: `view_${Date.now()}`,
+      name: newViewName.trim(),
+      filters: {
+        category: categoryFilter !== 'all' ? categoryFilter : undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        location: locationFilter !== 'all' ? locationFilter : undefined,
+        productStatus: productStatusFilter !== 'all' ? productStatusFilter : undefined,
+        sortBy: sortBy !== 'stock_high' ? sortBy : undefined,
+        search: searchQuery || undefined,
+      },
+    };
+
+    const updatedViews = [...savedViews, newView];
+    setSavedViews(updatedViews);
+    localStorage.setItem('inventory_saved_views', JSON.stringify(updatedViews));
+    setShowSaveViewModal(false);
+    setNewViewName('');
+    success(`View "${newView.name}" saved`);
+  };
+
+  // Load saved view
+  const handleLoadView = (view: SavedView) => {
+    setCategoryFilter(view.filters.category || 'all');
+    setStatusFilter((view.filters.status as StatusFilter) || 'all');
+    setLocationFilter(view.filters.location || 'all');
+    setProductStatusFilter((view.filters.productStatus as ProductStatusFilter) || 'all');
+    setSortBy((view.filters.sortBy as SortOption) || 'stock_high');
+    setSearchQuery(view.filters.search || '');
+    setCurrentPage(1);
+    success(`Loaded view "${view.name}"`);
+  };
+
+  // Delete saved view
+  const handleDeleteView = async (viewId: string) => {
+    const view = savedViews.find(v => v.id === viewId);
+    const confirmed = await confirm({
+      title: 'Delete View',
+      message: `Delete saved view "${view?.name}"?`,
+      confirmText: 'Delete',
+      destructive: true,
+    });
+
+    if (confirmed) {
+      const updatedViews = savedViews.filter(v => v.id !== viewId);
+      setSavedViews(updatedViews);
+      localStorage.setItem('inventory_saved_views', JSON.stringify(updatedViews));
+      success('View deleted');
+    }
+  };
 
   // Helper to get location name
   const getLocationName = (locationId: string) => {
@@ -118,22 +247,26 @@ function InventoryPageContent() {
         low_stock: 'Low Stock',
         out_of_stock: 'Out of Stock',
       };
-      filters.push({ key: 'status', label: 'Status', value: statusLabels[statusFilter] });
+      filters.push({ key: 'status', label: 'Stock', value: statusLabels[statusFilter] });
+    }
+    if (productStatusFilter !== 'all') {
+      const pStatusLabels: Record<string, string> = {
+        active: 'Active',
+        archived: 'Archived',
+        draft: 'Draft',
+      };
+      filters.push({ key: 'productStatus', label: 'Status', value: pStatusLabels[productStatusFilter] });
     }
     if (categoryFilter !== 'all') {
-      const catLabels: Record<string, string> = {
-        nutrients: 'Nutrients',
-        supplements: 'Supplements',
-        ph_adjusters: 'pH Adjusters',
-        bundles: 'Bundles',
-      };
-      filters.push({ key: 'category', label: 'Category', value: catLabels[categoryFilter] });
+      // Use dynamic categories from Firestore
+      const category = categories.find(c => c.id === categoryFilter || c.slug === categoryFilter);
+      filters.push({ key: 'category', label: 'Category', value: category?.name || categoryFilter });
     }
     if (searchQuery) {
       filters.push({ key: 'search', label: 'Search', value: searchQuery });
     }
     return filters;
-  }, [locationFilter, statusFilter, categoryFilter, searchQuery, state.locations]);
+  }, [locationFilter, statusFilter, productStatusFilter, categoryFilter, searchQuery, state.locations, categories]);
 
   // Handle removing a filter
   const handleRemoveFilter = (key: string) => {
@@ -143,6 +276,9 @@ function InventoryPageContent() {
     } else if (key === 'status') {
       setStatusFilter('all');
       updateUrlParams({ status: 'all' });
+    } else if (key === 'productStatus') {
+      setProductStatusFilter('all');
+      updateUrlParams({ productStatus: 'all' });
     } else if (key === 'category') {
       setCategoryFilter('all');
       updateUrlParams({ category: 'all' });
@@ -156,7 +292,9 @@ function InventoryPageContent() {
   const handleClearAllFilters = () => {
     setLocationFilter('all');
     setStatusFilter('all');
+    setProductStatusFilter('all');
     setCategoryFilter('all');
+    setSortBy('stock_high');
     setSearchQuery('');
     router.replace('/inventory', { scroll: false });
   };
@@ -221,9 +359,10 @@ function InventoryPageContent() {
     return margins.reduce((a, b) => a + b, 0) / margins.length;
   };
 
-  // Filter products
+  // Filter and sort products
   const filteredProducts = useMemo(() => {
-    return state.products.filter((product) => {
+    // First filter
+    const filtered = state.products.filter((product) => {
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -237,15 +376,29 @@ function InventoryPageContent() {
         }
       }
 
-      // Category filter
-      if (categoryFilter !== 'all' && product.category !== categoryFilter) {
-        return false;
+      // Category filter - match by category id, slug, or name
+      if (categoryFilter !== 'all') {
+        const productCategory = (product as any).categoryId || (product as any).category;
+        const matchesCategory = productCategory === categoryFilter ||
+          (product as any).categorySlug === categoryFilter ||
+          product.category === categoryFilter;
+        if (!matchesCategory) {
+          return false;
+        }
       }
 
-      // Status filter
+      // Stock status filter
       const status = getStockStatus(product);
       if (statusFilter !== 'all' && status !== statusFilter) {
         return false;
+      }
+
+      // Product status filter (active/archived/draft)
+      if (productStatusFilter !== 'all') {
+        const pStatus = (product as any).status || 'active';
+        if (pStatus !== productStatusFilter) {
+          return false;
+        }
       }
 
       // Location filter
@@ -258,7 +411,32 @@ function InventoryPageContent() {
 
       return true;
     });
-  }, [state.products, state.inventory, searchQuery, categoryFilter, statusFilter, locationFilter]);
+
+    // Then sort
+    return filtered.sort((a, b) => {
+      const stockA = getProductStock(a.id, a).total;
+      const stockB = getProductStock(b.id, b).total;
+
+      switch (sortBy) {
+        case 'stock_high':
+          return stockB - stockA;
+        case 'stock_low':
+          return stockA - stockB;
+        case 'name_asc':
+          return a.name.localeCompare(b.name);
+        case 'name_desc':
+          return b.name.localeCompare(a.name);
+        case 'price_high':
+          return (b.prices?.msrp || 0) - (a.prices?.msrp || 0);
+        case 'price_low':
+          return (a.prices?.msrp || 0) - (b.prices?.msrp || 0);
+        case 'recent':
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        default:
+          return stockB - stockA;
+      }
+    });
+  }, [state.products, state.inventory, searchQuery, categoryFilter, statusFilter, productStatusFilter, locationFilter, sortBy]);
 
   // Pagination
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
@@ -296,9 +474,13 @@ function InventoryPageContent() {
     };
   }, [state.products, state.inventory]);
 
-  // Get category label from shared styles
-  const getCategoryLabel = (category: Product['category']) => {
-    return categoryStyles[category]?.label || category;
+  // Get category label from dynamic categories or shared styles fallback
+  const getCategoryLabel = (categoryId: string) => {
+    // Try to find in dynamic categories first
+    const cat = categories.find(c => c.id === categoryId || c.slug === categoryId);
+    if (cat) return cat.name;
+    // Fallback to shared styles
+    return categoryStyles[categoryId as Product['category']]?.label || categoryId;
   };
 
   // Handle row click
@@ -574,9 +756,32 @@ function InventoryPageContent() {
         </div>
       </div>
 
+      {/* Saved Views Row */}
+      {savedViews.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-sm text-slate-400">Saved Views:</span>
+          {savedViews.map(view => (
+            <div key={view.id} className="flex items-center gap-1 bg-slate-800/50 border border-slate-700 rounded-lg overflow-hidden">
+              <button
+                onClick={() => handleLoadView(view)}
+                className="px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+              >
+                {view.name}
+              </button>
+              <button
+                onClick={() => handleDeleteView(view.id)}
+                className="px-2 py-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-700 transition-colors"
+              >
+                <i className="fas fa-times text-xs"></i>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Filters Row */}
       <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-4">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           {/* Search */}
           <div className="flex-1 relative">
             <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
@@ -604,7 +809,7 @@ function InventoryPageContent() {
           <select
             value={categoryFilter}
             onChange={(e) => {
-              const val = e.target.value as CategoryFilter;
+              const val = e.target.value;
               setCategoryFilter(val);
               setCurrentPage(1);
               if (urlInitialized) updateUrlParams({ category: val });
@@ -612,10 +817,18 @@ function InventoryPageContent() {
             className="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:outline-none focus:border-emerald-500/50"
           >
             <option value="all">All Categories</option>
-            <option value="nutrients">Nutrients</option>
-            <option value="supplements">Supplements</option>
-            <option value="ph_adjusters">pH Adjusters</option>
-            <option value="bundles">Bundles</option>
+            {categories.map(cat => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+            {/* Fallback options if no categories loaded yet */}
+            {categories.length === 0 && !categoriesLoading && (
+              <>
+                <option value="nutrients">Nutrients</option>
+                <option value="supplements">Supplements</option>
+                <option value="ph_adjusters">pH Adjusters</option>
+                <option value="bundles">Bundles</option>
+              </>
+            )}
           </select>
 
           {/* Location Filter */}
@@ -652,6 +865,43 @@ function InventoryPageContent() {
             <option value="out_of_stock">Out of Stock</option>
           </select>
 
+          {/* Product Status Filter */}
+          <select
+            value={productStatusFilter}
+            onChange={(e) => {
+              const val = e.target.value as ProductStatusFilter;
+              setProductStatusFilter(val);
+              setCurrentPage(1);
+              if (urlInitialized) updateUrlParams({ productStatus: val });
+            }}
+            className="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:outline-none focus:border-emerald-500/50"
+          >
+            <option value="all">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="archived">Archived</option>
+            <option value="draft">Draft</option>
+          </select>
+
+          {/* Sort By */}
+          <select
+            value={sortBy}
+            onChange={(e) => {
+              const val = e.target.value as SortOption;
+              setSortBy(val);
+              setCurrentPage(1);
+              if (urlInitialized) updateUrlParams({ sort: val });
+            }}
+            className="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-300 focus:outline-none focus:border-emerald-500/50"
+          >
+            <option value="stock_high">Stock: High to Low</option>
+            <option value="stock_low">Stock: Low to High</option>
+            <option value="name_asc">Name: A to Z</option>
+            <option value="name_desc">Name: Z to A</option>
+            <option value="price_high">Price: High to Low</option>
+            <option value="price_low">Price: Low to High</option>
+            <option value="recent">Recently Updated</option>
+          </select>
+
           {/* View Toggle */}
           <div className="flex items-center bg-slate-800/50 border border-slate-700 rounded-lg p-1">
             <button
@@ -675,6 +925,15 @@ function InventoryPageContent() {
               <i className="fas fa-grip"></i>
             </button>
           </div>
+
+          {/* Save View Button */}
+          <button
+            onClick={() => setShowSaveViewModal(true)}
+            className="px-3 py-2.5 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-lg text-sm transition-colors flex items-center gap-2"
+          >
+            <i className="fas fa-bookmark text-xs"></i>
+            Save View
+          </button>
         </div>
 
         {/* Bulk Actions */}
@@ -760,8 +1019,17 @@ function InventoryPageContent() {
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-400">{formatCurrency(product.prices.msrp)}</span>
-                  <span className="text-emerald-400">{avgMargin.toFixed(1)}% margin</span>
+                  {variantCount > 1 ? (
+                    <>
+                      <span className="text-slate-500 italic text-xs">Varies by variant</span>
+                      <span className="text-slate-500 italic text-xs">See details</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-slate-400">{formatCurrency(product.prices.msrp)}</span>
+                      <span className="text-emerald-400">{avgMargin.toFixed(1)}% margin</span>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-700/50">
@@ -879,11 +1147,23 @@ function InventoryPageContent() {
                       {/* SKUs */}
                       <td className="px-4 py-4">
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-500 w-16">Internal:</span>
-                            <code className="text-xs bg-slate-800 px-2 py-0.5 rounded text-slate-300">{product.sku}</code>
-                          </div>
-                          {product.skus?.shopify && (
+                          {/* Only show parent SKU if product has no variants */}
+                          {(!product.variants || product.variants.length <= 1) && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-slate-500 w-16">Internal:</span>
+                              <code className="text-xs bg-slate-800 px-2 py-0.5 rounded text-slate-300">{product.sku}</code>
+                            </div>
+                          )}
+                          {/* For products with variants, show variant count */}
+                          {product.variants && product.variants.length > 1 && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-blue-400">
+                                <i className="fas fa-layer-group mr-1"></i>
+                                {product.variants.length} variant SKUs
+                              </span>
+                            </div>
+                          )}
+                          {product.skus?.shopify && !product.hasVariants && (
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-green-400 w-16"><i className="fab fa-shopify"></i></span>
                               <code className="text-xs bg-slate-800 px-2 py-0.5 rounded text-slate-300">{product.skus.shopify}</code>
@@ -923,40 +1203,74 @@ function InventoryPageContent() {
 
                       {/* Cost */}
                       <td className="px-4 py-4 text-right">
-                        <div className="text-sm text-white">{formatCurrency(product.cost.rolling)}</div>
-                        <div className="text-xs text-slate-500">Rolling Avg</div>
-                        <div className="text-xs text-slate-400">Fixed: {formatCurrency(product.cost.fixed)}</div>
+                        {variantCount > 1 ? (
+                          <div className="text-xs text-slate-500 italic">Varies by variant</div>
+                        ) : (
+                          <>
+                            <div className="text-sm text-white">{formatCurrency(product.cost.rolling)}</div>
+                            <div className="text-xs text-slate-500">Rolling Avg</div>
+                            <div className="text-xs text-slate-400">Fixed: {formatCurrency(product.cost.fixed)}</div>
+                          </>
+                        )}
                       </td>
 
                       {/* MSRP */}
                       <td className="px-4 py-4 text-right">
-                        <div className="text-sm font-medium text-white">{formatCurrency(product.prices.msrp)}</div>
-                        <div className="text-xs text-emerald-400">{calculateMargin(product.prices.msrp, product.cost.rolling).toFixed(1)}%</div>
+                        {variantCount > 1 ? (
+                          <div className="text-xs text-slate-500 italic">Varies</div>
+                        ) : (
+                          <>
+                            <div className="text-sm font-medium text-white">{formatCurrency(product.prices.msrp)}</div>
+                            <div className="text-xs text-emerald-400">{calculateMargin(product.prices.msrp, product.cost.rolling).toFixed(1)}%</div>
+                          </>
+                        )}
                       </td>
 
                       {/* Shopify */}
                       <td className="px-4 py-4 text-right">
-                        <div className="text-sm text-white">{formatCurrency(product.prices.shopify)}</div>
-                        <div className="text-xs text-emerald-400">{calculateMargin(product.prices.shopify, product.cost.rolling).toFixed(1)}%</div>
+                        {variantCount > 1 ? (
+                          <div className="text-xs text-slate-500 italic">Varies</div>
+                        ) : (
+                          <>
+                            <div className="text-sm text-white">{formatCurrency(product.prices.shopify)}</div>
+                            <div className="text-xs text-emerald-400">{calculateMargin(product.prices.shopify, product.cost.rolling).toFixed(1)}%</div>
+                          </>
+                        )}
                       </td>
 
                       {/* Amazon */}
                       <td className="px-4 py-4 text-right">
-                        <div className="text-sm text-white">{formatCurrency(product.prices.amazon)}</div>
-                        <div className="text-xs text-emerald-400">{calculateMargin(product.prices.amazon, product.cost.rolling).toFixed(1)}%</div>
+                        {variantCount > 1 ? (
+                          <div className="text-xs text-slate-500 italic">Varies</div>
+                        ) : (
+                          <>
+                            <div className="text-sm text-white">{formatCurrency(product.prices.amazon)}</div>
+                            <div className="text-xs text-emerald-400">{calculateMargin(product.prices.amazon, product.cost.rolling).toFixed(1)}%</div>
+                          </>
+                        )}
                       </td>
 
                       {/* Wholesale */}
                       <td className="px-4 py-4 text-right">
-                        <div className="text-sm text-white">{formatCurrency(product.prices.wholesale)}</div>
-                        <div className="text-xs text-emerald-400">{calculateMargin(product.prices.wholesale, product.cost.rolling).toFixed(1)}%</div>
+                        {variantCount > 1 ? (
+                          <div className="text-xs text-slate-500 italic">Varies</div>
+                        ) : (
+                          <>
+                            <div className="text-sm text-white">{formatCurrency(product.prices.wholesale)}</div>
+                            <div className="text-xs text-emerald-400">{calculateMargin(product.prices.wholesale, product.cost.rolling).toFixed(1)}%</div>
+                          </>
+                        )}
                       </td>
 
                       {/* Avg Margin */}
                       <td className="px-4 py-4 text-center">
-                        <div className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-sm font-medium">
-                          {avgMargin.toFixed(1)}%
-                        </div>
+                        {variantCount > 1 ? (
+                          <div className="text-xs text-slate-500 italic">See variants</div>
+                        ) : (
+                          <div className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-sm font-medium">
+                            {avgMargin.toFixed(1)}%
+                          </div>
+                        )}
                       </td>
 
                       {/* Actions */}
@@ -1088,6 +1402,64 @@ function InventoryPageContent() {
         size="lg"
       >
         <SerialLookup embedded onClose={() => setIsSerialLookupOpen(false)} />
+      </Modal>
+
+      {/* Save View Modal */}
+      <Modal
+        open={showSaveViewModal}
+        onClose={() => {
+          setShowSaveViewModal(false);
+          setNewViewName('');
+        }}
+        title="Save Current View"
+        subtitle="Save the current filters and sorting as a named view"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">View Name</label>
+            <input
+              type="text"
+              value={newViewName}
+              onChange={(e) => setNewViewName(e.target.value)}
+              placeholder="e.g., Low Stock Items, Active Products..."
+              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              autoFocus
+            />
+          </div>
+          <div className="text-sm text-slate-400">
+            <div className="font-medium mb-2">Current filters:</div>
+            <ul className="list-disc list-inside space-y-1 text-xs">
+              {categoryFilter !== 'all' && <li>Category: {getCategoryLabel(categoryFilter)}</li>}
+              {statusFilter !== 'all' && <li>Stock: {statusFilter.replace('_', ' ')}</li>}
+              {productStatusFilter !== 'all' && <li>Status: {productStatusFilter}</li>}
+              {locationFilter !== 'all' && <li>Location: {getLocationName(locationFilter)}</li>}
+              {sortBy !== 'stock_high' && <li>Sort: {sortBy.replace(/_/g, ' ')}</li>}
+              {searchQuery && <li>Search: "{searchQuery}"</li>}
+              {categoryFilter === 'all' && statusFilter === 'all' && productStatusFilter === 'all' && locationFilter === 'all' && sortBy === 'stock_high' && !searchQuery && (
+                <li className="text-slate-500">No filters applied (default view)</li>
+              )}
+            </ul>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              onClick={() => {
+                setShowSaveViewModal(false);
+                setNewViewName('');
+              }}
+              className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveView}
+              disabled={!newViewName.trim()}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+            >
+              Save View
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

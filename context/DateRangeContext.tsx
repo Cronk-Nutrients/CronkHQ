@@ -182,7 +182,7 @@ function getDateRangeFromPreset(preset: DateRangePreset, customStart?: Date, cus
 }
 
 export function DateRangeProvider({ children }: { children: ReactNode }) {
-  const [preset, setPresetState] = useState<DateRangePreset>('mtd')
+  const [preset, setPresetState] = useState<DateRangePreset>('today')
   const [customStart, setCustomStart] = useState<Date | undefined>()
   const [customEnd, setCustomEnd] = useState<Date | undefined>()
 

@@ -109,6 +109,15 @@ const integrations: Integration[] = [
 
   // Shipping & Fulfillment
   {
+    id: 'veeqo',
+    name: 'Veeqo',
+    description: 'Discounted Shipping',
+    icon: 'V',
+    color: '#ff6b00',
+    category: 'shipping',
+    href: '/settings/integrations/veeqo',
+  },
+  {
     id: 'shipstation',
     name: 'ShipStation',
     description: 'Shipping Platform',
@@ -220,7 +229,8 @@ const integrations: Integration[] = [
     icon: 'fa-google',
     iconType: 'fab',
     color: '#4285f4',
-    category: 'marketing-ads'
+    category: 'marketing-ads',
+    href: '/settings/integrations/google-ads',
   },
   {
     id: 'meta-ads',
@@ -293,7 +303,8 @@ const integrations: Integration[] = [
     description: 'Email & SMS Marketing',
     icon: 'K',
     color: '#12b789',
-    category: 'marketing-email'
+    category: 'marketing-email',
+    href: '/settings/integrations/klaviyo',
   },
   {
     id: 'mailchimp',
@@ -385,7 +396,8 @@ const integrations: Integration[] = [
     icon: 'fa-chart-simple',
     iconType: 'fas',
     color: '#e37400',
-    category: 'marketing-analytics'
+    category: 'marketing-analytics',
+    href: '/settings/integrations/google-analytics',
   },
   {
     id: 'hotjar',
@@ -441,9 +453,73 @@ export function IntegrationsSettings() {
         });
       }
 
-      // Add other integration checks here as they are implemented
-      // if (data.amazon?.isConnected) { ... }
-      // if (data.veeqo?.isConnected) { ... }
+      // Check Google Analytics connection
+      if (data.googleAnalytics?.isConnected) {
+        connected.push({
+          id: 'google-analytics',
+          name: 'Google Analytics',
+          description: 'Web Analytics',
+          icon: 'fa-chart-simple',
+          iconType: 'fas',
+          color: '#e37400',
+          details: data.googleAnalytics.propertyName || data.googleAnalytics.propertyId || 'Connected',
+          href: '/settings/integrations/google-analytics',
+        });
+      }
+
+      // Check Google Ads connection (OAuth or Sheets bridge)
+      if (data.googleAds?.isConnected) {
+        connected.push({
+          id: 'google-ads',
+          name: 'Google Ads',
+          description: 'Search & Display Ads',
+          icon: 'fa-google',
+          iconType: 'fab',
+          color: '#4285f4',
+          details: data.googleAds.customerName || `ID: ${data.googleAds.customerId}` || 'Connected',
+          href: '/settings/integrations/google-ads',
+        });
+      } else if (data.googleAdsSheets?.sheetId) {
+        // Google Ads via Sheets bridge
+        connected.push({
+          id: 'google-ads',
+          name: 'Google Ads',
+          description: 'Via Google Sheets',
+          icon: 'fa-google',
+          iconType: 'fab',
+          color: '#4285f4',
+          details: data.googleAdsSheets.campaignCount
+            ? `${data.googleAdsSheets.campaignCount} campaigns synced`
+            : 'Sheets connected',
+          href: '/settings/integrations/google-ads',
+        });
+      }
+
+      // Check Klaviyo connection
+      if (data.klaviyo?.isConnected) {
+        connected.push({
+          id: 'klaviyo',
+          name: 'Klaviyo',
+          description: 'Email & SMS Marketing',
+          icon: 'K',
+          color: '#12b789',
+          details: data.klaviyo.accountName || 'Connected',
+          href: '/settings/integrations/klaviyo',
+        });
+      }
+
+      // Check Veeqo connection
+      if (data.veeqo?.isConnected) {
+        connected.push({
+          id: 'veeqo',
+          name: 'Veeqo',
+          description: 'Discounted Shipping',
+          icon: 'V',
+          color: '#ff6b00',
+          details: data.veeqo.companyName || 'Connected',
+          href: '/settings/integrations/veeqo',
+        });
+      }
 
       setConnectedIntegrations(connected);
     });
@@ -451,12 +527,15 @@ export function IntegrationsSettings() {
     return () => unsubscribe();
   }, [organization?.id]);
 
-  const salesChannels = integrations.filter(i => i.category === 'sales');
-  const shippingIntegrations = integrations.filter(i => i.category === 'shipping');
-  const automationTools = integrations.filter(i => i.category === 'automation');
-  const marketingAds = integrations.filter(i => i.category === 'marketing-ads');
-  const marketingEmail = integrations.filter(i => i.category === 'marketing-email');
-  const marketingAnalytics = integrations.filter(i => i.category === 'marketing-analytics');
+  // Filter out integrations that are already connected
+  const connectedIds = new Set(connectedIntegrations.map(c => c.id));
+
+  const salesChannels = integrations.filter(i => i.category === 'sales' && !connectedIds.has(i.id));
+  const shippingIntegrations = integrations.filter(i => i.category === 'shipping' && !connectedIds.has(i.id));
+  const automationTools = integrations.filter(i => i.category === 'automation' && !connectedIds.has(i.id));
+  const marketingAds = integrations.filter(i => i.category === 'marketing-ads' && !connectedIds.has(i.id));
+  const marketingEmail = integrations.filter(i => i.category === 'marketing-email' && !connectedIds.has(i.id));
+  const marketingAnalytics = integrations.filter(i => i.category === 'marketing-analytics' && !connectedIds.has(i.id));
 
   const handleConnect = (integration: Integration) => {
     setSelectedIntegration(integration);
@@ -486,10 +565,6 @@ export function IntegrationsSettings() {
       </div>
     );
   };
-
-  // Filter out integrations that are already connected
-  const connectedIds = new Set(connectedIntegrations.map(c => c.id));
-  const availableSalesChannels = salesChannels.filter(i => !connectedIds.has(i.id));
 
   const getBadgeClass = (color?: string) => {
     switch (color) {
@@ -566,7 +641,7 @@ export function IntegrationsSettings() {
       <div className="mb-8">
         <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-4">Sales Channels</h3>
         <div className="grid grid-cols-3 gap-4">
-          {availableSalesChannels.map((integration) => (
+          {salesChannels.map((integration) => (
             <div
               key={integration.id}
               className="p-4 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-slate-600 transition-colors"
@@ -618,12 +693,25 @@ export function IntegrationsSettings() {
                   <div className="text-xs text-slate-500">{integration.description}</div>
                 </div>
               </div>
-              <button
-                onClick={() => handleConnect(integration)}
-                className="w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors"
-              >
-                Connect
-              </button>
+              {integration.href ? (
+                <Link
+                  href={integration.href}
+                  className={`block w-full px-3 py-2 text-sm rounded-lg transition-colors text-center ${
+                    integration.id === 'veeqo'
+                      ? 'bg-orange-600 hover:bg-orange-500 text-white'
+                      : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                  }`}
+                >
+                  Connect
+                </Link>
+              ) : (
+                <button
+                  onClick={() => handleConnect(integration)}
+                  className="w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors"
+                >
+                  Connect
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -679,12 +767,21 @@ export function IntegrationsSettings() {
                   <div className="text-xs text-slate-500">{integration.description}</div>
                 </div>
               </div>
-              <button
-                onClick={() => handleConnect(integration)}
-                className="w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors"
-              >
-                Connect
-              </button>
+              {integration.href ? (
+                <Link
+                  href={integration.href}
+                  className="block w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors text-center"
+                >
+                  Connect
+                </Link>
+              ) : (
+                <button
+                  onClick={() => handleConnect(integration)}
+                  className="w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors"
+                >
+                  Connect
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -709,16 +806,25 @@ export function IntegrationsSettings() {
                   <div className="text-xs text-slate-500">{integration.description}</div>
                 </div>
               </div>
-              <button
-                onClick={() => handleConnect(integration)}
-                className={`w-full px-3 py-2 text-sm rounded-lg transition-colors ${
-                  integration.id === 'klaviyo'
-                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                    : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
-                }`}
-              >
-                Connect
-              </button>
+              {integration.href ? (
+                <Link
+                  href={integration.href}
+                  className={`block w-full px-3 py-2 text-sm rounded-lg transition-colors text-center ${
+                    integration.id === 'klaviyo'
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                      : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                  }`}
+                >
+                  Connect
+                </Link>
+              ) : (
+                <button
+                  onClick={() => handleConnect(integration)}
+                  className="w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors"
+                >
+                  Connect
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -743,12 +849,21 @@ export function IntegrationsSettings() {
                   <div className="text-xs text-slate-500">{integration.description}</div>
                 </div>
               </div>
-              <button
-                onClick={() => handleConnect(integration)}
-                className="w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors"
-              >
-                Connect
-              </button>
+              {integration.href ? (
+                <Link
+                  href={integration.href}
+                  className="block w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors text-center"
+                >
+                  Connect
+                </Link>
+              ) : (
+                <button
+                  onClick={() => handleConnect(integration)}
+                  className="w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors"
+                >
+                  Connect
+                </button>
+              )}
             </div>
           ))}
         </div>

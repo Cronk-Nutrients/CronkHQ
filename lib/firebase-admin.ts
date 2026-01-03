@@ -1,4 +1,4 @@
-import { initializeApp, getApps, cert, App } from 'firebase-admin/app'
+import { initializeApp, getApps, cert, applicationDefault, App } from 'firebase-admin/app'
 import { getFirestore, Firestore, FieldValue } from 'firebase-admin/firestore'
 
 let adminApp: App | undefined
@@ -15,23 +15,32 @@ function getAdminApp(): App {
     return adminApp
   }
 
+  // Check for explicit credentials first (for local development)
   const projectId = process.env.ADMIN_PROJECT_ID || process.env.FIREBASE_PROJECT_ID
   const clientEmail = process.env.ADMIN_CLIENT_EMAIL || process.env.FIREBASE_CLIENT_EMAIL
   const privateKey = (process.env.ADMIN_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY)?.replace(/\\n/g, '\n')
 
-  if (!projectId || !clientEmail || !privateKey) {
-    throw new Error(
-      'Firebase Admin SDK credentials not found. Please set ADMIN_PROJECT_ID, ADMIN_CLIENT_EMAIL, and ADMIN_PRIVATE_KEY environment variables.'
-    )
+  if (projectId && clientEmail && privateKey) {
+    // Use explicit credentials
+    adminApp = initializeApp({
+      credential: cert({
+        projectId,
+        clientEmail,
+        privateKey,
+      }),
+    })
+  } else {
+    // Use Application Default Credentials (works in Firebase Cloud Functions)
+    try {
+      adminApp = initializeApp({
+        credential: applicationDefault(),
+        projectId: process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT_ID || 'cronk-wms',
+      })
+    } catch (e) {
+      // Fallback: initialize without explicit credentials (Firebase will use ADC automatically)
+      adminApp = initializeApp()
+    }
   }
-
-  adminApp = initializeApp({
-    credential: cert({
-      projectId,
-      clientEmail,
-      privateKey,
-    }),
-  })
 
   return adminApp
 }

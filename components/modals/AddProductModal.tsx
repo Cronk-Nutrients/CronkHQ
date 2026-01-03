@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/Button';
 import { useApp, Product, ProductComponent } from '@/context/AppContext';
 import { useToast } from '@/components/ui/Toast';
 import { formatNumber } from '@/lib/formatting';
-import { Plus, X, Package, Search, Hash, Calendar, Layers } from 'lucide-react';
+import { Plus, X, Package, Search, Hash, Calendar, Layers, ShoppingCart, BoxIcon, Truck } from 'lucide-react';
 import { Toggle } from '@/components/ui/Toggle';
+import { ProductType, SupplyType, BoxDimensions } from '@/types';
 
 interface AddProductModalProps {
   isOpen: boolean;
@@ -87,6 +88,13 @@ export function AddProductModal({ isOpen, onClose, editProduct }: AddProductModa
   const [expirationWarningDays, setExpirationWarningDays] = useState(30);
   const [lotPrefix, setLotPrefix] = useState('');
   const [lotNextNumber, setLotNextNumber] = useState(1);
+
+  // Product type state
+  const [productType, setProductType] = useState<ProductType>('sellable');
+  const [supplyType, setSupplyType] = useState<SupplyType>('box');
+  const [boxDimensions, setBoxDimensions] = useState<Partial<BoxDimensions>>({});
+  const [maxWeight, setMaxWeight] = useState<number>(50);
+  const [reorderQuantity, setReorderQuantity] = useState<number>(0);
 
   const isEditing = !!editProduct;
 
@@ -175,6 +183,12 @@ export function AddProductModal({ isOpen, onClose, editProduct }: AddProductModa
         setExpirationWarningDays(editProduct.expirationWarningDays || 30);
         setLotPrefix(editProduct.lotPrefix || '');
         setLotNextNumber(editProduct.lotNextNumber || 1);
+        // Load product type settings
+        setProductType((editProduct as any).productType || 'sellable');
+        setSupplyType((editProduct as any).supplyType || 'box');
+        setBoxDimensions((editProduct as any).boxDimensions || {});
+        setMaxWeight((editProduct as any).maxWeight || 50);
+        setReorderQuantity((editProduct as any).reorderQuantity || 0);
       } else {
         setFormData(initialFormData);
         setComponents([]);
@@ -187,6 +201,12 @@ export function AddProductModal({ isOpen, onClose, editProduct }: AddProductModa
         setExpirationWarningDays(30);
         setLotPrefix('');
         setLotNextNumber(1);
+        // Reset product type state
+        setProductType('sellable');
+        setSupplyType('box');
+        setBoxDimensions({});
+        setMaxWeight(50);
+        setReorderQuantity(0);
       }
       setErrors({});
       setComponentSearch('');
@@ -299,6 +319,13 @@ export function AddProductModal({ isOpen, onClose, editProduct }: AddProductModa
         expirationWarningDays: trackLots && expirationTracking ? expirationWarningDays : undefined,
         lotPrefix: trackLots ? lotPrefix : undefined,
         lotNextNumber: trackLots ? lotNextNumber : undefined,
+        // Product type classification
+        productType,
+        supplyType: productType === 'shipping_supply' ? supplyType : undefined,
+        boxDimensions: productType === 'shipping_supply' && supplyType === 'box' ? boxDimensions as any : undefined,
+        maxWeight: productType === 'shipping_supply' && supplyType === 'box' ? maxWeight : undefined,
+        maxWeightUnit: productType === 'shipping_supply' && supplyType === 'box' ? 'lb' : undefined,
+        reorderQuantity: productType !== 'sellable' ? reorderQuantity : undefined,
         createdAt: editProduct?.createdAt || new Date(),
         updatedAt: new Date(),
       };
@@ -459,6 +486,302 @@ export function AddProductModal({ isOpen, onClose, editProduct }: AddProductModa
               />
             </div>
           </div>
+        </div>
+
+        {/* Product Type */}
+        <div>
+          <h3 className="text-sm font-medium text-white mb-3">Product Type</h3>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {/* Sellable Product */}
+            <label
+              className={`flex flex-col p-4 rounded-lg cursor-pointer border-2 transition-colors ${
+                productType === 'sellable'
+                  ? 'border-emerald-500 bg-emerald-500/10'
+                  : 'border-slate-700 hover:border-slate-600 bg-slate-900/50'
+              }`}
+            >
+              <input
+                type="radio"
+                name="productType"
+                value="sellable"
+                checked={productType === 'sellable'}
+                onChange={(e) => setProductType(e.target.value as ProductType)}
+                className="sr-only"
+              />
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                  productType === 'sellable' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'
+                }`}>
+                  <ShoppingCart className="w-5 h-5" />
+                </div>
+                <span className="text-white font-medium">Sellable</span>
+              </div>
+              <p className="text-slate-400 text-sm">Products you sell to customers</p>
+            </label>
+
+            {/* Packing Supply */}
+            <label
+              className={`flex flex-col p-4 rounded-lg cursor-pointer border-2 transition-colors ${
+                productType === 'packing_supply'
+                  ? 'border-amber-500 bg-amber-500/10'
+                  : 'border-slate-700 hover:border-slate-600 bg-slate-900/50'
+              }`}
+            >
+              <input
+                type="radio"
+                name="productType"
+                value="packing_supply"
+                checked={productType === 'packing_supply'}
+                onChange={(e) => setProductType(e.target.value as ProductType)}
+                className="sr-only"
+              />
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                  productType === 'packing_supply' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-400'
+                }`}>
+                  <Package className="w-5 h-5" />
+                </div>
+                <span className="text-white font-medium">Packing Supply</span>
+              </div>
+              <p className="text-slate-400 text-sm">Stickers, thank you cards, tissue paper</p>
+            </label>
+
+            {/* Shipping Supply */}
+            <label
+              className={`flex flex-col p-4 rounded-lg cursor-pointer border-2 transition-colors ${
+                productType === 'shipping_supply'
+                  ? 'border-blue-500 bg-blue-500/10'
+                  : 'border-slate-700 hover:border-slate-600 bg-slate-900/50'
+              }`}
+            >
+              <input
+                type="radio"
+                name="productType"
+                value="shipping_supply"
+                checked={productType === 'shipping_supply'}
+                onChange={(e) => setProductType(e.target.value as ProductType)}
+                className="sr-only"
+              />
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                  productType === 'shipping_supply' ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800 text-slate-400'
+                }`}>
+                  <Truck className="w-5 h-5" />
+                </div>
+                <span className="text-white font-medium">Shipping Supply</span>
+              </div>
+              <p className="text-slate-400 text-sm">Boxes, mailers, poly bags, tape</p>
+            </label>
+          </div>
+
+          {/* Supply Type Selection (for shipping supplies) */}
+          {productType === 'shipping_supply' && (
+            <div className="space-y-4 pt-4 border-t border-slate-700">
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">Supply Type</label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: 'box', label: 'Box', icon: 'fa-box' },
+                    { value: 'mailer', label: 'Mailer/Envelope', icon: 'fa-envelope' },
+                    { value: 'poly_bag', label: 'Poly Bag', icon: 'fa-shopping-bag' },
+                    { value: 'tape', label: 'Tape', icon: 'fa-tape' },
+                    { value: 'label', label: 'Labels', icon: 'fa-tag' },
+                    { value: 'other', label: 'Other', icon: 'fa-ellipsis-h' },
+                  ].map((type) => (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => setSupplyType(type.value as SupplyType)}
+                      className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors ${
+                        supplyType === type.value
+                          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
+                          : 'bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600'
+                      }`}
+                    >
+                      <i className={`fas ${type.icon}`}></i>
+                      {type.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Box-specific fields */}
+              {supplyType === 'box' && (
+                <div className="p-4 bg-slate-900/50 rounded-lg space-y-4">
+                  <h4 className="text-white font-medium flex items-center gap-2">
+                    <i className="fas fa-ruler-combined text-blue-400"></i>
+                    Box Dimensions
+                  </h4>
+                  <p className="text-slate-400 text-sm">
+                    This box will automatically appear in your shipping options.
+                  </p>
+
+                  {/* Inner Dimensions */}
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-2">Inner Dimensions (usable space)</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-1">Length</label>
+                        <div className="flex">
+                          <input
+                            type="number"
+                            value={boxDimensions.innerLength || ''}
+                            onChange={(e) => setBoxDimensions({ ...boxDimensions, innerLength: parseFloat(e.target.value) || 0 })}
+                            className="w-full bg-slate-800 border border-slate-600 rounded-l-lg px-3 py-2 text-white"
+                            placeholder="0"
+                            step="0.25"
+                          />
+                          <span className="bg-slate-700 border border-slate-600 border-l-0 rounded-r-lg px-2 py-2 text-slate-400 text-sm">in</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-1">Width</label>
+                        <div className="flex">
+                          <input
+                            type="number"
+                            value={boxDimensions.innerWidth || ''}
+                            onChange={(e) => setBoxDimensions({ ...boxDimensions, innerWidth: parseFloat(e.target.value) || 0 })}
+                            className="w-full bg-slate-800 border border-slate-600 rounded-l-lg px-3 py-2 text-white"
+                            placeholder="0"
+                            step="0.25"
+                          />
+                          <span className="bg-slate-700 border border-slate-600 border-l-0 rounded-r-lg px-2 py-2 text-slate-400 text-sm">in</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-1">Height</label>
+                        <div className="flex">
+                          <input
+                            type="number"
+                            value={boxDimensions.innerHeight || ''}
+                            onChange={(e) => setBoxDimensions({ ...boxDimensions, innerHeight: parseFloat(e.target.value) || 0 })}
+                            className="w-full bg-slate-800 border border-slate-600 rounded-l-lg px-3 py-2 text-white"
+                            placeholder="0"
+                            step="0.25"
+                          />
+                          <span className="bg-slate-700 border border-slate-600 border-l-0 rounded-r-lg px-2 py-2 text-slate-400 text-sm">in</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Outer Dimensions */}
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-2">Outer Dimensions (for shipping rates)</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-1">Length</label>
+                        <div className="flex">
+                          <input
+                            type="number"
+                            value={boxDimensions.outerLength || ''}
+                            onChange={(e) => setBoxDimensions({ ...boxDimensions, outerLength: parseFloat(e.target.value) || 0 })}
+                            className="w-full bg-slate-800 border border-slate-600 rounded-l-lg px-3 py-2 text-white"
+                            placeholder="0"
+                            step="0.25"
+                          />
+                          <span className="bg-slate-700 border border-slate-600 border-l-0 rounded-r-lg px-2 py-2 text-slate-400 text-sm">in</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-1">Width</label>
+                        <div className="flex">
+                          <input
+                            type="number"
+                            value={boxDimensions.outerWidth || ''}
+                            onChange={(e) => setBoxDimensions({ ...boxDimensions, outerWidth: parseFloat(e.target.value) || 0 })}
+                            className="w-full bg-slate-800 border border-slate-600 rounded-l-lg px-3 py-2 text-white"
+                            placeholder="0"
+                            step="0.25"
+                          />
+                          <span className="bg-slate-700 border border-slate-600 border-l-0 rounded-r-lg px-2 py-2 text-slate-400 text-sm">in</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-1">Height</label>
+                        <div className="flex">
+                          <input
+                            type="number"
+                            value={boxDimensions.outerHeight || ''}
+                            onChange={(e) => setBoxDimensions({ ...boxDimensions, outerHeight: parseFloat(e.target.value) || 0 })}
+                            className="w-full bg-slate-800 border border-slate-600 rounded-l-lg px-3 py-2 text-white"
+                            placeholder="0"
+                            step="0.25"
+                          />
+                          <span className="bg-slate-700 border border-slate-600 border-l-0 rounded-r-lg px-2 py-2 text-slate-400 text-sm">in</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Max Weight */}
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-2">Maximum Weight Capacity</label>
+                    <div className="flex max-w-xs">
+                      <input
+                        type="number"
+                        value={maxWeight || ''}
+                        onChange={(e) => setMaxWeight(parseFloat(e.target.value) || 0)}
+                        className="w-full bg-slate-800 border border-slate-600 rounded-l-lg px-3 py-2 text-white"
+                        placeholder="50"
+                        step="1"
+                      />
+                      <span className="bg-slate-700 border border-slate-600 border-l-0 rounded-r-lg px-3 py-2 text-slate-400 text-sm">lbs</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Packing Supply Info */}
+          {productType === 'packing_supply' && (
+            <div className="pt-4 border-t border-slate-700">
+              <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <i className="fas fa-info-circle text-amber-400 mt-0.5"></i>
+                  <div className="text-sm">
+                    <p className="text-amber-400 font-medium">Packing Supply</p>
+                    <p className="text-slate-300 mt-1">
+                      This item will be tracked as inventory and can be configured for automatic
+                      deduction in fulfillment rules.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Reorder Settings (for both supply types) */}
+          {(productType === 'packing_supply' || productType === 'shipping_supply') && (
+            <div className="mt-4 pt-4 border-t border-slate-700">
+              <h4 className="text-white font-medium mb-3">Reorder Settings</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Reorder Point</label>
+                  <input
+                    type="number"
+                    value={formData.reorderPoint}
+                    onChange={e => handleChange('reorderPoint', e.target.value)}
+                    placeholder="Alert when stock falls below..."
+                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Get alerted when stock is low</p>
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Reorder Quantity</label>
+                  <input
+                    type="number"
+                    value={reorderQuantity || ''}
+                    onChange={(e) => setReorderQuantity(parseInt(e.target.value) || 0)}
+                    placeholder="Suggested quantity to reorder"
+                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Suggested amount for PO</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Pricing */}

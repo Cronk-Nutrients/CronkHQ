@@ -1,28 +1,99 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/components/ui/Toast';
+import { useOrganization } from '@/context/OrganizationContext';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { SUPPORTED_CURRENCIES } from '@/lib/exchange-rates';
 
 export function CompanySettings() {
   const { addToast } = useToast();
+  const { organization } = useOrganization();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
-    companyName: 'Cronk Nutrients',
-    email: 'support@cronknutrients.com',
-    phone: '(555) 123-4567',
-    website: 'https://cronknutrients.com',
-    address: '123 Warehouse Way',
-    city: 'Rosenberg',
-    state: 'TX',
-    zip: '77471',
+    companyName: '',
+    email: '',
+    phone: '',
+    website: '',
+    address: '',
+    city: '',
+    state: '',
+    zip: '',
     country: 'United States',
     timezone: 'America/Chicago',
     currency: 'USD',
     dateFormat: 'MM/DD/YYYY',
   });
 
-  const handleSave = () => {
-    addToast('success', 'Company settings saved');
+  // Load settings from Firestore
+  useEffect(() => {
+    async function loadSettings() {
+      if (!organization?.id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const orgDoc = await getDoc(doc(db, 'organizations', organization.id));
+        if (orgDoc.exists()) {
+          const data = orgDoc.data();
+          const settings = data.settings || {};
+          setFormData({
+            companyName: data.name || settings.companyName || '',
+            email: settings.email || '',
+            phone: settings.phone || '',
+            website: settings.website || '',
+            address: settings.address || '',
+            city: settings.city || '',
+            state: settings.state || '',
+            zip: settings.zip || '',
+            country: settings.country || 'United States',
+            timezone: settings.timezone || 'America/Chicago',
+            currency: settings.currency || 'USD',
+            dateFormat: settings.dateFormat || 'MM/DD/YYYY',
+          });
+        }
+      } catch (err) {
+        console.error('Error loading settings:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadSettings();
+  }, [organization?.id]);
+
+  const handleSave = async () => {
+    if (!organization?.id) return;
+
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'organizations', organization.id), {
+        name: formData.companyName,
+        settings: {
+          ...formData,
+          updatedAt: serverTimestamp(),
+        },
+      }, { merge: true });
+
+      addToast('success', 'Company settings saved');
+    } catch (err) {
+      console.error('Error saving settings:', err);
+      addToast('error', 'Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -147,17 +218,21 @@ export function CompanySettings() {
             </select>
           </div>
           <div>
-            <label className="block text-sm text-slate-400 mb-2">Currency</label>
+            <label className="block text-sm text-slate-400 mb-2">Default Currency</label>
             <select
               value={formData.currency}
               onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500"
             >
-              <option value="USD">USD ($)</option>
-              <option value="CAD">CAD ($)</option>
-              <option value="EUR">EUR (€)</option>
-              <option value="GBP">GBP (£)</option>
+              {SUPPORTED_CURRENCIES.map(curr => (
+                <option key={curr.code} value={curr.code}>
+                  {curr.code} ({curr.symbol}) - {curr.name}
+                </option>
+              ))}
             </select>
+            <p className="text-xs text-slate-500 mt-1">
+              All marketing and ad spend data will be converted to this currency
+            </p>
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-2">Date Format</label>
@@ -177,9 +252,17 @@ export function CompanySettings() {
       <div className="flex justify-end">
         <button
           onClick={handleSave}
-          className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors"
+          disabled={saving}
+          className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2"
         >
-          Save Changes
+          {saving ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+              Saving...
+            </>
+          ) : (
+            'Save Changes'
+          )}
         </button>
       </div>
     </div>

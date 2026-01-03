@@ -32,6 +32,22 @@ export interface Organization {
   createdAt: Date;
   updatedAt: Date;
   ownerId: string; // User ID of the organization owner
+
+  // Integration connections
+  shopify?: {
+    isConnected: boolean;
+    storeName?: string;
+    accessToken?: string;
+  };
+  veeqo?: {
+    isConnected: boolean;
+    apiKey?: string;
+    shippingSettings?: {
+      autoSelectCheapest?: boolean;
+      defaultWeight?: number;
+      defaultWeightUnit?: string;
+    };
+  };
 }
 
 export interface OrganizationMember {

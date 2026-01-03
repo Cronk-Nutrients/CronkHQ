@@ -11,6 +11,7 @@ import { NotificationsSettings } from '@/components/settings/NotificationsSettin
 import { IntegrationsSettings } from '@/components/settings/IntegrationsSettings';
 import { APIKeysSettings } from '@/components/settings/APIKeysSettings';
 import { BillingSettings } from '@/components/settings/BillingSettings';
+import { FulfillmentSettings } from '@/components/settings/FulfillmentSettings';
 
 type SettingsTab =
   | 'company'
@@ -18,6 +19,7 @@ type SettingsTab =
   | 'users'
   | 'labels'
   | 'shipping'
+  | 'fulfillment'
   | 'notifications'
   | 'integrations'
   | 'api'
@@ -39,6 +41,7 @@ export default function SettingsPage() {
     { id: 'users', label: 'Users & Permissions', icon: 'fa-users' },
     { id: 'labels', label: 'Labels & Printing', icon: 'fa-print' },
     { id: 'shipping', label: 'Shipping', icon: 'fa-truck' },
+    { id: 'fulfillment', label: 'Fulfillment', icon: 'fa-boxes-packing' },
     { id: 'notifications', label: 'Notifications', icon: 'fa-bell' },
     { id: 'integrations', label: 'Integrations', icon: 'fa-plug' },
     { id: 'api', label: 'API Keys', icon: 'fa-key' },
@@ -57,6 +60,8 @@ export default function SettingsPage() {
         return <LabelsSettings />;
       case 'shipping':
         return <ShippingSettings />;
+      case 'fulfillment':
+        return <FulfillmentSettings />;
       case 'notifications':
         return <NotificationsSettings />;
       case 'integrations':
@@ -143,6 +148,27 @@ export default function SettingsPage() {
             >
               <i className="fas fa-store w-4"></i>
               Sales Channels
+            </Link>
+            <Link
+              href="/settings/currency"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors"
+            >
+              <i className="fas fa-exchange-alt w-4"></i>
+              Currency
+            </Link>
+            <Link
+              href="/settings/barcode-shortcuts"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors"
+            >
+              <i className="fas fa-barcode w-4"></i>
+              Barcode Shortcuts
+            </Link>
+            <Link
+              href="/settings/shipping/boxes"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors"
+            >
+              <i className="fas fa-box-open w-4"></i>
+              Box Sizes
             </Link>
           </div>
         </div>

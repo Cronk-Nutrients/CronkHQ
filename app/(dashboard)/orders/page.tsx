@@ -15,6 +15,24 @@ import { Pagination } from '@/components/inventory/InventoryTable';
 type StatusFilter = Order['status'] | '';
 type ChannelFilter = Order['channel'] | '';
 
+// Helper to generate tracking URLs based on carrier
+const getTrackingUrl = (carrier: string, trackingNumber: string): string => {
+  const c = carrier.toLowerCase();
+  if (c.includes('usps')) {
+    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${trackingNumber}`;
+  } else if (c.includes('ups')) {
+    return `https://www.ups.com/track?tracknum=${trackingNumber}`;
+  } else if (c.includes('fedex')) {
+    return `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`;
+  } else if (c.includes('dhl')) {
+    return `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`;
+  } else if (c.includes('amazon') || c.includes('amzl')) {
+    return `https://track.amazon.com/tracking/${trackingNumber}`;
+  }
+  // Generic tracking search
+  return `https://www.google.com/search?q=${trackingNumber}+tracking`;
+};
+
 function OrdersPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -334,11 +352,20 @@ function OrdersPageContent() {
                   </td>
                   <td className="px-4 py-4 text-center"><MarginBadge margin={order.margin} /></td>
                   <td className="px-4 py-4 text-center"><OrderStatusBadge status={order.status} /></td>
-                  <td className="px-4 py-4">
+                  <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                     {order.trackingNumber ? (
                       <div>
-                        <div className="text-xs text-emerald-400">{order.carrier || 'Shipped'}</div>
-                        <div className="font-mono text-xs text-slate-300 truncate max-w-[120px]" title={order.trackingNumber}>{order.trackingNumber}</div>
+                        <div className="text-xs text-emerald-400 mb-0.5">{order.carrier?.toUpperCase() || 'Shipped'}</div>
+                        <a
+                          href={getTrackingUrl(order.carrier || '', order.trackingNumber)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-xs text-purple-400 hover:text-purple-300 truncate max-w-[120px] flex items-center gap-1"
+                          title={`Track: ${order.trackingNumber}`}
+                        >
+                          {order.trackingNumber.slice(0, 15)}{order.trackingNumber.length > 15 ? '...' : ''}
+                          <i className="fas fa-external-link-alt text-[10px]"></i>
+                        </a>
                       </div>
                     ) : order.status === 'shipped' || order.status === 'delivered' ? (
                       <span className="text-xs text-slate-500">No tracking</span>

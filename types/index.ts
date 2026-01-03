@@ -20,6 +20,21 @@ export function calculateVolume(dims: Dimensions): number {
   return dims.length * dims.width * dims.height;
 }
 
+// Product Type Classification
+export type ProductType = 'sellable' | 'packing_supply' | 'shipping_supply';
+export type SupplyType = 'box' | 'mailer' | 'poly_bag' | 'tape' | 'label' | 'other';
+
+// Box Dimensions (inner and outer)
+export interface BoxDimensions {
+  innerLength: number;
+  innerWidth: number;
+  innerHeight: number;
+  outerLength: number;
+  outerWidth: number;
+  outerHeight: number;
+  unit: 'in' | 'cm';
+}
+
 // Product & Inventory Types
 export interface Product {
   id: string;
@@ -36,6 +51,20 @@ export interface Product {
   reorderPoint: number;
   casePackQty?: number; // Units per case (12 for 500mL/1L, 4 for 4L)
   isActive: boolean;
+
+  // Product Type Classification
+  productType?: ProductType; // 'sellable' (default), 'packing_supply', or 'shipping_supply'
+  supplyType?: SupplyType; // For shipping supplies: box, mailer, poly_bag, tape, label, other
+
+  // Box-specific fields (when productType='shipping_supply' and supplyType='box')
+  boxDimensions?: BoxDimensions;
+  maxWeight?: number; // Maximum weight capacity
+  maxWeightUnit?: 'lb' | 'kg';
+
+  // Reorder settings (for supplies)
+  reorderQuantity?: number; // Suggested reorder amount
+  preferredSupplier?: string;
+
   // Linked label SKUs for nutrients (one for each size)
   linkedLabels?: {
     '500mL'?: string; // product ID of the 500mL label
@@ -65,17 +94,47 @@ export interface ProductCosts {
   labelCost?: number; // Auto-calculated from linked label
 }
 
-// Shipping Box type
+// Shipping Box type (linked to product)
 export interface ShippingBox {
   id: string;
+  productId?: string; // Links to the product (shipping supply)
   sku: string;
   name: string;
-  dimensions: Dimensions;
-  volume: number; // cubic inches
-  maxWeight: number; // oz
+  innerDimensions?: Dimensions; // Usable space inside
+  outerDimensions?: Dimensions; // For shipping rate calculations
+  dimensions: Dimensions; // For backwards compatibility
+  volume: number; // cubic inches (inner)
+  maxWeight: number; // lbs
+  maxWeightUnit?: 'lb' | 'kg';
   cost: number;
+  currentStock?: number; // Synced from inventory
   isSmartBoxEligible: boolean; // Can be auto-selected by smart box algorithm
   isActive: boolean;
+}
+
+// Box Size settings (auto-populated from shipping supply products)
+export interface BoxSizeSettings {
+  id: string;
+  productId: string; // Links to the product
+  sku: string;
+  name: string;
+  innerDimensions: {
+    length: number;
+    width: number;
+    height: number;
+    unit: 'in' | 'cm';
+  };
+  outerDimensions: {
+    length: number;
+    width: number;
+    height: number;
+    unit: 'in' | 'cm';
+  };
+  maxWeight: number;
+  maxWeightUnit: 'lb' | 'kg';
+  currentStock: number; // Synced from inventory
+  isActive: boolean; // Auto-disabled if out of stock
+  cost: number;
 }
 
 export interface InventoryItem {
@@ -138,6 +197,8 @@ export interface Order {
   id: string;
   orderNumber: string;
   externalId?: string; // Shopify or Amazon order ID
+  veeqoId?: string; // Veeqo order ID
+  veeqoAllocationId?: string; // Veeqo allocation ID for shipping
   channel: OrderChannel;
   status: OrderStatus;
   customer: Customer;
@@ -152,6 +213,39 @@ export interface Order {
   shippingAddress: Address;
   // Shipment tracking - orders can have multiple shipments (split shipments)
   shipments: Shipment[];
+  // New shipment field for Veeqo integration
+  shipment?: {
+    carrier: string;
+    service: string;
+    trackingNumber?: string;
+    trackingNumbers?: string[];
+    trackingUrl?: string;
+    trackingUrls?: string[];
+    labelUrl?: string;
+    labelUrls?: string[];
+    shippingCost?: number;
+    purchasedAt?: Date | string;
+  };
+  // Multi-box packages
+  packages?: Array<{
+    id: string;
+    items: Array<{
+      lineItemId: string;
+      name: string;
+      sku: string;
+      quantity: number;
+    }>;
+    weight: number;
+    weightUnit: 'lb' | 'oz' | 'kg';
+    dimensions: {
+      length: number;
+      width: number;
+      height: number;
+      unit: 'in' | 'cm';
+    };
+    trackingNumber?: string;
+    labelUrl?: string;
+  }>;
   // Calculated fields for packing
   totalVolume?: number; // Sum of all item volumes
   totalWeight?: number; // Sum of all item weights

@@ -21,3 +21,4 @@ export { CreateTransferModal } from './CreateTransferModal';
 export { AutomationRuleModal } from './AutomationRuleModal';
 export { CreatePickBatchModal } from './CreatePickBatchModal';
 export { FulfillmentRuleModal } from './FulfillmentRuleModal';
+export { VariantBundleModal } from './VariantBundleModal';

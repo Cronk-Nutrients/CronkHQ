@@ -33,6 +33,7 @@ interface TestResult {
 interface SyncSettings {
   importProducts: boolean
   importOrders: boolean
+  importCustomers: boolean
   syncMode: 'read_only' | 'read_write'
   orderDateRange: 'all' | '30_days' | '90_days' | '6_months' | '1_year' | 'custom'
   customStartDate: string
@@ -69,15 +70,29 @@ export default function ShopifySettingsPage() {
   const [testResult, setTestResult] = useState<TestResult | null>(null)
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0, status: '' })
 
+  // Webhook state
+  const [webhooks, setWebhooks] = useState<any[]>([])
+  const [webhooksLoading, setWebhooksLoading] = useState(false)
+  const [registeringWebhooks, setRegisteringWebhooks] = useState(false)
+  const [unregisteringWebhooks, setUnregisteringWebhooks] = useState(false)
+
   // Sync settings
   const [syncSettings, setSyncSettings] = useState<SyncSettings>({
     importProducts: true,
     importOrders: true,
+    importCustomers: true,
     syncMode: 'read_write',
     orderDateRange: 'all',
     customStartDate: '',
     customEndDate: '',
   })
+
+  // Background sync status
+  const [customerSyncStatus, setCustomerSyncStatus] = useState<{
+    status: 'idle' | 'running' | 'complete' | 'error'
+    progress: { current: number; total: number; status: string } | null
+    error: string | null
+  }>({ status: 'idle', progress: null, error: null })
 
   // Load existing connection
   useEffect(() => {
@@ -113,6 +128,120 @@ export default function ShopifySettingsPage() {
 
     loadConnection()
   }, [organization?.id])
+
+  // Poll for customer sync status
+  useEffect(() => {
+    if (!organization?.id || !connection.isConnected) return
+
+    // Check initial status
+    async function checkStatus() {
+      try {
+        const response = await fetch(`/api/shopify/sync-customers?organizationId=${organization?.id}`)
+        const data = await response.json()
+        if (data.success) {
+          setCustomerSyncStatus({
+            status: data.status || 'idle',
+            progress: data.progress,
+            error: data.error,
+          })
+        }
+      } catch (err) {
+        console.error('Error checking sync status:', err)
+      }
+    }
+
+    checkStatus()
+
+    // Poll while running
+    let interval: NodeJS.Timeout | null = null
+    if (customerSyncStatus.status === 'running') {
+      interval = setInterval(checkStatus, 2000)
+    }
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [organization?.id, connection.isConnected, customerSyncStatus.status])
+
+  // Load webhooks when connection is established
+  useEffect(() => {
+    async function loadWebhooks() {
+      if (!organization?.id || !connection.isConnected) return
+
+      setWebhooksLoading(true)
+      try {
+        const response = await fetch(`/api/shopify/webhooks/register?organizationId=${organization.id}`)
+        const data = await response.json()
+        if (data.success) {
+          setWebhooks(data.webhooks || [])
+        }
+      } catch (err) {
+        console.error('Error loading webhooks:', err)
+      } finally {
+        setWebhooksLoading(false)
+      }
+    }
+
+    loadWebhooks()
+  }, [organization?.id, connection.isConnected])
+
+  // Register all webhooks
+  const handleRegisterWebhooks = async () => {
+    if (!organization?.id) return
+
+    setRegisteringWebhooks(true)
+    try {
+      const response = await fetch('/api/shopify/webhooks/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId: organization.id }),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        success(data.message)
+        // Reload webhooks
+        const refreshResponse = await fetch(`/api/shopify/webhooks/register?organizationId=${organization.id}`)
+        const refreshData = await refreshResponse.json()
+        if (refreshData.success) {
+          setWebhooks(refreshData.webhooks || [])
+        }
+      } else {
+        showError(data.error || 'Failed to register webhooks')
+      }
+    } catch (err: any) {
+      showError(err.message || 'Failed to register webhooks')
+    } finally {
+      setRegisteringWebhooks(false)
+    }
+  }
+
+  // Unregister all webhooks
+  const handleUnregisterWebhooks = async () => {
+    if (!organization?.id) return
+    if (!confirm('Unregister all webhooks? You will stop receiving real-time updates from Shopify.')) return
+
+    setUnregisteringWebhooks(true)
+    try {
+      const response = await fetch('/api/shopify/webhooks/unregister', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId: organization.id, unregisterAll: true }),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        success(data.message)
+        setWebhooks([])
+      } else {
+        showError(data.error || 'Failed to unregister webhooks')
+      }
+    } catch (err: any) {
+      showError(err.message || 'Failed to unregister webhooks')
+    } finally {
+      setUnregisteringWebhooks(false)
+    }
+  }
 
   // Test connection
   const handleTestConnection = async () => {
@@ -273,13 +402,15 @@ export default function ShopifySettingsPage() {
   // Main sync function
   const handleSync = async () => {
     if (!organization?.id || !connection.isConnected) return
-    if (!syncSettings.importProducts && !syncSettings.importOrders) return
+    if (!syncSettings.importProducts && !syncSettings.importOrders && !syncSettings.importCustomers) return
 
     setSyncing(true)
     let productsAdded = 0
     let productsUpdated = 0
     let ordersAdded = 0
     let ordersUpdated = 0
+    let customersAdded = 0
+    let customersUpdated = 0
 
     try {
       // Save sync settings to organization
@@ -289,6 +420,7 @@ export default function ShopifySettingsPage() {
           syncSettings: {
             importProducts: syncSettings.importProducts,
             importOrders: syncSettings.importOrders,
+            importCustomers: syncSettings.importCustomers,
             orderDateRange: syncSettings.orderDateRange,
           },
         },
@@ -320,7 +452,7 @@ export default function ShopifySettingsPage() {
         channelName = channelSnapshot.docs[0].data().name || 'Shopify'
       }
 
-      // Import Products
+      // Import Products with costs
       if (syncSettings.importProducts) {
         setSyncProgress({ current: 0, total: 0, status: 'Fetching products from Shopify...' })
 
@@ -350,6 +482,45 @@ export default function ShopifySettingsPage() {
           pageInfo = data.hasNextPage ? data.nextPageInfo : null
         } while (pageInfo)
 
+        // Collect all inventory item IDs to fetch costs
+        const inventoryItemIds: string[] = []
+        for (const product of allProducts) {
+          for (const variant of product.variants || []) {
+            if (variant.inventory_item_id) {
+              inventoryItemIds.push(variant.inventory_item_id.toString())
+            }
+          }
+        }
+
+        // Fetch inventory item costs in batches
+        setSyncProgress(prev => ({ ...prev, status: 'Fetching product costs...' }))
+        const inventoryCosts = new Map<string, number>()
+
+        for (let i = 0; i < inventoryItemIds.length; i += 100) {
+          const batch = inventoryItemIds.slice(i, i + 100)
+          const idsParam = batch.join(',')
+
+          try {
+            const costResponse = await fetch(`https://${connection.storeName}.myshopify.com/admin/api/2024-10/inventory_items.json?ids=${idsParam}`, {
+              headers: {
+                'X-Shopify-Access-Token': connection.accessToken,
+                'Content-Type': 'application/json',
+              },
+            })
+
+            if (costResponse.ok) {
+              const costData = await costResponse.json()
+              for (const item of costData.inventory_items || []) {
+                if (item.cost !== null && item.cost !== undefined) {
+                  inventoryCosts.set(item.id.toString(), parseFloat(item.cost))
+                }
+              }
+            }
+          } catch (err) {
+            console.error('Error fetching inventory costs:', err)
+          }
+        }
+
         if (allProducts.length > 0) {
           setSyncProgress({ current: 0, total: allProducts.length, status: 'Processing products...' })
 
@@ -365,7 +536,7 @@ export default function ShopifySettingsPage() {
             const product = allProducts[i]
             setSyncProgress({ current: i + 1, total: allProducts.length, status: `Processing ${product.title}...` })
 
-            const productData = mapShopifyProduct(product, channelId)
+            const productData = mapShopifyProductWithCosts(product, channelId, inventoryCosts)
             const existingId = existingByShopifyId.get(product.id.toString())
 
             if (existingId) {
@@ -462,6 +633,36 @@ export default function ShopifySettingsPage() {
         }
       }
 
+      // Import Customers (runs in background)
+      if (syncSettings.importCustomers) {
+        setSyncProgress({ current: 0, total: 0, status: 'Starting customer sync (runs in background)...' })
+
+        // Start background sync
+        setCustomerSyncStatus({ status: 'running', progress: { current: 0, total: 0, status: 'Starting...' }, error: null })
+
+        // Fire off the background sync - don't await it
+        fetch('/api/shopify/sync-customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ organizationId: organization.id }),
+        }).then(async (response) => {
+          const data = await response.json()
+          if (data.success) {
+            customersAdded = data.customersAdded || 0
+            customersUpdated = data.customersUpdated || 0
+            setCustomerSyncStatus({ status: 'complete', progress: null, error: null })
+            success(`Customer sync complete: ${customersAdded} added, ${customersUpdated} updated`)
+          } else {
+            setCustomerSyncStatus({ status: 'error', progress: null, error: data.error })
+          }
+        }).catch((err) => {
+          setCustomerSyncStatus({ status: 'error', progress: null, error: err.message })
+        })
+
+        // Don't wait for customers - mark as started
+        setSyncProgress({ current: 0, total: 0, status: 'Customer sync started in background...' })
+      }
+
       // Update sync status
       await setDoc(doc(db, 'organizations', organization.id), {
         shopify: {
@@ -473,6 +674,8 @@ export default function ShopifySettingsPage() {
             productsUpdated,
             ordersAdded,
             ordersUpdated,
+            customersAdded,
+            customersUpdated,
           },
         },
       }, { merge: true })
@@ -482,6 +685,7 @@ export default function ShopifySettingsPage() {
       const messages: string[] = []
       if (syncSettings.importProducts) messages.push(`${productsAdded + productsUpdated} products (${productsAdded} new, ${productsUpdated} updated)`)
       if (syncSettings.importOrders) messages.push(`${ordersAdded + ordersUpdated} orders (${ordersAdded} new, ${ordersUpdated} updated)`)
+      if (syncSettings.importCustomers) messages.push(`${customersAdded + customersUpdated} customers (${customersAdded} new, ${customersUpdated} updated)`)
       success(`Synced: ${messages.join(', ')}`)
     } catch (err: any) {
       console.error('Sync error:', err)
@@ -738,6 +942,18 @@ export default function ShopifySettingsPage() {
                   Orders
                 </span>
               </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={syncSettings.importCustomers}
+                  onChange={(e) => setSyncSettings(prev => ({ ...prev, importCustomers: e.target.checked }))}
+                  className="w-5 h-5 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-800"
+                />
+                <span className="text-white">
+                  <i className="fas fa-users mr-2 text-amber-400"></i>
+                  Customers
+                </span>
+              </label>
             </div>
           </div>
 
@@ -841,7 +1057,7 @@ export default function ShopifySettingsPage() {
           <div className="flex items-center gap-4">
             <button
               onClick={handleSync}
-              disabled={syncing || (!syncSettings.importProducts && !syncSettings.importOrders)}
+              disabled={syncing || (!syncSettings.importProducts && !syncSettings.importOrders && !syncSettings.importCustomers)}
               className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
             >
               {syncing ? (
@@ -857,7 +1073,7 @@ export default function ShopifySettingsPage() {
               )}
             </button>
 
-            {!syncSettings.importProducts && !syncSettings.importOrders && (
+            {!syncSettings.importProducts && !syncSettings.importOrders && !syncSettings.importCustomers && (
               <span className="text-sm text-amber-400">
                 <i className="fas fa-info-circle mr-1"></i>
                 Select at least one item to import
@@ -887,6 +1103,215 @@ export default function ShopifySettingsPage() {
               </div>
             </div>
           )}
+
+          {/* Background Customer Sync Status */}
+          {customerSyncStatus.status !== 'idle' && (
+            <div className={`mt-4 p-4 rounded-lg border ${
+              customerSyncStatus.status === 'running'
+                ? 'bg-blue-500/10 border-blue-500/30'
+                : customerSyncStatus.status === 'complete'
+                  ? 'bg-emerald-500/10 border-emerald-500/30'
+                  : 'bg-red-500/10 border-red-500/30'
+            }`}>
+              <div className="flex items-center gap-3">
+                {customerSyncStatus.status === 'running' && (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-400 border-t-transparent"></div>
+                    <div>
+                      <div className="text-blue-400 font-medium">Customer Sync Running</div>
+                      <div className="text-sm text-slate-400">
+                        {customerSyncStatus.progress?.status || 'Processing...'}
+                        {customerSyncStatus.progress?.total ? ` (${customerSyncStatus.progress.current}/${customerSyncStatus.progress.total})` : ''}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        You can leave this page - sync will continue in the background
+                      </div>
+                    </div>
+                  </>
+                )}
+                {customerSyncStatus.status === 'complete' && (
+                  <>
+                    <i className="fas fa-check-circle text-emerald-400 text-xl"></i>
+                    <div>
+                      <div className="text-emerald-400 font-medium">Customer Sync Complete</div>
+                      <div className="text-sm text-slate-400">
+                        All customers have been imported successfully
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setCustomerSyncStatus({ status: 'idle', progress: null, error: null })}
+                      className="ml-auto text-slate-500 hover:text-slate-300"
+                    >
+                      <i className="fas fa-times"></i>
+                    </button>
+                  </>
+                )}
+                {customerSyncStatus.status === 'error' && (
+                  <>
+                    <i className="fas fa-exclamation-circle text-red-400 text-xl"></i>
+                    <div>
+                      <div className="text-red-400 font-medium">Customer Sync Failed</div>
+                      <div className="text-sm text-slate-400">
+                        {customerSyncStatus.error || 'An error occurred during sync'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setCustomerSyncStatus({ status: 'idle', progress: null, error: null })}
+                      className="ml-auto text-slate-500 hover:text-slate-300"
+                    >
+                      <i className="fas fa-times"></i>
+                    </button>
+                  </>
+                )}
+              </div>
+              {customerSyncStatus.status === 'running' && customerSyncStatus.progress?.total && customerSyncStatus.progress.total > 0 && (
+                <div className="mt-3">
+                  <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                      style={{ width: `${(customerSyncStatus.progress.current / customerSyncStatus.progress.total) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Webhook Settings Section */}
+      {connection.isConnected && (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 mb-6">
+          <h2 className="text-lg font-semibold text-white mb-2">
+            <i className="fas fa-satellite-dish text-slate-400 mr-2"></i>
+            Real-Time Webhooks
+          </h2>
+          <p className="text-sm text-slate-400 mb-4">
+            Enable webhooks to automatically receive updates when orders, products, or inventory change in Shopify.
+          </p>
+
+          {/* Webhook Status */}
+          <div className="mb-4 p-4 bg-slate-900/50 rounded-lg">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-slate-300">Webhook Status</span>
+                {webhooksLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-slate-400 border-t-transparent"></div>
+                ) : webhooks.length > 0 ? (
+                  <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">
+                    {webhooks.length} Active
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 bg-slate-500/20 text-slate-400 text-xs rounded-full">
+                    Not Configured
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {webhooks.length === 0 ? (
+                  <button
+                    onClick={handleRegisterWebhooks}
+                    disabled={registeringWebhooks}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm rounded-lg flex items-center gap-2 transition-colors"
+                  >
+                    {registeringWebhooks ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+                        Enabling...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-plug"></i>
+                        Enable Webhooks
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleUnregisterWebhooks}
+                    disabled={unregisteringWebhooks}
+                    className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-sm rounded-lg flex items-center gap-2 transition-colors"
+                  >
+                    {unregisteringWebhooks ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-red-400 border-t-transparent"></div>
+                        Disabling...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-unlink"></i>
+                        Disable All
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Webhook List */}
+            {webhooks.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Active Webhooks</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {webhooks.map((webhook: any) => (
+                    <div
+                      key={webhook.id}
+                      className="flex items-center gap-2 px-3 py-2 bg-slate-800 rounded-lg"
+                    >
+                      <div className="w-2 h-2 bg-emerald-400 rounded-full"></div>
+                      <span className="text-sm text-slate-300 truncate">{webhook.topic}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {webhooks.length === 0 && !webhooksLoading && (
+              <div className="text-center py-4 text-slate-500">
+                <i className="fas fa-satellite-dish text-2xl mb-2 opacity-50"></i>
+                <p className="text-sm">No webhooks configured. Enable webhooks to receive real-time updates.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Webhook Types Info */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+            <div className="p-3 bg-slate-900/30 rounded-lg">
+              <div className="flex items-center gap-2 text-blue-400 mb-1">
+                <i className="fas fa-shopping-cart"></i>
+                <span className="font-medium">Order Webhooks</span>
+              </div>
+              <p className="text-slate-500 text-xs">New orders, updates, fulfillments, cancellations</p>
+            </div>
+            <div className="p-3 bg-slate-900/30 rounded-lg">
+              <div className="flex items-center gap-2 text-purple-400 mb-1">
+                <i className="fas fa-box"></i>
+                <span className="font-medium">Product Webhooks</span>
+              </div>
+              <p className="text-slate-500 text-xs">Product creates, updates, deletions</p>
+            </div>
+            <div className="p-3 bg-slate-900/30 rounded-lg">
+              <div className="flex items-center gap-2 text-amber-400 mb-1">
+                <i className="fas fa-warehouse"></i>
+                <span className="font-medium">Inventory Webhooks</span>
+              </div>
+              <p className="text-slate-500 text-xs">Stock level changes across locations</p>
+            </div>
+            <div className="p-3 bg-slate-900/30 rounded-lg">
+              <div className="flex items-center gap-2 text-emerald-400 mb-1">
+                <i className="fas fa-truck"></i>
+                <span className="font-medium">Fulfillment Webhooks</span>
+              </div>
+              <p className="text-slate-500 text-xs">Shipment tracking and delivery updates</p>
+            </div>
+            <div className="p-3 bg-slate-900/30 rounded-lg">
+              <div className="flex items-center gap-2 text-pink-400 mb-1">
+                <i className="fas fa-users"></i>
+                <span className="font-medium">Customer Webhooks</span>
+              </div>
+              <p className="text-slate-500 text-xs">Customer creates, updates, deletions</p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -928,6 +1353,7 @@ export default function ShopifySettingsPage() {
             <div className="text-emerald-400"><i className="fas fa-check mr-1"></i>read_fulfillments</div>
             <div className="text-emerald-400"><i className="fas fa-check mr-1"></i>write_fulfillments</div>
             <div className="text-emerald-400"><i className="fas fa-check mr-1"></i>read_customers</div>
+            <div className="text-emerald-400"><i className="fas fa-check mr-1"></i>write_customers</div>
             <div className="text-slate-500"><i className="far fa-circle mr-1"></i>read_locations (optional)</div>
           </div>
         </div>
@@ -1112,12 +1538,152 @@ function mapShopifyOrder(
   }
 }
 
-// Helper function to map Shopify product to our format
+// Helper function to map Shopify product with costs from inventory items
+function mapShopifyProductWithCosts(shopifyProduct: any, channelId: string, inventoryCosts: Map<string, number>) {
+  const hasVariants = shopifyProduct.variants.length > 1 ||
+    (shopifyProduct.variants[0]?.title !== 'Default Title')
+
+  // Build a map of variant image IDs to image URLs
+  const imageById = new Map<string, string>()
+  ;(shopifyProduct.images || []).forEach((img: any) => {
+    if (img.variant_ids) {
+      img.variant_ids.forEach((vId: number) => {
+        imageById.set(vId.toString(), img.src)
+      })
+    }
+  })
+
+  // Map variants with costs from inventory items
+  const variants = (shopifyProduct.variants || []).map((v: any, index: number) => {
+    const inventoryItemId = v.inventory_item_id?.toString()
+    const cost = inventoryCosts.get(inventoryItemId) || 0
+
+    return {
+      id: v.id.toString(),
+      shopifyVariantId: v.id.toString(),
+      title: v.title || 'Default Title',
+      position: v.position || index + 1,
+      sku: v.sku || '',
+      barcode: v.barcode || null,
+      price: parseFloat(v.price) || 0,
+      compareAtPrice: v.compare_at_price ? parseFloat(v.compare_at_price) : null,
+      cost: cost,
+      weight: v.weight || 0,
+      weightUnit: v.weight_unit || 'lb',
+      grams: v.grams || 0,
+      inventoryQuantity: v.inventory_quantity || 0,
+      inventoryItemId: inventoryItemId,
+      inventoryPolicy: v.inventory_policy || 'deny',
+      fulfillmentService: v.fulfillment_service || 'manual',
+      requiresShipping: v.requires_shipping !== false,
+      taxable: v.taxable !== false,
+      option1: v.option1 || null,
+      option2: v.option2 || null,
+      option3: v.option3 || null,
+      imageUrl: imageById.get(v.id.toString()) || shopifyProduct.images?.[0]?.src || null,
+    }
+  })
+
+  // For single variant products, use variant SKU as parent SKU
+  const defaultVariant = variants[0]
+  const parentSku = hasVariants ? '' : (defaultVariant?.sku || '')
+  const parentBarcode = hasVariants ? '' : (defaultVariant?.barcode || '')
+
+  // Get price and cost ranges
+  const prices = variants.map((v: any) => v.price).filter((p: number) => p > 0)
+  const costs = variants.map((v: any) => v.cost).filter((c: number) => c > 0)
+  const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0
+  const highestPrice = prices.length > 0 ? Math.max(...prices) : 0
+  const avgCost = costs.length > 0 ? costs.reduce((a: number, b: number) => a + b, 0) / costs.length : 0
+
+  // Map images
+  const images = (shopifyProduct.images || []).map((img: any) => ({
+    shopifyImageId: img.id.toString(),
+    src: img.src,
+    alt: img.alt || null,
+    position: img.position,
+  }))
+
+  // Parse product tags
+  const productTags = shopifyProduct.tags
+    ? shopifyProduct.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+    : []
+
+  return {
+    shopifyProductId: shopifyProduct.id.toString(),
+    shopifyId: shopifyProduct.id.toString(),
+    shopifyHandle: shopifyProduct.handle,
+
+    name: shopifyProduct.title,
+    description: shopifyProduct.body_html?.replace(/<[^>]*>/g, '') || '',
+    vendor: shopifyProduct.vendor || '',
+    productType: shopifyProduct.product_type || '',
+    category: shopifyProduct.product_type || 'Uncategorized',
+
+    sku: parentSku,
+    barcode: parentBarcode,
+
+    // Pricing with costs
+    price: hasVariants ? lowestPrice : (defaultVariant?.price || 0),
+    retailPrice: hasVariants ? lowestPrice : (defaultVariant?.price || 0),
+    cost: hasVariants ? avgCost : (defaultVariant?.cost || 0),
+    compareAtPrice: defaultVariant?.compareAtPrice || null,
+    priceRange: hasVariants ? { min: lowestPrice, max: highestPrice } : null,
+
+    weight: defaultVariant?.weight || 0,
+    weightUnit: defaultVariant?.weightUnit || 'lb',
+
+    status: shopifyProduct.status || 'active',
+    isActive: shopifyProduct.status === 'active',
+    isArchived: shopifyProduct.status === 'archived',
+    isDraft: shopifyProduct.status === 'draft',
+
+    tags: productTags,
+    productTags: productTags,
+
+    // Variant info
+    hasVariants,
+    variantCount: variants.length,
+    variants,
+    options: shopifyProduct.options || [],
+    totalInventory: variants.reduce((sum: number, v: any) => sum + (v.inventoryQuantity || 0), 0),
+    totalStock: variants.reduce((sum: number, v: any) => sum + (v.inventoryQuantity || 0), 0),
+
+    images,
+    mainImage: images[0]?.src || null,
+    imageUrl: images[0]?.src || null,
+    thumbnail: shopifyProduct.image?.src || images[0]?.src || null,
+
+    inventoryQuantity: variants.reduce((sum: number, v: any) => sum + (v.inventoryQuantity || 0), 0),
+    inventoryTracking: variants[0]?.inventory_management === 'shopify',
+
+    channelId,
+    channelCode: 'shopify',
+    source: 'shopify',
+
+    shopifyCreatedAt: new Date(shopifyProduct.created_at),
+    shopifyUpdatedAt: new Date(shopifyProduct.updated_at),
+    shopifyPublishedAt: shopifyProduct.published_at ? new Date(shopifyProduct.published_at) : null,
+  }
+}
+
+// Helper function to map Shopify product to our format (legacy - no costs)
 function mapShopifyProduct(shopifyProduct: any, channelId: string) {
   const mainVariant = shopifyProduct.variants?.[0] || {}
 
+  // Build a map of variant image IDs to image URLs
+  const imageById = new Map<string, string>()
+  ;(shopifyProduct.images || []).forEach((img: any) => {
+    if (img.variant_ids) {
+      img.variant_ids.forEach((vId: number) => {
+        imageById.set(vId.toString(), img.src)
+      })
+    }
+  })
+
   // Map variants with full details
   const variants = (shopifyProduct.variants || []).map((v: any, index: number) => ({
+    id: v.id.toString(),
     shopifyVariantId: v.id.toString(),
     title: v.title || 'Default Title',
     position: v.position || index + 1,
@@ -1137,6 +1703,7 @@ function mapShopifyProduct(shopifyProduct: any, channelId: string) {
     option1: v.option1 || null,
     option2: v.option2 || null,
     option3: v.option3 || null,
+    imageUrl: imageById.get(v.id.toString()) || shopifyProduct.images?.[0]?.src || null,
   }))
 
   // Map images
@@ -1146,6 +1713,11 @@ function mapShopifyProduct(shopifyProduct: any, channelId: string) {
     alt: img.alt || null,
     position: img.position,
   }))
+
+  // Parse product tags
+  const productTags = shopifyProduct.tags
+    ? shopifyProduct.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+    : []
 
   return {
     shopifyProductId: shopifyProduct.id.toString(),
@@ -1165,6 +1737,19 @@ function mapShopifyProduct(shopifyProduct: any, channelId: string) {
     weight: mainVariant.weight || 0,
     weightUnit: mainVariant.weight_unit || 'lb',
 
+    // Dimensions - need to be fetched from Inventory Items API separately
+    // Shopify stores these on the inventory_item, not the variant
+    dimensions: {
+      length: null,
+      width: null,
+      height: null,
+      unit: 'in',
+    },
+
+    // HS Code and Country of Origin - also from Inventory Items API
+    hsCode: null, // harmonized_system_code from inventory_item
+    countryOfOrigin: null, // country_code_of_origin from inventory_item
+
     // Product status: active, archived, draft
     status: shopifyProduct.status || 'active',
     isActive: shopifyProduct.status === 'active',
@@ -1174,14 +1759,18 @@ function mapShopifyProduct(shopifyProduct: any, channelId: string) {
     // Category from product type
     category: shopifyProduct.product_type || 'Uncategorized',
 
-    tags: shopifyProduct.tags ? shopifyProduct.tags.split(',').map((t: string) => t.trim()) : [],
+    // Product tags
+    tags: productTags,
+    productTags: productTags,
 
     variants,
     hasVariants: variants.length > 1,
     options: shopifyProduct.options || [],
+    totalInventory: variants.reduce((sum: number, v: any) => sum + (v.inventoryQuantity || 0), 0),
 
     images,
     mainImage: images[0]?.src || null,
+    imageUrl: images[0]?.src || null,
 
     inventoryQuantity: variants.reduce((sum: number, v: any) => sum + (v.inventoryQuantity || 0), 0),
     inventoryTracking: mainVariant.inventory_management === 'shopify',
@@ -1196,6 +1785,142 @@ function mapShopifyProduct(shopifyProduct: any, channelId: string) {
     source: {
       platform: 'shopify',
       externalId: shopifyProduct.id.toString(),
+      importedAt: new Date(),
+    },
+  }
+}
+
+// Helper function to map Shopify customer to our format
+function mapShopifyCustomer(shopifyCustomer: any) {
+  const shopifyId = shopifyCustomer.id.toString()
+  const defaultAddress = shopifyCustomer.default_address || shopifyCustomer.addresses?.[0] || {}
+
+  // Calculate metrics from Shopify customer data
+  const totalOrders = shopifyCustomer.orders_count || 0
+  const lifetimeValue = parseFloat(shopifyCustomer.total_spent) || 0
+  const avgOrderValue = totalOrders > 0 ? lifetimeValue / totalOrders : 0
+
+  // VIP calculation based on lifetime value thresholds
+  const vipThresholds = { bronze: 500, silver: 1000, gold: 2500, platinum: 5000 }
+  let vipTier: string | null = null
+  if (lifetimeValue >= vipThresholds.platinum) vipTier = 'platinum'
+  else if (lifetimeValue >= vipThresholds.gold) vipTier = 'gold'
+  else if (lifetimeValue >= vipThresholds.silver) vipTier = 'silver'
+  else if (lifetimeValue >= vipThresholds.bronze) vipTier = 'bronze'
+
+  const isVip = lifetimeValue >= vipThresholds.bronze || totalOrders >= 5
+
+  // Map all addresses
+  const addresses = (shopifyCustomer.addresses || []).map((addr: any) => ({
+    id: addr.id?.toString() || '',
+    firstName: addr.first_name || '',
+    lastName: addr.last_name || '',
+    company: addr.company || null,
+    address1: addr.address1 || '',
+    address2: addr.address2 || null,
+    city: addr.city || '',
+    province: addr.province || '',
+    provinceCode: addr.province_code || '',
+    country: addr.country || '',
+    countryCode: addr.country_code || '',
+    zip: addr.zip || '',
+    phone: addr.phone || null,
+    isDefault: addr.default === true,
+  }))
+
+  return {
+    // Shopify identifiers
+    shopifyCustomerId: shopifyId,
+
+    // Basic info
+    email: shopifyCustomer.email || null,
+    phone: shopifyCustomer.phone || null,
+    firstName: shopifyCustomer.first_name || '',
+    lastName: shopifyCustomer.last_name || '',
+    fullName: `${shopifyCustomer.first_name || ''} ${shopifyCustomer.last_name || ''}`.trim() || 'Unknown',
+
+    // Default address
+    defaultAddress: defaultAddress ? {
+      firstName: defaultAddress.first_name || '',
+      lastName: defaultAddress.last_name || '',
+      company: defaultAddress.company || null,
+      address1: defaultAddress.address1 || '',
+      address2: defaultAddress.address2 || null,
+      city: defaultAddress.city || '',
+      province: defaultAddress.province || '',
+      provinceCode: defaultAddress.province_code || '',
+      country: defaultAddress.country || '',
+      countryCode: defaultAddress.country_code || '',
+      zip: defaultAddress.zip || '',
+      phone: defaultAddress.phone || null,
+    } : null,
+
+    // All addresses
+    addresses,
+
+    // Metrics
+    metrics: {
+      totalOrders,
+      lifetimeValue,
+      avgOrderValue,
+      lastOrderDate: null, // Will be updated when orders are synced
+    },
+
+    // VIP status
+    isVip,
+    vipTier,
+
+    // Marketing
+    emailConsent: shopifyCustomer.email_marketing_consent?.state === 'subscribed' ||
+                  shopifyCustomer.accepts_marketing === true,
+    smsConsent: shopifyCustomer.sms_marketing_consent?.state === 'subscribed' ||
+                shopifyCustomer.accepts_marketing_sms === true,
+
+    // Tags - include Shopify tags plus automatic order-based tags
+    tags: (() => {
+      const shopifyTags = shopifyCustomer.tags
+        ? shopifyCustomer.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+        : []
+
+      // Add automatic tags based on order count
+      const autoTags: string[] = []
+      if (totalOrders > 1) {
+        autoTags.push('Existing Customer')
+      } else if (totalOrders === 1) {
+        autoTags.push('New Customer')
+      } else {
+        autoTags.push('Potential Customer')
+      }
+
+      // Combine and deduplicate tags
+      return [...new Set([...shopifyTags, ...autoTags])]
+    })(),
+
+    // Notes
+    note: shopifyCustomer.note || null,
+
+    // State
+    state: shopifyCustomer.state || 'enabled',
+    isVerified: shopifyCustomer.verified_email === true,
+
+    // Tax exemptions
+    taxExempt: shopifyCustomer.tax_exempt === true,
+    taxExemptions: shopifyCustomer.tax_exemptions || [],
+
+    // Currency
+    currency: shopifyCustomer.currency || 'USD',
+
+    // Sources - track where this customer came from
+    sources: ['shopify'],
+
+    // Shopify timestamps
+    shopifyCreatedAt: shopifyCustomer.created_at ? new Date(shopifyCustomer.created_at) : null,
+    shopifyUpdatedAt: shopifyCustomer.updated_at ? new Date(shopifyCustomer.updated_at) : null,
+
+    // Source metadata
+    source: {
+      platform: 'shopify',
+      externalId: shopifyId,
       importedAt: new Date(),
     },
   }

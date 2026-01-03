@@ -71,6 +71,7 @@ export default function Sidebar() {
         { href: '/orders', icon: 'fa-list', label: 'All Orders', badge: pendingOrdersCount, permission: 'orders.view' },
         { href: '/orders/drafts', icon: 'fa-file-alt', label: 'Draft Orders', badge: draftOrdersCount, permission: 'orders.create' },
         { href: '/orders/returns', icon: 'fa-undo', label: 'Returns', badge: pendingReturnsCount, permission: 'returns.view' },
+        { href: '/customers', icon: 'fa-users', label: 'Customers', permission: 'orders.view' },
       ]
     },
     {
@@ -105,6 +106,7 @@ export default function Sidebar() {
       permission: 'marketing.view',
       children: [
         { href: '/marketing', icon: 'fa-chart-line', label: 'Dashboard', permission: 'marketing.view' },
+        { href: '/marketing/analytics', icon: 'fa-chart-simple', label: 'Analytics', permission: 'marketing.view' },
         { href: '/marketing/google-ads', icon: 'fa-google', label: 'Google Ads', isBrand: true, permission: 'marketing.view_spend' },
         { href: '/marketing/meta-ads', icon: 'fa-meta', label: 'Meta Ads', isBrand: true, permission: 'marketing.view_spend' },
         { href: '/marketing/amazon-ads', icon: 'fa-amazon', label: 'Amazon Ads', isBrand: true, permission: 'marketing.view_spend' },

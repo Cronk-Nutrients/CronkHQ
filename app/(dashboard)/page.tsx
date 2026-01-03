@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -27,9 +27,13 @@ import {
   Download,
   Calendar,
   Clock,
+  Eye,
+  Activity,
+  MousePointer,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useDateRange } from '@/context/DateRangeContext';
+import { useOrganization } from '@/context/OrganizationContext';
 import { formatCurrency } from '@/data/mockData';
 import { ChannelBadge, QueueStatusBadge } from '@/components/fulfillment/FulfillmentBadges';
 import { ChannelCard, QuickActionCard } from '@/components/dashboard';
@@ -37,7 +41,87 @@ import { ChannelCard, QuickActionCard } from '@/components/dashboard';
 export default function Dashboard() {
   const router = useRouter();
   const { state } = useApp();
-  const { dateRange, isInRange, getComparisonRange } = useDateRange();
+  const { dateRange, isInRange, getComparisonRange, preset } = useDateRange();
+  const { organization } = useOrganization();
+
+  // Google Analytics live data state
+  const [liveAnalytics, setLiveAnalytics] = useState<{
+    activeUsers: number;
+    pageViews: number;
+    events: number;
+    isConnected: boolean;
+    loading: boolean;
+  }>({
+    activeUsers: 0,
+    pageViews: 0,
+    events: 0,
+    isConnected: false,
+    loading: true,
+  });
+
+  // Fetch Google Analytics realtime data
+  useEffect(() => {
+    async function fetchLiveAnalytics() {
+      if (!organization?.id) return;
+
+      try {
+        const response = await fetch('/api/google/analytics/realtime', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ organizationId: organization.id }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setLiveAnalytics({
+            activeUsers: result.data.activeUsers,
+            pageViews: result.data.screenPageViews,
+            events: result.data.eventCount,
+            isConnected: true,
+            loading: false,
+          });
+        } else {
+          setLiveAnalytics(prev => ({ ...prev, isConnected: false, loading: false }));
+        }
+      } catch (err) {
+        setLiveAnalytics(prev => ({ ...prev, isConnected: false, loading: false }));
+      }
+    }
+
+    fetchLiveAnalytics();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchLiveAnalytics, 30000);
+    return () => clearInterval(interval);
+  }, [organization?.id]);
+
+  // Get the label for the previous comparison period
+  const getPreviousPeriodLabel = () => {
+    switch (preset) {
+      case 'today':
+        return 'Yesterday';
+      case 'yesterday':
+        return '2 Days Ago';
+      case 'wtd':
+        return 'Last Week';
+      case 'mtd':
+        return 'Last Month (same days)';
+      case 'qtd':
+        return 'Last Quarter (same days)';
+      case 'ytd':
+        return 'Last Year (same days)';
+      case 'last7':
+        return 'Previous 7 Days';
+      case 'last30':
+        return 'Previous 30 Days';
+      case 'last90':
+        return 'Previous 90 Days';
+      case 'custom':
+        return 'Previous Period';
+      default:
+        return 'Previous Period';
+    }
+  };
 
   // Helper to get total stock for a product
   const getTotalStock = (productId: string) => {
@@ -49,27 +133,39 @@ export default function Dashboard() {
   // Calculate live dashboard stats from AppContext
   const dashboardStats = useMemo(() => {
     // Filter orders by selected date range
-    const periodOrders = state.orders.filter(o => isInRange(o.createdAt));
+    const allPeriodOrders = state.orders.filter(o => isInRange(o.createdAt));
+    // Exclude cancelled orders from revenue/profit calculations
+    const periodOrders = allPeriodOrders.filter(o => o.status !== 'cancelled');
+    // Count cancelled orders separately
+    const cancelledOrders = allPeriodOrders.filter(o => o.status === 'cancelled');
 
     // Get comparison period for change calculation
     const compRange = getComparisonRange();
-    const compOrders = compRange
+    const allCompOrders = compRange
       ? state.orders.filter(o => {
           const orderDate = new Date(o.createdAt);
           return orderDate >= compRange.startDate && orderDate <= compRange.endDate;
         })
       : [];
+    // Exclude cancelled orders from comparison calculations
+    const compOrders = allCompOrders.filter(o => o.status !== 'cancelled');
+    const compCancelledOrders = allCompOrders.filter(o => o.status === 'cancelled');
 
-    // Calculate period metrics
+    // Calculate period metrics (excluding cancelled)
     const periodRevenue = periodOrders.reduce((sum, o) => sum + o.total, 0);
     const periodProfit = periodOrders.reduce((sum, o) => sum + o.profit, 0);
     const compRevenue = compOrders.reduce((sum, o) => sum + o.total, 0);
     const compProfit = compOrders.reduce((sum, o) => sum + o.profit, 0);
 
+    // Calculate cancelled order value (to show what was lost)
+    const cancelledRevenue = cancelledOrders.reduce((sum, o) => sum + o.total, 0);
+    const compCancelledRevenue = compCancelledOrders.reduce((sum, o) => sum + o.total, 0);
+
     // Calculate change percentages
     const revenueChange = compRevenue > 0 ? ((periodRevenue - compRevenue) / compRevenue) * 100 : 0;
     const profitChange = compProfit > 0 ? ((periodProfit - compProfit) / compProfit) * 100 : 0;
     const ordersChange = compOrders.length > 0 ? ((periodOrders.length - compOrders.length) / compOrders.length) * 100 : 0;
+    const cancelledChange = compCancelledOrders.length > 0 ? ((cancelledOrders.length - compCancelledOrders.length) / compCancelledOrders.length) * 100 : 0;
 
     // Filter shipments by date range
     const periodShipments = state.shipments.filter(s => s.shippedAt && isInRange(s.shippedAt));
@@ -84,6 +180,17 @@ export default function Dashboard() {
       periodRevenue,
       periodProfit,
       periodOrders: periodOrders.length,
+      // Cancelled orders
+      cancelledOrders: cancelledOrders.length,
+      cancelledRevenue,
+      compCancelledOrders: compCancelledOrders.length,
+      compCancelledRevenue,
+      cancelledChange,
+      // Comparison period values
+      compRevenue,
+      compProfit,
+      compOrders: compOrders.length,
+      // Change percentages
       revenueChange,
       profitChange,
       ordersChange,
@@ -255,7 +362,80 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Key Financial Metrics */}
+      {/* Google Analytics Live Widget - Top of Page */}
+      {liveAnalytics.isConnected && (
+        <div className="rounded-xl bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/30 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                <i className="fas fa-chart-simple text-orange-400"></i>
+              </div>
+              <div>
+                <h3 className="font-semibold text-white">Google Analytics</h3>
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                  <span className="text-emerald-400">Live</span>
+                </div>
+              </div>
+            </div>
+            <Link
+              href="/marketing/analytics"
+              className="text-sm text-orange-400 hover:text-orange-300"
+            >
+              View Full Analytics
+            </Link>
+          </div>
+          <div className="grid grid-cols-3 gap-6">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-2 text-slate-400 text-sm mb-2">
+                <Eye className="h-4 w-4" />
+                <span>Active Users</span>
+              </div>
+              <div className="text-4xl font-bold text-orange-400">{liveAnalytics.activeUsers}</div>
+              <div className="text-xs text-slate-500 mt-1">Right now</div>
+            </div>
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-2 text-slate-400 text-sm mb-2">
+                <Activity className="h-4 w-4" />
+                <span>Page Views</span>
+              </div>
+              <div className="text-4xl font-bold text-white">{formatNumber(liveAnalytics.pageViews)}</div>
+              <div className="text-xs text-slate-500 mt-1">Last 30 min</div>
+            </div>
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-2 text-slate-400 text-sm mb-2">
+                <MousePointer className="h-4 w-4" />
+                <span>Events</span>
+              </div>
+              <div className="text-4xl font-bold text-white">{formatNumber(liveAnalytics.events)}</div>
+              <div className="text-xs text-slate-500 mt-1">Last 30 min</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Google Analytics Connect Prompt */}
+      {!liveAnalytics.loading && !liveAnalytics.isConnected && (
+        <Link
+          href="/settings/integrations/google-analytics"
+          className="block rounded-xl bg-slate-800/50 border border-slate-700/50 border-dashed p-5 hover:border-orange-500/30 transition-colors group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                <i className="fas fa-chart-simple text-orange-400"></i>
+              </div>
+              <div>
+                <h3 className="font-semibold text-white group-hover:text-orange-400 transition-colors">Connect Google Analytics</h3>
+                <p className="text-sm text-slate-400">See live visitors, page views, and events</p>
+              </div>
+            </div>
+            <i className="fas fa-arrow-right text-slate-500 group-hover:text-orange-400 transition-colors"></i>
+          </div>
+        </Link>
+      )}
+
+      {/* Key Financial Metrics - Row 1 */}
       <div className="grid grid-cols-4 gap-4">
         {/* Revenue */}
         <div className="rounded-xl bg-slate-800/50 backdrop-blur border border-slate-700/50 p-5">
@@ -272,6 +452,14 @@ export default function Dashboard() {
                 {Math.abs(dashboardStats.revenueChange).toFixed(1)}%
               </span>
             )}
+          </div>
+          {/* Previous Period Comparison */}
+          <div className="mt-3 pt-3 border-t border-slate-700/50">
+            <div className="text-xs text-slate-500 mb-1">{getPreviousPeriodLabel()}</div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-400">{formatCurrencyPrecise(dashboardStats.compRevenue)}</span>
+              <span className="text-xs text-slate-500">{dashboardStats.compOrders} orders</span>
+            </div>
           </div>
         </div>
 
@@ -295,16 +483,54 @@ export default function Dashboard() {
               </span>
             )}
           </div>
+          {/* Previous Period Comparison */}
+          <div className="mt-3 pt-3 border-t border-emerald-500/20">
+            <div className="text-xs text-emerald-400/50 mb-1">{getPreviousPeriodLabel()}</div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-emerald-400/70">{formatCurrencyPrecise(dashboardStats.compProfit)}</span>
+              <span className="text-xs text-emerald-400/50">
+                {dashboardStats.compRevenue > 0
+                  ? ((dashboardStats.compProfit / dashboardStats.compRevenue) * 100).toFixed(1)
+                  : 0}% margin
+              </span>
+            </div>
+          </div>
         </div>
 
-        {/* Inventory Value */}
-        <div className="rounded-xl bg-slate-800/50 backdrop-blur border border-slate-700/50 p-5">
+        {/* Cancelled Orders */}
+        <div className={`rounded-xl backdrop-blur border p-5 ${
+          dashboardStats.cancelledOrders > 0
+            ? 'bg-red-500/10 border-red-500/30'
+            : 'bg-slate-800/50 border-slate-700/50'
+        }`}>
           <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
-            <Package className="h-4 w-4" />
-            <span>Inventory Value</span>
+            <XCircle className={`h-4 w-4 ${dashboardStats.cancelledOrders > 0 ? 'text-red-400' : ''}`} />
+            <span>{dateRange.label} Cancelled</span>
           </div>
-          <div className="text-3xl font-bold text-white">{formatCurrency(totalInventoryValue)}</div>
-          <div className="text-sm text-slate-400 mt-1">{formatNumber(totalUnits)} units on hand</div>
+          <div className={`text-3xl font-bold ${dashboardStats.cancelledOrders > 0 ? 'text-red-400' : 'text-white'}`}>
+            {dashboardStats.cancelledOrders}
+          </div>
+          <div className="flex items-center gap-2 text-sm mt-1">
+            <span className={dashboardStats.cancelledRevenue > 0 ? 'text-red-400' : 'text-slate-400'}>
+              {formatCurrencyPrecise(dashboardStats.cancelledRevenue)} lost
+            </span>
+            {dashboardStats.cancelledChange !== 0 && (
+              <span className={`flex items-center gap-0.5 ${dashboardStats.cancelledChange < 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {dashboardStats.cancelledChange > 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                {Math.abs(dashboardStats.cancelledChange).toFixed(1)}%
+              </span>
+            )}
+          </div>
+          {/* Previous Period */}
+          {dashboardStats.compCancelledOrders > 0 && (
+            <div className="mt-3 pt-3 border-t border-red-500/20">
+              <div className="text-xs text-red-400/50 mb-1">{getPreviousPeriodLabel()}</div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-red-400/70">{dashboardStats.compCancelledOrders} cancelled</span>
+                <span className="text-xs text-red-400/50">{formatCurrencyPrecise(dashboardStats.compCancelledRevenue)}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Low Stock Alert */}
@@ -326,6 +552,49 @@ export default function Dashboard() {
             )}
             {dashboardStats.outOfStockCount === 0 && 'Below reorder point'}
           </div>
+        </div>
+      </div>
+
+      {/* Shipping & Inventory Row */}
+      <div className="grid grid-cols-4 gap-4">
+        {/* Shipping Revenue */}
+        <div className="rounded-xl bg-slate-800/50 backdrop-blur border border-slate-700/50 p-5">
+          <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
+            <Truck className="h-4 w-4" />
+            <span>{dateRange.label} Shipping Revenue</span>
+          </div>
+          <div className="text-3xl font-bold text-white">$0.00</div>
+          <div className="text-sm text-slate-400 mt-1">Collected from orders</div>
+        </div>
+
+        {/* Shipping Cost */}
+        <div className="rounded-xl bg-slate-800/50 backdrop-blur border border-slate-700/50 p-5">
+          <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
+            <Truck className="h-4 w-4" />
+            <span>{dateRange.label} Shipping Cost</span>
+          </div>
+          <div className="text-3xl font-bold text-white">$0.00</div>
+          <div className="text-sm text-slate-500 mt-1">Connect shipping to track</div>
+        </div>
+
+        {/* Shipping Profit */}
+        <div className="rounded-xl bg-slate-800/50 backdrop-blur border border-slate-700/50 p-5">
+          <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
+            <TrendingUp className="h-4 w-4" />
+            <span>Shipping Profit</span>
+          </div>
+          <div className="text-3xl font-bold text-emerald-400">$0.00</div>
+          <div className="text-sm text-slate-400 mt-1">Revenue - Cost</div>
+        </div>
+
+        {/* Inventory Value */}
+        <div className="rounded-xl bg-slate-800/50 backdrop-blur border border-slate-700/50 p-5">
+          <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
+            <Package className="h-4 w-4" />
+            <span>Inventory Value</span>
+          </div>
+          <div className="text-3xl font-bold text-white">{formatCurrency(totalInventoryValue)}</div>
+          <div className="text-sm text-slate-400 mt-1">{formatNumber(totalUnits)} units on hand</div>
         </div>
       </div>
 

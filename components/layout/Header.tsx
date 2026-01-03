@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { useDateRange, DateRangePreset } from '@/context/DateRangeContext';
 import { useAuth } from '@/context/AuthContext';
+import ScannerStatus from '@/components/ScannerStatus';
+import { useNotifications } from '@/hooks/useNotifications';
 
 interface DateRangeOption {
   value: DateRangePreset;
@@ -36,31 +38,49 @@ const dateRangeOptions: DateRangeOption[] = [
 // Demo-only mock notifications
 const demoNotifications = [
   {
-    id: 1,
+    id: '1',
     type: 'warning',
     title: 'Low Stock Alert',
     message: 'Big Bud 1L is below reorder point (12 units)',
     time: '5 min ago',
+    read: false,
   },
   {
-    id: 2,
-    type: 'order',
+    id: '2',
+    type: 'order_created',
     title: 'New Order',
     message: 'Order #10492 received from Shopify',
     time: '12 min ago',
+    read: false,
   },
   {
-    id: 3,
-    type: 'success',
+    id: '3',
+    type: 'order_fulfilled',
     title: 'Shipment Delivered',
     message: 'Order #10485 delivered to customer',
     time: '1 hour ago',
+    read: true,
   },
 ];
+
+// Format relative time
+function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  return `${days} day${days > 1 ? 's' : ''} ago`;
+}
 
 export default function Header() {
   const { dateRange, preset, setPreset, setCustomRange } = useDateRange();
   const { isDemo } = useAuth();
+  const { notifications: firestoreNotifications, unreadCount, markAsRead, markAllAsRead } = useNotifications({ limit: 10 });
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const [showCustomPicker, setShowCustomPicker] = useState(false);
   const [customStartDate, setCustomStartDate] = useState('');
@@ -69,8 +89,19 @@ export default function Header() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState('2 min ago');
 
-  // Only show mock notifications in demo mode
-  const notifications = isDemo ? demoNotifications : [];
+  // Use real notifications or demo notifications
+  const notifications = isDemo
+    ? demoNotifications
+    : firestoreNotifications.map(n => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        time: formatRelativeTime(n.createdAt),
+        read: n.read,
+      }));
+
+  const notificationCount = isDemo ? demoNotifications.length : unreadCount;
 
   const handleSync = () => {
     setIsSyncing(true);
@@ -112,11 +143,20 @@ export default function Header() {
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'warning':
+      case 'low_stock':
         return <AlertTriangle className="h-4 w-4 text-amber-400" />;
+      case 'order_created':
       case 'order':
         return <ShoppingCart className="h-4 w-4 text-blue-400" />;
+      case 'order_fulfilled':
+      case 'order_cancelled':
       case 'success':
         return <Check className="h-4 w-4 text-emerald-400" />;
+      case 'product_created':
+      case 'product_deleted':
+        return <Package className="h-4 w-4 text-purple-400" />;
+      case 'refund_created':
+        return <AlertTriangle className="h-4 w-4 text-red-400" />;
       default:
         return <Package className="h-4 w-4 text-slate-400" />;
     }
@@ -141,6 +181,9 @@ export default function Header() {
 
           {/* Right side - Actions */}
           <div className="flex items-center gap-4">
+            {/* Scanner Status */}
+            <ScannerStatus compact showLastScan={false} />
+
             {/* Date Range Picker */}
             <div className="relative">
               <button
@@ -202,9 +245,9 @@ export default function Header() {
                 className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800/50 border border-slate-700/50 hover:bg-slate-700/50 transition-colors"
               >
                 <Bell className="h-5 w-5 text-slate-400" />
-                {notifications.length > 0 && (
+                {notificationCount > 0 && (
                   <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white">
-                    {notifications.length}
+                    {notificationCount > 9 ? '9+' : notificationCount}
                   </span>
                 )}
               </button>
@@ -231,7 +274,10 @@ export default function Header() {
                         notifications.map((notification) => (
                           <div
                             key={notification.id}
-                            className="flex gap-3 px-4 py-3 hover:bg-slate-700/30 transition-colors border-b border-slate-700/30 last:border-0"
+                            onClick={() => !isDemo && markAsRead(notification.id)}
+                            className={`flex gap-3 px-4 py-3 hover:bg-slate-700/30 transition-colors border-b border-slate-700/30 last:border-0 cursor-pointer ${
+                              !isDemo && notification.read ? 'opacity-60' : ''
+                            }`}
                           >
                             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700/50">
                               {getNotificationIcon(notification.type)}
@@ -247,13 +293,24 @@ export default function Header() {
                                 {notification.time}
                               </p>
                             </div>
+                            {!isDemo && !notification.read && (
+                              <div className="flex items-center">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                              </div>
+                            )}
                           </div>
                         ))
                       )}
                     </div>
-                    <div className="border-t border-slate-700/50 px-4 py-2">
-                      <button className="w-full text-center text-sm text-emerald-400 hover:text-emerald-300 transition-colors">
-                        View all notifications
+                    <div className="border-t border-slate-700/50 px-4 py-2 flex gap-2">
+                      <button
+                        onClick={() => markAllAsRead()}
+                        className="flex-1 text-center text-sm text-slate-400 hover:text-slate-300 transition-colors"
+                      >
+                        Mark all read
+                      </button>
+                      <button className="flex-1 text-center text-sm text-emerald-400 hover:text-emerald-300 transition-colors">
+                        View all
                       </button>
                     </div>
                   </div>

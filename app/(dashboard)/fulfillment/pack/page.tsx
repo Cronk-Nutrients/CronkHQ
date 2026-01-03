@@ -344,13 +344,46 @@ function PackPageContent() {
 
     dispatch({ type: 'UPDATE_ORDER', payload: updatedOrder });
 
-    // Deduct gripper stickers if enabled
+    // Apply packing supply auto-deduction rules
+    const packingSupplyRules = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('packing_supply_rules') || '[]')
+      : [];
+
+    const defaultLoc = state.locations.find(l => l.isDefault);
+    const locationId = defaultLoc?.id || state.locations[0]?.id || 'loc-1';
+
+    // Calculate line item count and total units
+    const lineItemCount = selectedOrder.items.length;
+    const totalUnits = selectedOrder.items.reduce((sum, item) => sum + item.quantity, 0);
+
+    packingSupplyRules.forEach((rule: { productId: string; deductionType: string; quantity: number; isActive: boolean }) => {
+      if (!rule.isActive) return;
+
+      let deductionAmount = 0;
+      switch (rule.deductionType) {
+        case 'per_order':
+          deductionAmount = rule.quantity;
+          break;
+        case 'per_item':
+          deductionAmount = rule.quantity * lineItemCount;
+          break;
+        case 'per_unit':
+          deductionAmount = rule.quantity * totalUnits;
+          break;
+      }
+
+      if (deductionAmount > 0) {
+        dispatch({
+          type: 'ADJUST_STOCK',
+          payload: { productId: rule.productId, locationId, adjustment: -deductionAmount },
+        });
+      }
+    });
+
+    // Legacy: Deduct gripper stickers if enabled (for backwards compatibility)
     if (state.settings.gripperStickerEnabled && state.settings.gripperStickerSku) {
       const gripperProductId = getProductIdBySku(state.settings.gripperStickerSku);
       if (gripperProductId) {
-        const defaultLoc = state.locations.find(l => l.isDefault);
-        const locationId = defaultLoc?.id || state.locations[0]?.id || 'loc-1';
-
         dispatch({
           type: 'ADJUST_STOCK',
           payload: { productId: gripperProductId, locationId, adjustment: -bottleCount },

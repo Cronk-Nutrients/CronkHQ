@@ -33,6 +33,7 @@ export interface ProductVariant {
   option1?: string;
   option2?: string;
   option3?: string;
+  imageUrl?: string;
 }
 
 export interface Product {
@@ -102,6 +103,22 @@ export interface Product {
   expirationWarningDays?: number;
   lotPrefix?: string;
   lotNextNumber?: number;
+  // Product Type Classification
+  productType?: 'sellable' | 'packing_supply' | 'shipping_supply';
+  supplyType?: 'box' | 'mailer' | 'poly_bag' | 'tape' | 'label' | 'other';
+  // Box-specific fields (when productType='shipping_supply' and supplyType='box')
+  boxDimensions?: {
+    innerLength: number;
+    innerWidth: number;
+    innerHeight: number;
+    outerLength: number;
+    outerWidth: number;
+    outerHeight: number;
+    unit: 'in' | 'cm';
+  };
+  maxWeight?: number;
+  maxWeightUnit?: 'lb' | 'kg';
+  reorderQuantity?: number;
   // Supplier
   primarySupplierId?: string;
   createdAt: Date;
@@ -304,6 +321,41 @@ export interface Order {
   totalWeight?: number;
   createdAt: Date;
   updatedAt: Date;
+  // Veeqo integration fields
+  veeqoAllocationId?: string;
+  // Shipment info (from Veeqo label purchase)
+  shipment?: {
+    carrier: string;
+    service: string;
+    trackingNumber?: string;
+    trackingNumbers?: string[];
+    trackingUrl?: string;
+    trackingUrls?: string[];
+    labelUrl?: string;
+    labelUrls?: string[];
+    shippingCost?: number;
+    purchasedAt?: Date | string;
+  };
+  // Multi-box packages
+  packages?: Array<{
+    id: string;
+    items: Array<{
+      lineItemId: string;
+      name: string;
+      sku: string;
+      quantity: number;
+    }>;
+    weight: number;
+    weightUnit: 'lb' | 'oz' | 'kg';
+    dimensions: {
+      length: number;
+      width: number;
+      height: number;
+      unit: 'in' | 'cm';
+    };
+    trackingNumber?: string;
+    labelUrl?: string;
+  }>;
 }
 
 export interface PickingBatch {
