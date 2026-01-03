@@ -1116,18 +1116,24 @@ function mapShopifyOrder(
 function mapShopifyProduct(shopifyProduct: any, channelId: string) {
   const mainVariant = shopifyProduct.variants?.[0] || {}
 
-  // Map variants
-  const variants = (shopifyProduct.variants || []).map((v: any) => ({
+  // Map variants with full details
+  const variants = (shopifyProduct.variants || []).map((v: any, index: number) => ({
     shopifyVariantId: v.id.toString(),
-    title: v.title,
+    title: v.title || 'Default Title',
+    position: v.position || index + 1,
     sku: v.sku || '',
     barcode: v.barcode || null,
     price: parseFloat(v.price) || 0,
     compareAtPrice: v.compare_at_price ? parseFloat(v.compare_at_price) : null,
     weight: v.weight || 0,
     weightUnit: v.weight_unit || 'lb',
+    grams: v.grams || 0,
     inventoryQuantity: v.inventory_quantity || 0,
     inventoryItemId: v.inventory_item_id?.toString() || null,
+    inventoryPolicy: v.inventory_policy || 'deny', // deny or continue
+    fulfillmentService: v.fulfillment_service || 'manual',
+    requiresShipping: v.requires_shipping !== false,
+    taxable: v.taxable !== false,
     option1: v.option1 || null,
     option2: v.option2 || null,
     option3: v.option3 || null,
@@ -1159,7 +1165,15 @@ function mapShopifyProduct(shopifyProduct: any, channelId: string) {
     weight: mainVariant.weight || 0,
     weightUnit: mainVariant.weight_unit || 'lb',
 
-    status: shopifyProduct.status === 'active' ? 'active' : 'inactive',
+    // Product status: active, archived, draft
+    status: shopifyProduct.status || 'active',
+    isActive: shopifyProduct.status === 'active',
+    isArchived: shopifyProduct.status === 'archived',
+    isDraft: shopifyProduct.status === 'draft',
+
+    // Category from product type
+    category: shopifyProduct.product_type || 'Uncategorized',
+
     tags: shopifyProduct.tags ? shopifyProduct.tags.split(',').map((t: string) => t.trim()) : [],
 
     variants,

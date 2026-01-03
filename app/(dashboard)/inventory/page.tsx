@@ -848,12 +848,22 @@ function InventoryPageContent() {
                           )}
                           <div>
                             <div className="font-medium text-white">{product.name}</div>
-                            <div className="text-xs text-slate-400 flex items-center gap-2">
+                            <div className="text-xs text-slate-400 flex items-center gap-2 flex-wrap">
                               <span>{getCategoryLabel(product.category)}</span>
                               {variantCount > 1 && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded text-[10px]">
                                   <i className="fas fa-layer-group"></i>
                                   {variantCount} variants
+                                </span>
+                              )}
+                              {product.isArchived && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded text-[10px]">
+                                  <i className="fas fa-archive mr-1"></i>Archived
+                                </span>
+                              )}
+                              {product.isDraft && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 bg-slate-500/20 text-slate-400 rounded text-[10px]">
+                                  <i className="fas fa-file-alt mr-1"></i>Draft
                                 </span>
                               )}
                               {product.shopifyProductId && (

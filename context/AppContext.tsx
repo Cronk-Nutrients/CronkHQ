@@ -64,6 +64,11 @@ export interface Product {
     amazon?: string;
   };
   imageUrl?: string;
+  // Product status
+  productStatus?: 'active' | 'archived' | 'draft';
+  isActive?: boolean;
+  isArchived?: boolean;
+  isDraft?: boolean;
   // Shopify integration fields
   shopifyProductId?: string;
   shopifyHandle?: string;
@@ -73,6 +78,8 @@ export interface Product {
   options?: Array<{ name: string; values: string[] }>;
   // Total inventory across all variants
   totalInventory?: number;
+  // Tags
+  productTags?: string[];
   // Manufacturing components (BOM) - e.g., front label, back label
   components?: ProductComponent[];
   // Case pack quantity for PO ordering
@@ -1415,7 +1422,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               name: data.name || '',
               sku: data.sku || '',
               barcode: data.barcode || undefined,
-              category: data.productType || data.category || 'Uncategorized',
+              category: data.category || data.productType || 'Uncategorized',
               description: data.description || undefined,
               cost: { rolling: data.cost || 0, fixed: data.cost || 0 },
               prices: {
@@ -1425,15 +1432,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 wholesale: (data.price || 0) * 0.6,
               },
               weight: { value: data.weight || 0, unit: (data.weightUnit || 'lb') as 'lbs' | 'oz' | 'kg' | 'g' },
-              reorderPoint: 10,
+              reorderPoint: data.reorderPoint || 10,
               supplier: data.vendor || undefined,
               imageUrl: data.mainImage || undefined,
+              // Product status
+              productStatus: data.status || 'active',
+              isActive: data.isActive ?? data.status === 'active',
+              isArchived: data.isArchived ?? data.status === 'archived',
+              isDraft: data.isDraft ?? data.status === 'draft',
+              // Shopify fields
               shopifyProductId: data.shopifyProductId || undefined,
               shopifyHandle: data.shopifyHandle || undefined,
               variants: variants.length > 0 ? variants : undefined,
               hasVariants: data.hasVariants || variants.length > 1,
               options: data.options || undefined,
               totalInventory,
+              productTags: data.tags || undefined,
               createdAt: data.createdAt?.toDate?.() || new Date(),
               updatedAt: data.updatedAt?.toDate?.() || new Date(),
             };
