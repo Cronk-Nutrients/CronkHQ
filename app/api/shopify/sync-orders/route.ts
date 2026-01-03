@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAdminDb } from '@/lib/firebase-admin'
-import * as admin from 'firebase-admin'
+import { getAdminDb, FieldValue } from '@/lib/firebase-admin'
 
 interface ShopifyLineItem {
   id: number
@@ -607,9 +606,9 @@ export async function POST(request: NextRequest) {
     if (shopifyChannelId && imported > 0) {
       try {
         await channelsRef.doc(shopifyChannelId).update({
-          'stats.totalOrders': admin.firestore.FieldValue.increment(imported),
-          'stats.pendingOrders': admin.firestore.FieldValue.increment(imported),
-          'stats.totalRevenue': admin.firestore.FieldValue.increment(totalImportedRevenue),
+          'stats.totalOrders': FieldValue.increment(imported),
+          'stats.pendingOrders': FieldValue.increment(imported),
+          'stats.totalRevenue': FieldValue.increment(totalImportedRevenue),
           'stats.lastOrderAt': new Date(),
           'integration.lastSyncAt': new Date(),
         })

@@ -1,5 +1,5 @@
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app'
-import { getFirestore, Firestore } from 'firebase-admin/firestore'
+import { getFirestore, Firestore, FieldValue } from 'firebase-admin/firestore'
 
 let adminApp: App | undefined
 let adminDb: Firestore | undefined
@@ -45,4 +45,4 @@ export function getAdminDb(): Firestore {
   return adminDb
 }
 
-export { getAdminDb as adminDb }
+export { getAdminDb as adminDb, FieldValue }
