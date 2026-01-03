@@ -18,8 +18,21 @@ export interface ProductVariant {
   id: string;
   sku: string;
   name: string;
+  title?: string;
   size?: string;
   productId: string;
+  shopifyVariantId?: string;
+  barcode?: string;
+  price: number;
+  compareAtPrice?: number;
+  cost?: number;
+  weight?: number;
+  weightUnit?: string;
+  inventoryQuantity: number;
+  inventoryItemId?: string;
+  option1?: string;
+  option2?: string;
+  option3?: string;
 }
 
 export interface Product {
@@ -51,6 +64,15 @@ export interface Product {
     amazon?: string;
   };
   imageUrl?: string;
+  // Shopify integration fields
+  shopifyProductId?: string;
+  shopifyHandle?: string;
+  // Variants (e.g., 500mL, 1L, 4L sizes)
+  variants?: ProductVariant[];
+  hasVariants?: boolean;
+  options?: Array<{ name: string; values: string[] }>;
+  // Total inventory across all variants
+  totalInventory?: number;
   // Manufacturing components (BOM) - e.g., front label, back label
   components?: ProductComponent[];
   // Case pack quantity for PO ordering
@@ -1258,11 +1280,22 @@ const AppContext = createContext<{
 
 // Helper to map Firestore order status to AppContext status
 function mapFirestoreStatus(status: string, fulfillmentStatus?: string): Order['status'] {
+  // Check fulfillment status first (from Shopify)
+  if (fulfillmentStatus === 'fulfilled') return 'shipped';
+  if (fulfillmentStatus === 'partial') return 'picking';
+
+  // Check order status
   if (status === 'cancelled') return 'cancelled';
-  if (status === 'shipped' || fulfillmentStatus === 'fulfilled') return 'shipped';
-  if (status === 'partially_shipped' || fulfillmentStatus === 'partial') return 'picking';
-  if (status === 'processing') return 'to_pick';
-  if (status === 'pending') return 'to_pick';
+  if (status === 'shipped') return 'shipped';
+  if (status === 'partially_shipped') return 'picking';
+  if (status === 'delivered') return 'delivered';
+
+  // Unfulfilled orders - determine workflow stage
+  // Most imported orders will be 'processing' (paid, awaiting fulfillment)
+  // These should show as 'to_pick' (ready to be picked)
+  if (status === 'processing' || status === 'pending') return 'to_pick';
+
+  // Default to 'to_pick' for any unfulfilled order
   return 'to_pick';
 }
 
@@ -1346,6 +1379,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
           const firestoreProducts: Product[] = productsSnapshot.docs.map(doc => {
             const data = doc.data();
+
+            // Map variants from Shopify import format
+            const variants: ProductVariant[] = (data.variants || []).map((v: any, idx: number) => ({
+              id: v.shopifyVariantId || `var_${idx}`,
+              sku: v.sku || '',
+              name: v.title || 'Default',
+              title: v.title || 'Default',
+              productId: doc.id,
+              shopifyVariantId: v.shopifyVariantId,
+              barcode: v.barcode || undefined,
+              price: v.price || 0,
+              compareAtPrice: v.compareAtPrice || undefined,
+              cost: v.cost || 0,
+              weight: v.weight || 0,
+              weightUnit: v.weightUnit || 'lb',
+              inventoryQuantity: v.inventoryQuantity || 0,
+              inventoryItemId: v.inventoryItemId || undefined,
+              option1: v.option1 || undefined,
+              option2: v.option2 || undefined,
+              option3: v.option3 || undefined,
+            }));
+
+            // Calculate total inventory across variants
+            const totalInventory = variants.reduce((sum, v) => sum + (v.inventoryQuantity || 0), 0);
+
             return {
               id: doc.id,
               name: data.name || '',
@@ -1364,6 +1422,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
               reorderPoint: 10,
               supplier: data.vendor || undefined,
               imageUrl: data.mainImage || undefined,
+              shopifyProductId: data.shopifyProductId || undefined,
+              shopifyHandle: data.shopifyHandle || undefined,
+              variants: variants.length > 0 ? variants : undefined,
+              hasVariants: data.hasVariants || variants.length > 1,
+              options: data.options || undefined,
+              totalInventory,
               createdAt: data.createdAt?.toDate?.() || new Date(),
               updatedAt: data.updatedAt?.toDate?.() || new Date(),
             };

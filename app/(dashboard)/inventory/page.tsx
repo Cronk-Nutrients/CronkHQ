@@ -176,19 +176,29 @@ function InventoryPageContent() {
   const [adjustingProduct, setAdjustingProduct] = useState<Product | null>(null);
 
   // Get stock for a product
-  const getProductStock = (productId: string) => {
+  const getProductStock = (productId: string, product?: Product) => {
+    // If product has totalInventory from Shopify variants, use that
+    if (product?.totalInventory !== undefined && product.totalInventory > 0) {
+      return {
+        total: product.totalInventory,
+        byLocation: { 'shopify': product.totalInventory },
+        fromShopify: true,
+      };
+    }
+
+    // Fall back to inventory levels table
     const inventoryLevels = state.inventory.filter(i => i.productId === productId);
     const total = inventoryLevels.reduce((sum, i) => sum + i.quantity, 0);
     const byLocation: Record<string, number> = {};
     inventoryLevels.forEach(i => {
       byLocation[i.locationId] = i.quantity;
     });
-    return { total, byLocation };
+    return { total, byLocation, fromShopify: false };
   };
 
   // Get stock status
   const getStockStatus = (product: Product) => {
-    const stock = getProductStock(product.id);
+    const stock = getProductStock(product.id, product);
     if (stock.total === 0) return 'out_of_stock';
     if (stock.total <= product.reorderPoint) return 'low_stock';
     return 'in_stock';
@@ -376,15 +386,16 @@ function InventoryPageContent() {
       : filteredProducts;
 
     const csv = [
-      ['SKU', 'Name', 'Category', 'Weight', 'Total Stock', 'MSRP', 'Shopify Price', 'Amazon Price', 'Wholesale Price', 'Rolling Cost', 'Fixed Cost'].join(','),
+      ['SKU', 'Name', 'Category', 'Weight', 'Total Stock', 'Variants', 'MSRP', 'Shopify Price', 'Amazon Price', 'Wholesale Price', 'Rolling Cost', 'Fixed Cost'].join(','),
       ...dataToExport.map(p => {
-        const stock = getProductStock(p.id);
+        const stock = getProductStock(p.id, p);
         return [
           p.sku,
           `"${p.name}"`,
           p.category,
           p.weight.value + ' ' + p.weight.unit,
           stock.total,
+          p.variants?.length || 1,
           p.prices.msrp,
           p.prices.shopify,
           p.prices.amazon,
@@ -700,9 +711,10 @@ function InventoryPageContent() {
       {viewMode === 'grid' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {paginatedProducts.map((product) => {
-            const stock = getProductStock(product.id);
+            const stock = getProductStock(product.id, product);
             const status = getStockStatus(product);
             const avgMargin = getAvgMargin(product);
+            const variantCount = product.variants?.length || 0;
 
             return (
               <div
@@ -713,7 +725,11 @@ function InventoryPageContent() {
                 }`}
               >
                 <div className="flex items-start justify-between mb-3">
-                  <CategoryIcon category={product.category} />
+                  {product.imageUrl ? (
+                    <img src={product.imageUrl} alt={product.name} className="w-12 h-12 rounded-lg object-cover" />
+                  ) : (
+                    <CategoryIcon category={product.category} />
+                  )}
                   <input
                     type="checkbox"
                     checked={selectedProducts.has(product.id)}
@@ -724,7 +740,14 @@ function InventoryPageContent() {
                 </div>
 
                 <h3 className="font-medium text-white mb-1 line-clamp-1">{product.name}</h3>
-                <p className="text-xs text-slate-400 mb-3">{product.sku}</p>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs text-slate-400">{product.sku}</span>
+                  {variantCount > 1 && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded text-[10px]">
+                      {variantCount} sizes
+                    </span>
+                  )}
+                </div>
 
                 <div className="flex items-center justify-between mb-3">
                   <div className={`text-lg font-bold ${
@@ -792,9 +815,10 @@ function InventoryPageContent() {
               </thead>
               <tbody>
                 {paginatedProducts.map((product) => {
-                  const stock = getProductStock(product.id);
+                  const stock = getProductStock(product.id, product);
                   const status = getStockStatus(product);
                   const avgMargin = getAvgMargin(product);
+                  const variantCount = product.variants?.length || 0;
 
                   return (
                     <tr
@@ -817,10 +841,27 @@ function InventoryPageContent() {
                       {/* Product */}
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-3">
-                          <CategoryIcon category={product.category} />
+                          {product.imageUrl ? (
+                            <img src={product.imageUrl} alt={product.name} className="w-10 h-10 rounded-lg object-cover" />
+                          ) : (
+                            <CategoryIcon category={product.category} />
+                          )}
                           <div>
                             <div className="font-medium text-white">{product.name}</div>
-                            <div className="text-xs text-slate-400">{getCategoryLabel(product.category)} • {product.weight.value} {product.weight.unit}</div>
+                            <div className="text-xs text-slate-400 flex items-center gap-2">
+                              <span>{getCategoryLabel(product.category)}</span>
+                              {variantCount > 1 && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded text-[10px]">
+                                  <i className="fas fa-layer-group"></i>
+                                  {variantCount} variants
+                                </span>
+                              )}
+                              {product.shopifyProductId && (
+                                <span className="text-green-400">
+                                  <i className="fab fa-shopify"></i>
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
